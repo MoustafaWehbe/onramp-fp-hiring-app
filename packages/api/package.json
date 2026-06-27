@@ -15,6 +15,7 @@
     "db:seed": "sequelize-cli db:seed:all"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "@starter-kit/shared": "*",
     "@types/cookie-parser": "^1.4.10",
     "bullmq": "^5.12.0",
@@ -28,6 +29,7 @@
     "morgan": "^1.10.0",
     "pg": "^8.13.0",
     "pg-hstore": "^2.3.4",
+    "prisma": "^5.22.0",
     "sequelize": "^6.37.0",
     "zod": "^3.23.0"
   },

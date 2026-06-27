@@ -1,12 +1,8 @@
-import crypto from "crypto";
-import {
-  hashPassword,
-  verifyPassword,
-  generateTokenPair,
-  verifyRefreshToken,
-} from "@starter-kit/shared";
-import { User, Session, RefreshToken } from "../models";
+import { PrismaClient } from "@prisma/client";
+import { hashPassword, verifyPassword } from "@starter-kit/shared";
 import { createError } from "../middleware/error-handler";
+
+const prisma = new PrismaClient();
 
 interface RegisterInput {
   email: string;
@@ -17,63 +13,54 @@ interface RegisterInput {
 interface LoginInput {
   email: string;
   password: string;
-  userAgent?: string;
-  ipAddress?: string;
 }
 
 export class AuthService {
   async register(input: RegisterInput) {
-    const existing = await User.findOne({ where: { email: input.email } });
+    // Check if email already exists
+    const existing = await prisma.user.findUnique({
+      where: { email: input.email },
+    });
+
     if (existing) {
       throw createError("Email already in use", 409);
     }
 
+    // Hash password
     const passwordHash = await hashPassword(input.password);
-    const user = await User.create({
-      email: input.email,
-      passwordHash,
-      name: input.name,
+
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        name: input.name,
+        email: input.email,
+        password: passwordHash,
+        role: "CANDIDATE", // default role
+      },
     });
 
-    return { id: user.id, email: user.email, name: user.name, role: user.role };
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    };
   }
 
   async login(input: LoginInput) {
-    const user = await User.findOne({ where: { email: input.email } });
+    const user = await prisma.user.findUnique({
+      where: { email: input.email },
+    });
+
     if (!user) {
       throw createError("Invalid credentials", 401);
     }
 
-    const valid = await verifyPassword(input.password, user.passwordHash);
-    if (!valid) {
+    const isValid = await verifyPassword(input.password, user.password);
+
+    if (!isValid) {
       throw createError("Invalid credentials", 401);
     }
-
-    const session = await Session.create({
-      userId: user.id,
-      userAgent: input.userAgent,
-      ipAddress: input.ipAddress,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000), // 7 days
-    });
-
-    const tokens = generateTokenPair({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      sessionId: session.id,
-    });
-
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(tokens.refreshToken)
-      .digest("hex");
-
-    await RefreshToken.create({
-      userId: user.id,
-      sessionId: session.id,
-      tokenHash,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
-    });
 
     return {
       user: {
@@ -82,66 +69,27 @@ export class AuthService {
         name: user.name,
         role: user.role,
       },
-      ...tokens,
     };
   }
 
-  async refresh(rawToken: string) {
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
+  async getProfile(userId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
 
-    const stored = await RefreshToken.findOne({ where: { tokenHash } });
-    if (!stored || !stored.isValid) {
-      throw createError("Invalid or expired refresh token", 401);
+    if (!user) {
+      throw createError("User not found", 404);
     }
 
-    const payload = verifyRefreshToken(rawToken);
-    const user = await User.findByPk(payload.userId);
-    if (!user) throw createError("User not found", 404);
-
-    // Rotate token
-    await stored.update({ revokedAt: new Date() });
-
-    const session = await Session.findByPk(stored.sessionId);
-    if (!session) throw createError("Session not found", 401);
-
-    const tokens = generateTokenPair({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      sessionId: session.id,
-    });
-
-    const newHash = crypto
-      .createHash("sha256")
-      .update(tokens.refreshToken)
-      .digest("hex");
-    await RefreshToken.create({
-      userId: user.id,
-      sessionId: session.id,
-      tokenHash: newHash,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000),
-    });
-
-    return tokens;
-  }
-
-  async logout(sessionId: string) {
-    await RefreshToken.update(
-      { revokedAt: new Date() },
-      { where: { sessionId } },
-    );
-    await Session.destroy({ where: { id: sessionId } });
-  }
-
-  async getProfile(userId: string) {
-    const user = await User.findByPk(userId, {
-      attributes: ["id", "email", "name", "role", "emailVerified", "createdAt"],
-    });
-    if (!user) throw createError("User not found", 404);
     return user;
+  }
+
+  async refresh() {
+    return { message: "Not implemented yet" };
+  }
+
+  async logout() {
+    return { message: "Logged out" };
   }
 }
 

@@ -7,7 +7,7 @@ import { initializeDatabase } from "./src/lib/db";
 async function main(): Promise<void> {
   console.info("Starting workers...");
 
-  await initializeDatabase();
+  //await initializeDatabase();
   const workers = createWorkers();
 
   console.info(
