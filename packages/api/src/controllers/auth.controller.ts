@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { authService } from "../services/auth.service";
+import { PrismaClient } from "@prisma/client";
 
+const prisma = new PrismaClient();
 const isProduction = process.env.NODE_ENV === "production";
 
 const ACCESS_COOKIE = "accessToken";
@@ -103,3 +105,49 @@ export const authController = {
     }
   },
 };
+const register = async (req: any, res: any) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password, // later we will hash it
+        role,
+      },
+    });
+
+    res.status(201).json(user);
+  } catch (error) {
+    res.status(500).json({ message: "Error creating user" });
+  }
+};
+const login = async (req: any, res: any) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user || user.password !== password) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    res.json({ message: "Login successful ✅", user });
+  } catch (error) {
+    res.status(500).json({ message: "Error logging in" });
+  }
+};
+async refresh(req, res) {
+  res.json({ message: "refresh not implemented yet" });
+}
+
+async logout(req, res) {
+  res.json({ message: "logout not implemented yet" });
+}
+
+async me(req, res) {
+  res.json({ message: "me endpoint" });
+}

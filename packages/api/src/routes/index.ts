@@ -5,7 +5,4 @@ const router = Router();
 
 router.use("/auth", authRouter);
 
-// Add more routers here:
-// router.use('/users', usersRouter);
-
-export { router };
+export default router;

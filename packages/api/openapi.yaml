@@ -1,0 +1,149 @@
+openapi: 3.0.0
+info:
+  title: HireFlow API
+  version: 1.0.0
+
+paths:
+
+  /auth/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+      responses:
+        '200':
+          description: User registered successfully
+
+  /auth/login:
+    post:
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+
+  /jobs:
+    get:
+      summary: Get all jobs
+      responses:
+        '200':
+          description: List of jobs
+
+    post:
+      summary: Create a job
+      responses:
+        '200':
+          description: Job created
+
+  /jobs/{id}:
+    get:
+      summary: Get job by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job details
+
+    put:
+      summary: Update job
+      responses:
+        '200':
+          description: Job updated
+
+    delete:
+      summary: Delete job
+      responses:
+        '200':
+          description: Job deleted
+
+  /applications:
+    post:
+      summary: Apply to a job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jobId:
+                  type: string
+      responses:
+        '200':
+          description: Application successful
+
+  /applications/me:
+    get:
+      summary: Get current user's applications
+      responses:
+        '200':
+          description: List of applications
+
+  /applications/{id}:
+    get:
+      summary: Get application details
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Application details
+
+  /applications/{id}/notes:
+    post:
+      summary: Add note to application
+      responses:
+        '200':
+          description: Note added
+
+    get:
+      summary: Get notes for application
+      responses:
+        '200':
+          description: List of notes
+
+  /ai/evaluate:
+    post:
+      summary: Evaluate candidate using AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                applicationId:
+                  type: string
+      responses:
+        '200':
+          description: AI evaluation result
