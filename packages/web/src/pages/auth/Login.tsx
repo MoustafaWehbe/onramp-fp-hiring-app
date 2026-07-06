@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "../../hooks/useAuth";
+import { getRoleHomePath } from "../../data/users";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -39,8 +40,8 @@ export function Login() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       setError(null);
-      await login(data.email, data.password);
-      navigate("/jobs");
+      const user = await login(data.email, data.password);
+      navigate(getRoleHomePath(user.role));
     } catch {
       setError("Invalid email or password");
     }

@@ -1,71 +1,96 @@
 import { BriefcaseBusiness, Mic, UserRound } from "lucide-react";
-import { Button } from "../ui/button";
 import { cn } from "../../lib/utils";
+import type { PlatformRole } from "../../types/users";
 
-export type HiringRole = "Candidate" | "Recruiter" | "Interviewer";
-
-const roleOptions: Array<{
-  label: HiringRole;
+export interface RoleOption {
+  value: PlatformRole;
+  label: string;
+  tagline: string;
   description: string;
   icon: typeof UserRound;
-}> = [
+}
+
+export const roleOptions: RoleOption[] = [
   {
+    value: "candidate",
     label: "Candidate",
-    description: "Find roles worth your time.",
+    tagline: "Find roles worth your time",
+    description:
+      "Browse clear roles, track applications, and keep your profile ready.",
     icon: UserRound,
   },
   {
+    value: "recruiter",
     label: "Recruiter",
-    description: "Review talent signals quickly.",
+    tagline: "Review talent signals quickly",
+    description:
+      "Manage jobs, review applicants, and keep the hiring pipeline moving.",
     icon: BriefcaseBusiness,
   },
   {
+    value: "interviewer",
     label: "Interviewer",
-    description: "Prepare structured feedback.",
+    tagline: "Prepare structured feedback",
+    description:
+      "See assigned candidates, upcoming interviews, and pending feedback.",
     icon: Mic,
   },
 ];
 
 interface RoleSwitcherProps {
-  value: HiringRole;
-  onChange: (role: HiringRole) => void;
+  value: PlatformRole;
+  onChange: (role: PlatformRole) => void;
+  compact?: boolean;
 }
 
-export function RoleSwitcher({ value, onChange }: RoleSwitcherProps) {
+export function RoleSwitcher({
+  value,
+  onChange,
+  compact = false,
+}: RoleSwitcherProps) {
   return (
-    <div aria-label="Role view" className="grid gap-2 sm:grid-cols-3">
-      {roleOptions.map(({ label, description, icon: Icon }) => {
-        const isActive = value === label;
+    <div
+      aria-label="Role view"
+      className={cn("grid gap-3", compact ? "sm:grid-cols-3" : "md:grid-cols-3")}
+    >
+      {roleOptions.map(({ value: role, label, tagline, description, icon: Icon }) => {
+        const isActive = value === role;
 
         return (
-          <Button
-            key={label}
+          <button
+            key={role}
             type="button"
-            variant="outline"
-            onClick={() => onChange(label)}
+            onClick={() => onChange(role)}
             aria-pressed={isActive}
             className={cn(
-              "h-auto justify-start gap-3 whitespace-normal border bg-background px-3 py-3 text-left",
-              isActive &&
-                "border-primary bg-primary/5 text-primary shadow-sm",
+              "group flex min-h-40 w-full flex-col rounded-lg border bg-card p-4 text-left shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "hover:border-slate-300 hover:bg-background",
+              isActive && "border-primary bg-primary/5 shadow-md",
+              compact && "min-h-36",
             )}
           >
             <span
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-card text-muted-foreground",
+                "mb-4 flex h-11 w-11 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors",
                 isActive && "border-primary/30 text-primary",
               )}
               aria-hidden="true"
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-5 w-5" />
             </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold">{label}</span>
-              <span className="block text-xs font-normal text-muted-foreground">
-                {description}
-              </span>
+            <span className="text-base font-semibold text-foreground">
+              {label}
             </span>
-          </Button>
+            <span className="mt-1 text-sm font-medium text-primary">
+              {tagline}
+            </span>
+            <span className="mt-3 flex-1 text-sm leading-6 text-muted-foreground">
+              {description}
+            </span>
+            <span className="mt-4 text-sm font-semibold text-foreground">
+              {compact ? `View as ${label}` : `Enter as ${label}`}
+            </span>
+          </button>
         );
       })}
     </div>

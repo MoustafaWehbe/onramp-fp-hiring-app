@@ -4,12 +4,12 @@ import { JobCard } from "../../components/jobs/JobCard";
 import { JobFilters, type StatusFilter } from "../../components/jobs/JobFilters";
 import {
   RoleSwitcher,
-  type HiringRole,
 } from "../../components/jobs/RoleSwitcher";
 import { mockJobs, stackFilters } from "../../data/jobs";
+import type { PlatformRole } from "../../types/users";
 
 export function JobsPage() {
-  const [selectedRole, setSelectedRole] = useState<HiringRole>("Candidate");
+  const [selectedRole, setSelectedRole] = useState<PlatformRole>("candidate");
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>("open");
   const [selectedStack, setSelectedStack] = useState<string>("All stacks");
 
@@ -48,11 +48,15 @@ export function JobsPage() {
             <p className="mb-3 text-sm font-medium text-muted-foreground">
               View Hireflow as
             </p>
-            <RoleSwitcher value={selectedRole} onChange={setSelectedRole} />
+            <RoleSwitcher
+              value={selectedRole}
+              onChange={setSelectedRole}
+              compact
+            />
             <p className="mt-4 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-              {selectedRole === "Candidate"
+              {selectedRole === "candidate"
                 ? "Browse roles with clear salary, stack, and location context."
-                : selectedRole === "Recruiter"
+                : selectedRole === "recruiter"
                   ? "Preview how open roles appear to candidates."
                   : "Review role expectations before structured interviews."}
             </p>
