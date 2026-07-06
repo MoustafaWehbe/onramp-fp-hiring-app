@@ -40,7 +40,7 @@ export function Login() {
     try {
       setError(null);
       await login(data.email, data.password);
-      navigate("/dashboard");
+      navigate("/jobs");
     } catch {
       setError("Invalid email or password");
     }
@@ -49,9 +49,9 @@ export function Login() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sign in</CardTitle>
+        <CardTitle>Sign in to Hireflow</CardTitle>
         <CardDescription>
-          Enter your credentials to access your account
+          Continue to your saved roles, applications, and profile
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -78,7 +78,7 @@ export function Login() {
             <Input
               id="password"
               type="password"
-              placeholder="••••••••"
+              placeholder="Password"
               {...register("password")}
             />
             {errors.password && (
@@ -90,12 +90,12 @@ export function Login() {
         </CardContent>
         <CardFooter className="flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in…" : "Sign in"}
+            {isSubmitting ? "Signing in..." : "Sign in"}
           </Button>
           <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
             <Link to="/register" className="text-primary hover:underline">
-              Register
+              Create one
             </Link>
           </p>
         </CardFooter>

@@ -56,7 +56,7 @@ export function Register() {
       <CardHeader>
         <CardTitle>Create an account</CardTitle>
         <CardDescription>
-          Fill in the details below to get started
+          Build a profile and keep your role search organized
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -90,7 +90,7 @@ export function Register() {
             <Input
               id="password"
               type="password"
-              placeholder="••••••••"
+              placeholder="Password"
               {...register("password")}
             />
             {errors.password && (
@@ -102,7 +102,7 @@ export function Register() {
         </CardContent>
         <CardFooter className="flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "Creating account…" : "Create account"}
+            {isSubmitting ? "Creating account..." : "Create account"}
           </Button>
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
