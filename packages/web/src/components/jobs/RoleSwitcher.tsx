@@ -1,59 +1,37 @@
-import { BriefcaseBusiness, Mic, UserRound } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { roleIcons } from "../auth/RolePicker";
+import { PLATFORM_ROLES, roleConfig } from "../../lib/roles";
 import { cn } from "../../lib/utils";
 import type { PlatformRole } from "../../types/users";
 
-export interface RoleOption {
-  value: PlatformRole;
-  label: string;
-  tagline: string;
-  description: string;
-  icon: typeof UserRound;
-}
-
-export const roleOptions: RoleOption[] = [
-  {
-    value: "candidate",
-    label: "Candidate",
-    tagline: "Find roles worth your time",
-    description:
-      "Browse clear roles, track applications, and keep your profile ready.",
-    icon: UserRound,
-  },
-  {
-    value: "recruiter",
-    label: "Recruiter",
-    tagline: "Review talent signals quickly",
-    description:
-      "Manage jobs, review applicants, and keep the hiring pipeline moving.",
-    icon: BriefcaseBusiness,
-  },
-  {
-    value: "interviewer",
-    label: "Interviewer",
-    tagline: "Prepare structured feedback",
-    description:
-      "See assigned candidates, upcoming interviews, and pending feedback.",
-    icon: Mic,
-  },
-];
-
 interface RoleSwitcherProps {
-  value: PlatformRole;
+  value: PlatformRole | null;
   onChange: (role: PlatformRole) => void;
   compact?: boolean;
+  /** CTA prefix, e.g. "Continue as" -> "Continue as Candidate". */
+  ctaPrefix?: string;
 }
 
+/**
+ * Role cards used on the homepage ("Continue as …") and the jobs page
+ * ("View as …", compact). Equal-height, keyboard-focusable real buttons.
+ */
 export function RoleSwitcher({
   value,
   onChange,
   compact = false,
+  ctaPrefix,
 }: RoleSwitcherProps) {
+  const ctaText = ctaPrefix ?? (compact ? "View as" : "Continue as");
+
   return (
     <div
-      aria-label="Role view"
+      aria-label="Choose your role"
       className={cn("grid gap-3", compact ? "sm:grid-cols-3" : "md:grid-cols-3")}
     >
-      {roleOptions.map(({ value: role, label, tagline, description, icon: Icon }) => {
+      {PLATFORM_ROLES.map((role) => {
+        const { label, tagline, description } = roleConfig[role];
+        const Icon = roleIcons[role];
         const isActive = value === role;
 
         return (
@@ -63,16 +41,19 @@ export function RoleSwitcher({
             onClick={() => onChange(role)}
             aria-pressed={isActive}
             className={cn(
-              "group flex min-h-40 w-full flex-col rounded-lg border bg-card p-4 text-left shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              "hover:border-slate-300 hover:bg-background",
-              isActive && "border-primary bg-primary/5 shadow-md",
-              compact && "min-h-36",
+              "group flex w-full flex-col rounded-lg border bg-card p-5 text-left shadow-sm transition-all",
+              "hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              isActive &&
+                "border-primary bg-primary/5 shadow-md ring-1 ring-primary/40",
+              compact ? "min-h-36 p-4" : "min-h-48",
             )}
           >
             <span
               className={cn(
                 "mb-4 flex h-11 w-11 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors",
-                isActive && "border-primary/30 text-primary",
+                "group-hover:text-foreground",
+                isActive && "border-primary/30 bg-primary/10 text-primary",
               )}
               aria-hidden="true"
             >
@@ -84,11 +65,22 @@ export function RoleSwitcher({
             <span className="mt-1 text-sm font-medium text-primary">
               {tagline}
             </span>
-            <span className="mt-3 flex-1 text-sm leading-6 text-muted-foreground">
-              {description}
-            </span>
-            <span className="mt-4 text-sm font-semibold text-foreground">
-              {compact ? `View as ${label}` : `Enter as ${label}`}
+            {!compact && (
+              <span className="mt-3 flex-1 text-sm leading-6 text-muted-foreground">
+                {description}
+              </span>
+            )}
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 text-sm font-semibold text-foreground",
+                compact ? "mt-3" : "mt-5",
+              )}
+            >
+              {ctaText} {label.toLowerCase()}
+              <ArrowRight
+                className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
             </span>
           </button>
         );

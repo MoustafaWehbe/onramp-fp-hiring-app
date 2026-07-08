@@ -1,4 +1,4 @@
-import type { CandidateProfile, PlatformRole, AuthUser, UserRole } from "../types/users";
+import type { CandidateProfile, PlatformRole, AuthUser } from "../types/users";
 
 export const mockUsers: Record<PlatformRole, AuthUser> = {
   candidate: {
@@ -20,6 +20,36 @@ export const mockUsers: Record<PlatformRole, AuthUser> = {
     role: "interviewer",
   },
 };
+
+/**
+ * TEMPORARY frontend-only demo credentials for UX testing while the backend
+ * has no candidate/recruiter/interviewer users. These are not real accounts
+ * and never reach the API — see AuthProvider.login for the fallback logic.
+ * Remove this block once backend role support ships.
+ */
+export const demoCredentials: Record<
+  PlatformRole,
+  { email: string; password: string }
+> = {
+  candidate: { email: "candidate@example.com", password: "Candidate1234!" },
+  recruiter: { email: "recruiter@example.com", password: "Recruiter1234!" },
+  interviewer: {
+    email: "interviewer@example.com",
+    password: "Interviewer1234!",
+  },
+};
+
+export function findDemoRoleByCredentials(
+  email: string,
+  password: string,
+): PlatformRole | null {
+  const match = (Object.keys(demoCredentials) as PlatformRole[]).find(
+    (role) =>
+      demoCredentials[role].email === email.trim().toLowerCase() &&
+      demoCredentials[role].password === password,
+  );
+  return match ?? null;
+}
 
 export const candidateProfile: CandidateProfile = {
   name: "Avery Stone",
@@ -54,33 +84,3 @@ export const candidateProfile: CandidateProfile = {
   ],
   completion: 84,
 };
-
-export function normalizeRole(role: string | undefined): PlatformRole | null {
-  if (role === "candidate" || role === "recruiter" || role === "interviewer") {
-    return role;
-  }
-
-  if (role === "admin") {
-    return "recruiter";
-  }
-
-  return null;
-}
-
-export function getRoleHomePath(role: UserRole | string | undefined): string {
-  const normalizedRole = normalizeRole(role);
-
-  if (normalizedRole === "candidate") {
-    return "/candidate";
-  }
-
-  if (normalizedRole === "recruiter") {
-    return "/recruiter/dashboard";
-  }
-
-  if (normalizedRole === "interviewer") {
-    return "/interviewer";
-  }
-
-  return "/";
-}

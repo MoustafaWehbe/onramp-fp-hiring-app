@@ -46,7 +46,7 @@ export function JobsPage() {
 
           <div className="rounded-lg border bg-card p-4 shadow-sm">
             <p className="mb-3 text-sm font-medium text-muted-foreground">
-              View Hireflow as
+              View HireFlow as
             </p>
             <RoleSwitcher
               value={selectedRole}

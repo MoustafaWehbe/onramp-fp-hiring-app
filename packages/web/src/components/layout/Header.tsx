@@ -4,43 +4,26 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { buttonVariants } from "../ui/button";
 import { cn } from "../../lib/utils";
-import { getRoleHomePath } from "../../data/users";
-import type { PlatformRole } from "../../types/users";
+import {
+  getRoleHomePath,
+  getRoleLabel,
+  getRoleNavItems,
+  type RoleNavItem,
+} from "../../lib/roles";
 
-interface NavItem {
-  to: string;
-  label: string;
-}
-
-const publicNavItems: NavItem[] = [
+const publicNavItems: RoleNavItem[] = [
   { to: "/", label: "Home" },
   { to: "/jobs", label: "Jobs" },
 ];
 
-const roleNavItems: Record<PlatformRole, NavItem[]> = {
-  candidate: [
-    { to: "/candidate", label: "Home" },
-    { to: "/jobs", label: "Jobs" },
-    { to: "/applications", label: "My applications" },
-    { to: "/profile", label: "Profile" },
-  ],
-  recruiter: [
-    { to: "/recruiter/dashboard", label: "Dashboard" },
-    { to: "/recruiter/pipeline", label: "Pipeline" },
-    { to: "/recruiter/jobs", label: "Jobs" },
-  ],
-  interviewer: [
-    { to: "/interviewer", label: "Home" },
-    { to: "/interviewer/pipeline", label: "Pipeline" },
-    { to: "/interviewer/schedule", label: "Schedule" },
-  ],
-};
+// Routes that must only be "active" on an exact match, not as a prefix.
+const exactMatchPaths = new Set(["/", "/candidate", "/interviewer"]);
 
 export function Header() {
-  const { user, currentRole, logout } = useAuth();
+  const { user, currentRole, isDemoSession, logout } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
-  const navItems = currentRole ? roleNavItems[currentRole] : publicNavItems;
+  const navItems = currentRole ? getRoleNavItems(currentRole) : publicNavItems;
   const homePath = currentRole ? getRoleHomePath(currentRole) : "/";
 
   async function handleLogout(): Promise<void> {
@@ -49,12 +32,21 @@ export function Header() {
     navigate("/");
   }
 
+  function navLinkClasses({ isActive }: { isActive: boolean }): string {
+    return cn(
+      "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      isActive
+        ? "bg-accent text-accent-foreground"
+        : "text-muted-foreground hover:text-foreground",
+    );
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           to={homePath}
-          className="flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           onClick={() => setIsOpen(false)}
         >
           <span
@@ -63,7 +55,7 @@ export function Header() {
           >
             <BriefcaseBusiness className="h-4 w-4" />
           </span>
-          <span className="text-lg font-semibold">Hireflow</span>
+          <span className="text-lg font-semibold">HireFlow</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
@@ -71,15 +63,8 @@ export function Header() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/" || item.to === "/candidate" || item.to === "/interviewer"}
-              className={({ isActive }) =>
-                cn(
-                  "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                  isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )
-              }
+              end={exactMatchPaths.has(item.to)}
+              className={navLinkClasses}
             >
               {item.label}
             </NavLink>
@@ -89,22 +74,37 @@ export function Header() {
         <div className="hidden items-center gap-3 md:flex">
           {user && currentRole ? (
             <>
-              <span className="rounded-md text-sm font-medium text-muted-foreground">
+              <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 {user.name}
+                <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-medium">
+                  {getRoleLabel(currentRole)}
+                  {isDemoSession && " · demo"}
+                </span>
               </span>
               <button
                 type="button"
                 onClick={handleLogout}
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "gap-2",
+                )}
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
                 Logout
               </button>
             </>
           ) : (
-            <Link to="/login" className={buttonVariants({ size: "sm" })}>
-              Sign in
-            </Link>
+            <>
+              <Link
+                to="/login"
+                className={buttonVariants({ variant: "ghost", size: "sm" })}
+              >
+                Sign in
+              </Link>
+              <Link to="/register" className={buttonVariants({ size: "sm" })}>
+                Get started
+              </Link>
+            </>
           )}
         </div>
 
@@ -129,20 +129,19 @@ export function Header() {
             className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3"
             aria-label="Mobile primary"
           >
+            {user && currentRole && (
+              <p className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {user.name} · {getRoleLabel(currentRole)}
+                {isDemoSession && " (demo)"}
+              </p>
+            )}
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === "/" || item.to === "/candidate" || item.to === "/interviewer"}
+                end={exactMatchPaths.has(item.to)}
                 onClick={() => setIsOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                    isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )
-                }
+                className={navLinkClasses}
               >
                 {item.label}
               </NavLink>
@@ -160,13 +159,22 @@ export function Header() {
                 Logout
               </button>
             ) : (
-              <Link
-                to="/login"
-                onClick={() => setIsOpen(false)}
-                className={cn(buttonVariants({ size: "sm" }), "mt-2")}
-              >
-                Sign in
-              </Link>
+              <div className="mt-2 flex flex-col gap-2">
+                <Link
+                  to="/login"
+                  onClick={() => setIsOpen(false)}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setIsOpen(false)}
+                  className={buttonVariants({ size: "sm" })}
+                >
+                  Get started
+                </Link>
+              </div>
             )}
           </nav>
         </div>

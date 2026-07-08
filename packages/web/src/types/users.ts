@@ -1,6 +1,10 @@
 export type PlatformRole = "candidate" | "recruiter" | "interviewer";
 
-export type UserRole = PlatformRole | "admin";
+/**
+ * Roles the backend can return today are only "admin" and "user".
+ * PlatformRole values are frontend product roles until backend support ships.
+ */
+export type UserRole = PlatformRole | "admin" | "user";
 
 export interface AuthUser {
   id: string;
