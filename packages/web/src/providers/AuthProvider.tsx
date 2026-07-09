@@ -1,75 +1,190 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { apiClient } from "../lib/api-client";
-
-interface AuthUser {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-}
+import {
+  findDemoRoleByCredentials,
+  mockUsers,
+} from "../data/users";
+import { readStoredIntendedRole, resolveRole, storeIntendedRole } from "../lib/roles";
+import type { AuthUser, PlatformRole } from "../types/users";
 
 interface AuthContextValue {
+  /** Signed-in user (backend session or clearly-flagged demo session). */
   user: AuthUser | null;
+  /** Effective platform role driving nav and redirects. Null when logged out. */
+  currentRole: PlatformRole | null;
+  /** Role the visitor picked before auth; preserved through the flow. */
+  intendedRole: PlatformRole | null;
+  /** True while the demo (frontend-only) session is active. */
+  isDemoSession: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  setIntendedRole: (role: PlatformRole | null) => void;
+  login: (email: string, password: string) => Promise<AuthUser>;
   register: (email: string, password: string, name: string) => Promise<void>;
+  /** TEMPORARY: frontend-only session for UX testing; remove with backend roles. */
+  loginAsDemoUser: (role: PlatformRole) => AuthUser;
   logout: () => Promise<void>;
 }
 
+const MOCK_USER_STORAGE_KEY = "hireflow.mockUser";
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function readStoredMockUser(): AuthUser | null {
+  try {
+    const stored = window.localStorage.getItem(MOCK_USER_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearFrontendSession(): void {
+  window.localStorage.removeItem(MOCK_USER_STORAGE_KEY);
+  window.localStorage.removeItem("accessToken");
+  window.localStorage.removeItem("refreshToken");
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => readStoredMockUser());
+  const [isDemoSession, setIsDemoSession] = useState<boolean>(
+    () => readStoredMockUser() !== null,
+  );
+  const [intendedRole, setIntendedRoleState] = useState<PlatformRole | null>(
+    () => readStoredIntendedRole(),
+  );
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session on mount — access token cookie is sent automatically
+  // Restore the backend session if one exists. A failing /auth/me must never
+  // crash or hang the UI: it simply resolves to a logged-out (or demo) state.
   useEffect(() => {
     apiClient
       .get<{ data: AuthUser }>("/auth/me")
-      .then(({ data }) => setUser(data.data))
-      .catch(() => setUser(null))
+      .then(({ data }) => {
+        window.localStorage.removeItem(MOCK_USER_STORAGE_KEY);
+        setUser({ ...data.data });
+        setIsDemoSession(false);
+      })
+      .catch(() => {
+        // No backend session (or backend down) — keep any demo session.
+        setUser((currentUser) => currentUser ?? readStoredMockUser());
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
-  async function login(email: string, password: string): Promise<void> {
-    const { data } = await apiClient.post<{
-      data: { user: AuthUser };
-    }>("/auth/login", { email, password });
-    setUser(data.data.user);
-  }
+  // TODO(backend-roles): the API only returns "admin" | "user" today, so a
+  // generic "user" resolves to the frontend intendedRole. Align once the
+  // backend stores candidate/recruiter/interviewer.
+  const currentRole = useMemo(
+    () => (user ? resolveRole(user.role, intendedRole) : null),
+    [user, intendedRole],
+  );
 
-  async function register(
-    email: string,
-    password: string,
-    name: string,
-  ): Promise<void> {
-    await apiClient.post("/auth/register", { email, password, name });
-  }
+  const setIntendedRole = useCallback((role: PlatformRole | null): void => {
+    storeIntendedRole(role);
+    setIntendedRoleState(role);
+  }, []);
 
-  async function logout(): Promise<void> {
+  const loginAsDemoUser = useCallback((role: PlatformRole): AuthUser => {
+    const demoUser = mockUsers[role];
+    window.localStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(demoUser));
+    storeIntendedRole(role);
+    setIntendedRoleState(role);
+    setUser(demoUser);
+    setIsDemoSession(true);
+    return demoUser;
+  }, []);
+
+  const login = useCallback(
+    async (email: string, password: string): Promise<AuthUser> => {
+      try {
+        const { data } = await apiClient.post<{
+          data: { user: AuthUser };
+        }>("/auth/login", { email, password });
+        const nextUser = { ...data.data.user };
+        window.localStorage.removeItem(MOCK_USER_STORAGE_KEY);
+        setUser(nextUser);
+        setIsDemoSession(false);
+        return nextUser;
+      } catch (error) {
+        // TEMPORARY demo fallback: the documented demo credentials work even
+        // when the backend rejects them / is unreachable, so the role flows
+        // stay testable frontend-only. Remove with backend role support.
+        const demoRole = findDemoRoleByCredentials(email, password);
+        if (demoRole) {
+          return loginAsDemoUser(demoRole);
+        }
+        throw error;
+      }
+    },
+    [loginAsDemoUser],
+  );
+
+  const register = useCallback(
+    async (email: string, password: string, name: string): Promise<void> => {
+      // TODO(backend-roles): the register endpoint does not accept a role yet.
+      // The picked role stays in intendedRole storage and is applied after
+      // login via resolveRole.
+      await apiClient.post("/auth/register", { email, password, name });
+    },
+    [],
+  );
+
+  const logout = useCallback(async (): Promise<void> => {
     try {
       await apiClient.post("/auth/logout");
+    } catch {
+      // Backend unreachable or session already gone — still log out locally.
     } finally {
+      clearFrontendSession();
+      storeIntendedRole(null);
+      setIntendedRoleState(null);
       setUser(null);
+      setIsDemoSession(false);
     }
-  }
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      currentRole,
+      intendedRole,
+      isDemoSession,
+      isLoading,
+      setIntendedRole,
+      login,
+      register,
+      loginAsDemoUser,
+      logout,
+    }),
+    [
+      user,
+      currentRole,
+      intendedRole,
+      isDemoSession,
+      isLoading,
+      setIntendedRole,
+      login,
+      register,
+      loginAsDemoUser,
+      logout,
+    ],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuthContext(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx)
+  if (!ctx) {
     throw new Error("useAuthContext must be used within <AuthProvider>");
+  }
   return ctx;
 }
