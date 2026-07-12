@@ -3,13 +3,13 @@ import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 import { app } from "./app";
-//import { initializeDatabase } from "./src/lib/db";
+import { initializeDatabase } from "./src/lib/db";
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
 async function start(): Promise<void> {
   try {
-    // await initializeDatabase();
+    await initializeDatabase();
 
     app.listen(PORT, () => {
       console.info(`API server running on http://localhost:${PORT}`);
