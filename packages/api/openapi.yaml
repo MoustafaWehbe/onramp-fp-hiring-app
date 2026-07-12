@@ -23,6 +23,8 @@ paths:
                   type: string
                 role:
                   type: string
+                  enum: [CANDIDATE, RECRUITER, INTERVIEWER]
+                  description: Optional; defaults to CANDIDATE. ADMIN cannot be self-assigned.
       responses:
         '200':
           description: User registered successfully

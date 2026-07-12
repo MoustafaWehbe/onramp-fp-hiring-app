@@ -1,4 +1,11 @@
-export type UserRole = "admin" | "user";
+export const USER_ROLES = [
+  "ADMIN",
+  "RECRUITER",
+  "INTERVIEWER",
+  "CANDIDATE",
+] as const;
+
+export type UserRole = (typeof USER_ROLES)[number];
 
 export interface JwtPayload {
   userId: string;

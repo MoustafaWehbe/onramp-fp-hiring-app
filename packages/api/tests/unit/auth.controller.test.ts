@@ -28,7 +28,7 @@ describe("POST /api/auth/register", () => {
       id: "uuid-1",
       email: "alice@example.com",
       name: "Alice",
-      role: "user",
+      role: "CANDIDATE",
     });
 
     const res = await request(app).post("/api/auth/register").send({
@@ -72,7 +72,7 @@ describe("POST /api/auth/login", () => {
         id: "uuid-1",
         email: "alice@example.com",
         name: "Alice",
-        role: "user",
+        role: "CANDIDATE",
       },
       accessToken: "access.token.here",
       refreshToken: "refresh.token.here",

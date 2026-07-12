@@ -79,9 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  // TODO(backend-roles): the API only returns "admin" | "user" today, so a
-  // generic "user" resolves to the frontend intendedRole. Align once the
-  // backend stores candidate/recruiter/interviewer.
+  // Backend roles are canonical uppercase (ADMIN/RECRUITER/INTERVIEWER/
+  // CANDIDATE); resolveRole maps them to platform roles. The intendedRole
+  // fallback only matters for the temporary demo session.
   const currentRole = useMemo(
     () => (user ? resolveRole(user.role, intendedRole) : null),
     [user, intendedRole],
@@ -129,9 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (email: string, password: string, name: string): Promise<void> => {
-      // TODO(backend-roles): the register endpoint does not accept a role yet.
-      // The picked role stays in intendedRole storage and is applied after
-      // login via resolveRole.
+      // TODO(backend-roles): the register endpoint now accepts an optional
+      // role (CANDIDATE/RECRUITER/INTERVIEWER); wiring the picked intendedRole
+      // through this call is UI work for the next branch. Until then the
+      // picked role stays in intendedRole storage.
       await apiClient.post("/auth/register", { email, password, name });
     },
     [],

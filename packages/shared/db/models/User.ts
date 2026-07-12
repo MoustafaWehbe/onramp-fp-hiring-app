@@ -1,5 +1,5 @@
 import { Model, DataTypes, type Sequelize, type Optional } from "sequelize";
-import type { UserRole } from "../../auth/types";
+import { USER_ROLES, type UserRole } from "../../auth/types";
 
 export interface UserAttributes {
   id: string;
@@ -53,9 +53,15 @@ export class User
           allowNull: false,
         },
         role: {
-          type: DataTypes.ENUM("admin", "user"),
-          defaultValue: "user",
+          type: DataTypes.STRING(20),
+          defaultValue: "CANDIDATE",
           allowNull: false,
+          validate: {
+            isIn: {
+              args: [[...USER_ROLES]],
+              msg: `role must be one of: ${USER_ROLES.join(", ")}`,
+            },
+          },
         },
         emailVerified: {
           type: DataTypes.BOOLEAN,

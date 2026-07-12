@@ -34,7 +34,7 @@ describe("signAccessToken / verifyAccessToken", () => {
   const payload = {
     userId: "user-uuid-123",
     email: "test@example.com",
-    role: "user" as const,
+    role: "CANDIDATE" as const,
     sessionId: "session-uuid-456",
   };
 
