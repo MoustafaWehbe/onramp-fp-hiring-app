@@ -12,10 +12,10 @@ export interface UserAttributes {
   updatedAt?: Date;
 }
 
-export interface UserCreationAttributes extends Optional<
+export type UserCreationAttributes = Optional<
   UserAttributes,
   "id" | "role" | "emailVerified"
-> {}
+>;
 
 export class User
   extends Model<UserAttributes, UserCreationAttributes>
