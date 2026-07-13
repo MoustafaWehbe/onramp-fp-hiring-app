@@ -66,7 +66,7 @@ describe("POST /api/auth/register", () => {
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
 
 describe("POST /api/auth/login", () => {
-  it("returns 200 with tokens on valid credentials", async () => {
+  it("returns 200, sets httpOnly cookies, and returns only the user", async () => {
     mockAuthService.login.mockResolvedValue({
       user: {
         id: "uuid-1",
@@ -83,8 +83,17 @@ describe("POST /api/auth/login", () => {
       .send({ email: "alice@example.com", password: "SecurePass1" });
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveProperty("accessToken");
-    expect(res.body.data).toHaveProperty("refreshToken");
+
+    // The controller sets tokens as httpOnly cookies and returns only the user;
+    // tokens must NOT appear in the JSON body.
+    expect(res.body.data.user.email).toBe("alice@example.com");
+    expect(res.body.data).not.toHaveProperty("accessToken");
+    expect(res.body.data).not.toHaveProperty("refreshToken");
+
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.some((c) => c.startsWith("accessToken="))).toBe(true);
+    expect(cookies.some((c) => c.startsWith("refreshToken="))).toBe(true);
+    expect(cookies.every((c) => c.includes("HttpOnly"))).toBe(true);
   });
 
   it("returns 422 when body is missing", async () => {

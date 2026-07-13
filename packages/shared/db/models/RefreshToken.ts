@@ -6,7 +6,7 @@ export interface RefreshTokenAttributes {
   sessionId: string;
   tokenHash: string;
   expiresAt: Date;
-  revokedAt?: Date;
+  revokedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -25,7 +25,7 @@ export class RefreshToken
   declare sessionId: string;
   declare tokenHash: string;
   declare expiresAt: Date;
-  declare revokedAt: Date | undefined;
+  declare revokedAt: Date | null | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 

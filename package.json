@@ -18,8 +18,5 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "npm@10.8.0",
-  "dependencies": {
-    "sqlite3": "^6.0.1"
-  }
+  "packageManager": "npm@10.8.0"
 }
