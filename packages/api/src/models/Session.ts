@@ -1,1 +1,1 @@
-export { Session } from "@starter-kit/shared";
+export { Session } from "@starter-kit/shared/db";

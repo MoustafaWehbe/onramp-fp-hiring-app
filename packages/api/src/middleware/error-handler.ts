@@ -20,6 +20,8 @@ export function errorHandler(
 ): void {
   const statusCode = err.statusCode ?? 500;
   const message = err.isOperational ? err.message : "Internal server error";
+  const exposeStack =
+    process.env.NODE_ENV === "development" && !err.isOperational;
 
   if (process.env.NODE_ENV !== "test") {
     console.error("[Error]", err);
@@ -27,6 +29,6 @@ export function errorHandler(
 
   res.status(statusCode).json({
     error: message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    ...(exposeStack && { stack: err.stack }),
   });
 }

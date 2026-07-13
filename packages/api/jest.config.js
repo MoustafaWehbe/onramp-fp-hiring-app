@@ -7,7 +7,7 @@ module.exports = {
   setupFiles: ["<rootDir>/tests/setup.ts"],
   moduleNameMapper: {
     "^@starter-kit/shared$": "<rootDir>/../shared/src/index.ts",
-    "^@starter-kit/shared/(.*)$": "<rootDir>/../shared/src/$1",
+    "^@starter-kit/shared/(.*)$": "<rootDir>/../shared/$1",
   },
   coverageDirectory: "coverage",
   collectCoverageFrom: ["src/**/*.ts", "!src/**/*.d.ts"],

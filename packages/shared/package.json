@@ -4,6 +4,53 @@
   "private": true,
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "require": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "require": "./dist/auth/index.js",
+      "default": "./dist/auth/index.js"
+    },
+    "./auth/*": {
+      "types": "./dist/auth/*.d.ts",
+      "require": "./dist/auth/*.js",
+      "default": "./dist/auth/*.js"
+    },
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "require": "./dist/db/index.js",
+      "default": "./dist/db/index.js"
+    },
+    "./db/*": {
+      "types": "./dist/db/*.d.ts",
+      "require": "./dist/db/*.js",
+      "default": "./dist/db/*.js"
+    },
+    "./queue": {
+      "types": "./dist/queue/index.d.ts",
+      "require": "./dist/queue/index.js",
+      "default": "./dist/queue/index.js"
+    },
+    "./queue/*": {
+      "types": "./dist/queue/*.d.ts",
+      "require": "./dist/queue/*.js",
+      "default": "./dist/queue/*.js"
+    },
+    "./ai": {
+      "types": "./dist/ai/index.d.ts",
+      "require": "./dist/ai/index.js",
+      "default": "./dist/ai/index.js"
+    },
+    "./ai/*": {
+      "types": "./dist/ai/*.d.ts",
+      "require": "./dist/ai/*.js",
+      "default": "./dist/ai/*.js"
+    }
+  },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "dev": "tsc --project tsconfig.build.json --watch",

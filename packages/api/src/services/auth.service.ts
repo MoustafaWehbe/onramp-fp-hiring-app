@@ -4,12 +4,14 @@ import {
   hashPassword,
   verifyPassword,
   verifyRefreshToken,
+  type SelfAssignableRole,
+} from "@starter-kit/shared/auth";
+import {
   getSequelize,
   User,
   Session,
   RefreshToken,
-} from "@starter-kit/shared";
-import type { SelfAssignableRole } from "@starter-kit/shared";
+} from "@starter-kit/shared/db";
 import { createError } from "../middleware/error-handler";
 
 interface RegisterInput {
@@ -145,7 +147,12 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
-    const payload = verifyRefreshToken(refreshToken);
+    let payload: ReturnType<typeof verifyRefreshToken>;
+    try {
+      payload = verifyRefreshToken(refreshToken);
+    } catch {
+      throw createError("Invalid refresh token", 401);
+    }
 
     const storedToken = await RefreshToken.findOne({
       where: { tokenHash: hashToken(refreshToken) },

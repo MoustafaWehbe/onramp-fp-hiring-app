@@ -1,5 +1,6 @@
 import { hashPassword, verifyPassword } from "../../../shared/auth/password";
 import { signAccessToken, verifyAccessToken } from "../../../shared/auth/jwt";
+import { AuthService } from "../../src/services/auth.service";
 
 // ─── Password utilities ───────────────────────────────────────────────────────
 
@@ -51,5 +52,15 @@ describe("signAccessToken / verifyAccessToken", () => {
     const token = signAccessToken(payload);
     const tampered = token.slice(0, -5) + "XXXXX";
     expect(() => verifyAccessToken(tampered)).toThrow();
+  });
+});
+
+describe("AuthService.refresh", () => {
+  it("turns an invalid refresh JWT into a 401 operational error", async () => {
+    await expect(new AuthService().refresh("not-a-jwt")).rejects.toMatchObject({
+      message: "Invalid refresh token",
+      statusCode: 401,
+      isOperational: true,
+    });
   });
 });

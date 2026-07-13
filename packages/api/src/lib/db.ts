@@ -1,4 +1,4 @@
-import { getSequelize, initModels } from "@starter-kit/shared";
+import { getSequelize, initModels } from "@starter-kit/shared/db";
 import type { Sequelize } from "sequelize";
 
 let initialized = false;

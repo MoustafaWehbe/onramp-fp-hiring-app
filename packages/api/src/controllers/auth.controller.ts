@@ -35,6 +35,15 @@ function clearAuthCookies(res: Response): void {
   res.clearCookie(REFRESH_COOKIE, { path: "/api/auth/refresh" });
 }
 
+function requireAuthenticatedUser(req: Request, res: Response) {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return undefined;
+  }
+
+  return req.user;
+}
+
 export const authController = {
   async register(
     req: Request,
@@ -84,9 +93,12 @@ export const authController = {
 
   async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (req.user?.sessionId) {
-        await authService.logout(req.user.sessionId);
+      const user = requireAuthenticatedUser(req, res);
+      if (!user) {
+        return;
       }
+
+      await authService.logout(user.sessionId);
       clearAuthCookies(res);
       res.json({ data: { message: "Logged out successfully" } });
     } catch (err) {
@@ -96,7 +108,12 @@ export const authController = {
 
   async me(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const user = await authService.getProfile(req.user!.userId);
+      const authenticatedUser = requireAuthenticatedUser(req, res);
+      if (!authenticatedUser) {
+        return;
+      }
+
+      const user = await authService.getProfile(authenticatedUser.userId);
       res.json({ data: user });
     } catch (err) {
       next(err);

@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   SELF_ASSIGNABLE_ROLES,
   type SelfAssignableRole,
-} from "@starter-kit/shared";
+} from "@starter-kit/shared/auth";
 
 export const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
