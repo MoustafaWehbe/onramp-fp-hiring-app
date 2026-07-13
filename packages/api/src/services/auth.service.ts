@@ -4,17 +4,21 @@ import {
   hashPassword,
   verifyPassword,
   verifyRefreshToken,
+  type SelfAssignableRole,
+} from "@starter-kit/shared/auth";
+import {
   getSequelize,
   User,
   Session,
   RefreshToken,
-} from "@starter-kit/shared";
+} from "@starter-kit/shared/db";
 import { createError } from "../middleware/error-handler";
 
 interface RegisterInput {
   email: string;
   password: string;
   name: string;
+  role?: SelfAssignableRole;
 }
 
 interface LoginInput {
@@ -61,12 +65,13 @@ export class AuthService {
 
     const passwordHash = await hashPassword(input.password);
 
-    // Role defaults to "user" (the User model's enum default). Product roles
-    // (candidate/recruiter/interviewer) are handled in a later branch.
+    // ADMIN can never arrive here: the register schema only admits
+    // self-assignable roles.
     const user = await User.create({
       name: input.name,
       email: input.email,
       passwordHash,
+      role: input.role ?? "CANDIDATE",
     });
 
     return {
@@ -142,7 +147,12 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string) {
-    const payload = verifyRefreshToken(refreshToken);
+    let payload: ReturnType<typeof verifyRefreshToken>;
+    try {
+      payload = verifyRefreshToken(refreshToken);
+    } catch {
+      throw createError("Invalid refresh token", 401);
+    }
 
     const storedToken = await RefreshToken.findOne({
       where: { tokenHash: hashToken(refreshToken) },

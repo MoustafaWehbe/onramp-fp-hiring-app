@@ -1,10 +1,11 @@
 export type PlatformRole = "candidate" | "recruiter" | "interviewer";
 
 /**
- * Roles the backend can return today are only "admin" and "user".
- * PlatformRole values are frontend product roles until backend support ships.
+ * Canonical backend roles (mirrors UserRole in packages/shared/auth/types.ts).
+ * PlatformRole is the frontend's lowercase product-role vocabulary;
+ * normalizeRole() in lib/roles.ts maps between the two.
  */
-export type UserRole = PlatformRole | "admin" | "user";
+export type UserRole = "ADMIN" | "RECRUITER" | "INTERVIEWER" | "CANDIDATE";
 
 export interface AuthUser {
   id: string;

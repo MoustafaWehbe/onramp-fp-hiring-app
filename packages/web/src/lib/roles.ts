@@ -3,10 +3,9 @@ import type { PlatformRole } from "../types/users";
 /**
  * Single source of truth for everything role-related on the frontend.
  *
- * Backend note: the API currently only knows "admin" and "user" roles.
- * The product roles (candidate / recruiter / interviewer) live on the
- * frontend for now — see resolveRole() for how the two worlds are bridged
- * until backend role support ships.
+ * Backend note: the API issues the canonical uppercase roles ADMIN /
+ * RECRUITER / INTERVIEWER / CANDIDATE. The lowercase platform roles are the
+ * frontend's product vocabulary — see normalizeRole() for the mapping.
  */
 
 export const PLATFORM_ROLES: readonly PlatformRole[] = [
@@ -75,17 +74,24 @@ export function isPlatformRole(value: unknown): value is PlatformRole {
 }
 
 /**
- * Map any role string (frontend or backend) to a platform role.
- * - candidate / recruiter / interviewer pass through
- * - admin is treated as recruiter (closest product surface)
- * - anything else (including the backend's generic "user") returns null
+ * Map any role string (canonical backend role or frontend platform role) to
+ * a platform role.
+ * - CANDIDATE / RECRUITER / INTERVIEWER (any casing) pass through
+ * - ADMIN is treated as recruiter (closest product surface)
+ * - anything else returns null
  */
 export function normalizeRole(role: string | undefined): PlatformRole | null {
-  if (isPlatformRole(role)) {
-    return role;
+  if (typeof role !== "string") {
+    return null;
   }
 
-  if (role === "admin") {
+  const lower = role.toLowerCase();
+
+  if (isPlatformRole(lower)) {
+    return lower;
+  }
+
+  if (lower === "admin") {
     return "recruiter";
   }
 
@@ -95,11 +101,9 @@ export function normalizeRole(role: string | undefined): PlatformRole | null {
 /**
  * Resolve the effective platform role for a signed-in user.
  *
- * TODO(backend-roles): the API only issues "admin" | "user" roles today.
- * Until the backend stores candidate/recruiter/interviewer, a generic
- * "user" falls back to the role the visitor picked on the frontend
- * (intendedRole), defaulting to candidate. Remove this fallback once
- * backend roles are aligned.
+ * The backend issues canonical roles, so normalizeRole covers real sessions.
+ * The intendedRole fallback remains only for the TEMPORARY frontend-only
+ * demo session; remove it together with the mock session.
  */
 export function resolveRole(
   backendRole: string | undefined,

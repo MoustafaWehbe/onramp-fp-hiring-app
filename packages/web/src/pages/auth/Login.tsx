@@ -93,8 +93,8 @@ export function Login() {
         setIntendedRole(role);
       }
       const user = await login(data.email, data.password);
-      // TODO(backend-roles): backend users are "admin" | "user" today, so the
-      // frontend intendedRole decides the workspace for generic users.
+      // Backend users carry canonical roles now; the intendedRole fallback
+      // only kicks in for the temporary demo session.
       const resolvedRole = resolveRole(user.role, role ?? intendedRole);
       navigate(state.returnTo ?? getRoleHomePath(resolvedRole), {
         replace: true,

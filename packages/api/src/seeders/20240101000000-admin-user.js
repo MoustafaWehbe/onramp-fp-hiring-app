@@ -12,7 +12,7 @@ module.exports = {
         email: "admin@example.com",
         password_hash: passwordHash,
         name: "Admin User",
-        role: "admin",
+        role: "ADMIN",
         email_verified: true,
         created_at: new Date(),
         updated_at: new Date(),

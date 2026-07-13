@@ -1,0 +1,23 @@
+# Compiled output belongs in dist/ only (root .gitignore already covers dist/).
+# If artifacts appear next to sources, something is compiling this package
+# across its boundary again — fix that instead of committing these.
+/src/**/*.js
+/src/**/*.js.map
+/src/**/*.d.ts
+/src/**/*.d.ts.map
+/auth/**/*.js
+/auth/**/*.js.map
+/auth/**/*.d.ts
+/auth/**/*.d.ts.map
+/db/**/*.js
+/db/**/*.js.map
+/db/**/*.d.ts
+/db/**/*.d.ts.map
+/queue/**/*.js
+/queue/**/*.js.map
+/queue/**/*.d.ts
+/queue/**/*.d.ts.map
+/ai/**/*.js
+/ai/**/*.js.map
+/ai/**/*.d.ts
+/ai/**/*.d.ts.map

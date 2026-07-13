@@ -12,7 +12,6 @@ export function createError(message: string, statusCode = 500): AppError {
   return error;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(
   err: AppError,
   _req: Request,
@@ -21,6 +20,8 @@ export function errorHandler(
 ): void {
   const statusCode = err.statusCode ?? 500;
   const message = err.isOperational ? err.message : "Internal server error";
+  const exposeStack =
+    process.env.NODE_ENV === "development" && !err.isOperational;
 
   if (process.env.NODE_ENV !== "test") {
     console.error("[Error]", err);
@@ -28,6 +29,6 @@ export function errorHandler(
 
   res.status(statusCode).json({
     error: message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    ...(exposeStack && { stack: err.stack }),
   });
 }

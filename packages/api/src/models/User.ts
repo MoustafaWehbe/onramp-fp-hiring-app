@@ -1,1 +1,1 @@
-export { User } from "@starter-kit/shared";
+export { User } from "@starter-kit/shared/db";

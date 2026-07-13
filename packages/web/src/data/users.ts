@@ -5,19 +5,19 @@ export const mockUsers: Record<PlatformRole, AuthUser> = {
     id: "candidate-1",
     email: "candidate@example.com",
     name: "Avery Stone",
-    role: "candidate",
+    role: "CANDIDATE",
   },
   recruiter: {
     id: "recruiter-1",
     email: "recruiter@example.com",
     name: "Maya Chen",
-    role: "recruiter",
+    role: "RECRUITER",
   },
   interviewer: {
     id: "interviewer-1",
     email: "interviewer@example.com",
     name: "Jordan Lee",
-    role: "interviewer",
+    role: "INTERVIEWER",
   },
 };
 

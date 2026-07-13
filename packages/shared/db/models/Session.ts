@@ -10,10 +10,10 @@ export interface SessionAttributes {
   updatedAt?: Date;
 }
 
-export interface SessionCreationAttributes extends Optional<
+export type SessionCreationAttributes = Optional<
   SessionAttributes,
   "id" | "userAgent" | "ipAddress"
-> {}
+>;
 
 export class Session
   extends Model<SessionAttributes, SessionCreationAttributes>
