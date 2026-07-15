@@ -8,13 +8,15 @@ export interface UserAttributes {
   name: string;
   role: UserRole;
   emailVerified: boolean;
+  /** Internal users (ADMIN/RECRUITER/INTERVIEWER) only; candidates leave it null. */
+  companyId?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 export type UserCreationAttributes = Optional<
   UserAttributes,
-  "id" | "role" | "emailVerified"
+  "id" | "role" | "emailVerified" | "companyId"
 >;
 
 export class User
@@ -27,6 +29,7 @@ export class User
   declare name: string;
   declare role: UserRole;
   declare emailVerified: boolean;
+  declare companyId: string | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 
@@ -67,6 +70,12 @@ export class User
           type: DataTypes.BOOLEAN,
           defaultValue: false,
           allowNull: false,
+        },
+        companyId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: { model: "companies", key: "id" },
+          onDelete: "SET NULL",
         },
       },
       {
