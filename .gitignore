@@ -9,6 +9,9 @@ build/
 out/
 .next/
 
+# ─── Local file storage (dev/test stand-in for S3) ───────────────────────────
+packages/api/uploads/
+
 # ─── Environment ──────────────────────────────────────────────────────────────
 .env
 .env.local
