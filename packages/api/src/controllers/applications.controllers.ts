@@ -4,6 +4,7 @@ import type {
   NextFunction,
 } from "express";
 
+import type { CandidateProfile } from "@starter-kit/shared/db";
 import { applicationService }
   from "../services/applications.service";
 export const applicationController = {
@@ -13,8 +14,16 @@ export const applicationController = {
     next: NextFunction,
   ): Promise<void> {
     try {
+      // candidateProfileId is deliberately NOT read from req.body — it comes
+      // from the caller's own profile (attached by ownCandidateProfileGuard)
+      // so a candidate can only ever apply as themselves.
+      const candidateProfile = res.locals.candidateProfile as CandidateProfile;
+
       const application =
-        await applicationService.create(req.body);
+        await applicationService.create({
+          ...req.body,
+          candidateProfileId: candidateProfile.id,
+        });
 
       res.status(201).json({
         data: application,

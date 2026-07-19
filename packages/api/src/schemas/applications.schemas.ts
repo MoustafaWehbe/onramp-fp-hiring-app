@@ -11,7 +11,6 @@ export const updateApplicationStageSchema = z.object({
 });
 export const createApplicationSchema = z.object({
   jobId: z.string().uuid(),
-  candidateProfileId: z.string().uuid(),
   coverLetter: z.string().optional(),
 });
 export const assignInterviewerSchema =
