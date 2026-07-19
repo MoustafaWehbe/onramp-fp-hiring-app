@@ -16,8 +16,9 @@ import { ProfilePage } from "../pages/profile/ProfilePage";
 import { RecruiterDashboardPage } from "../pages/recruiter/RecruiterDashboardPage";
 import { RecruiterJobsPage } from "../pages/recruiter/RecruiterJobsPage";
 import { RecruiterPipelinePage } from "../pages/recruiter/RecruiterPipelinePage";
+import { RecruiterCandidatesPage } from "../pages/recruiter/RecruiterCandidatesPage";
 import { ProtectedRoute } from "./ProtectedRoute";
-
+import { RecruiterCandidateDetailsPage } from "../pages/recruiter/RecruiterCandidateDetailsPage";
 export function AppRoutes() {
   return (
     <Routes>
@@ -54,8 +55,16 @@ export function AppRoutes() {
             element={<RecruiterPipelinePage />}
           />
           <Route path="/recruiter/jobs" element={<RecruiterJobsPage />} />
+          <Route
+            path="/recruiter/candidates"
+            element={<RecruiterCandidatesPage />}
+          />
+          <Route
+  path="/recruiter/candidates/:id"
+  element={<RecruiterCandidateDetailsPage />}
+/>
         </Route>
-
+          
         {/* Interviewer workspace */}
         <Route element={<ProtectedRoute allowedRoles={["interviewer"]} />}>
           <Route path="/interviewer" element={<InterviewerHomePage />} />
