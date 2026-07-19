@@ -6,7 +6,8 @@ import cookieParser from "cookie-parser";
 
 import { errorHandler } from "./src/middleware/error-handler";
 import { rateLimiter } from "./src/middleware/rate-limiter";
-import routes from "./src/routes"; 
+import { LOCAL_UPLOADS_DIR } from "./src/lib/storage";
+import routes from "./src/routes";
 
 const app = express();
 
@@ -32,6 +33,8 @@ if (process.env.NODE_ENV !== "test") {
 // Rate limit
 app.use("/api", rateLimiter);
 
+// Locally-stored uploads (resumes, etc.) — see src/lib/storage
+app.use("/uploads", express.static(LOCAL_UPLOADS_DIR));
 
 app.use("/api", routes);
 

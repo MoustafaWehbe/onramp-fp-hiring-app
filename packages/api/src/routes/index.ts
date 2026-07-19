@@ -4,14 +4,18 @@ import { companyRouter } from "./company.routes";
 import { jobRouter } from "./jobs.routes";
 import { skillRouter } from "./skills.routes";
 import { jobSkillRouter } from "./job-skills.routes";
-import { candidateProfileRouter,} from "./candidate-profiles.routes";
-import { applicationRouter,} from "./applications.routes";
+import { candidateProfileRouter } from "./candidate-profiles.routes";
+import { applicationRouter } from "./applications.routes";
+import { candidateRouter } from "./candidate.routes";
+
 const router = Router();
 router.use("/companies", companyRouter);
 router.use("/auth", authRouter);
 router.use("/jobs", jobRouter);
 router.use("/skills", skillRouter);
 router.use("/jobs", jobSkillRouter);
-router.use( "/candidate-profiles", candidateProfileRouter,);
-router.use( "/applications", applicationRouter,);
+router.use("/candidate-profiles", candidateProfileRouter);
+router.use("/applications", applicationRouter);
+router.use("/candidate", candidateRouter);
+
 export default router;
