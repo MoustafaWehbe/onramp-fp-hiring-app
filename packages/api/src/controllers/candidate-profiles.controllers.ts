@@ -50,7 +50,7 @@ async getById(
   try {
     const profile =
       await candidateProfileService.getById(
-        req.params.id,
+        req.params.id as string,
       );
 
     res.status(200).json({

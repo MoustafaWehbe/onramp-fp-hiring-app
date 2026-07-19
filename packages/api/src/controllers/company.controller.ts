@@ -23,7 +23,7 @@ export const companyController = {
 ): Promise<void> {
   try {
     const company = await companyService.update(
-      req.params.id,
+      req.params.id as string,
       req.body,
     );
 
