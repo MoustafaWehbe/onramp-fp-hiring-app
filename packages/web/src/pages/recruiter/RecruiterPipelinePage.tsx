@@ -1,13 +1,37 @@
 import { ArrowRight, Mail } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "../../components/ui/card";
+import {Card,CardContent, } from "../../components/ui/card";
 import { mockCandidates, pipelineStages } from "../../data/pipeline";
-
+import { useEffect, useState } from "react";
+interface Application {
+  id: string;
+  stage: string;
+  candidateProfileId: string;
+}
 export function RecruiterPipelinePage() {
+
+  const [applications, setApplications] =
+    useState<Application[]>([]);
+
+  useEffect(() => {
+    async function fetchApplications() {
+      try {
+        const response = await fetch(
+          "http://localhost:3000/api/applications/job/648dd3a8-2a68-4d16-a734-a59ce8d8b6ee"
+        );
+
+        const data = await response.json();
+
+        setApplications(data.data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    fetchApplications();
+  }, []);
+
   return (
     <div className="bg-muted/30">
       <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -30,9 +54,87 @@ export function RecruiterPipelinePage() {
             </div>
           ))}
         </div>
+<div className="mb-8">
+  <h2 className="mb-4 text-2xl font-bold">
+    Real Applications
+  </h2>
 
-        <div className="grid gap-4">
-          {mockCandidates.map((candidate) => (
+  {applications.map((application) => (
+    <div
+      key={application.id}
+      className="mb-3 rounded border p-4"
+    >
+      <p>
+        <strong>Application ID:</strong>{" "}
+        {application.id}
+      </p>
+
+      <p>
+        <strong>Stage:</strong>{" "}
+        {application.stage}
+      </p>
+<p>
+  <strong>Candidate Profile:</strong>{" "}
+  {application.candidateProfileId}
+</p>
+<button
+  onClick={async () => {
+  try {
+    await fetch(
+      `http://localhost:3000/api/applications/${application.id}/stage`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stage: "INTERVIEWING",
+        }),
+      }
+    );
+
+    alert("Stage updated!");
+  } catch (error) {
+    console.error(error);
+  }
+}}
+  className="mt-2 rounded bg-blue-500 px-3 py-2 text-white"
+>
+  Move To Interviewing
+</button>
+<button
+  onClick={async () => {
+    try {
+      await fetch(
+        `http://localhost:3000/api/applications/${application.id}/assign-interviewer`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            interviewerId:
+              "340343ce-ca26-4172-bc0f-7047a9a79bc8",
+          }),
+        }
+      );
+
+      alert("Interviewer assigned!");
+    } catch (error) {
+      console.error(error);
+    }
+  }}
+  className="ml-2 rounded bg-green-600 px-3 py-2 text-white"
+>
+  Assign Interviewer
+</button>
+</div>
+))}
+
+</div>
+
+<div className="grid gap-4">
+  {mockCandidates.map((candidate) => (
             <Card key={candidate.id}>
               <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_180px_160px] lg:items-center">
                 <div>
