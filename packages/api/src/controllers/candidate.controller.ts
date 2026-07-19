@@ -96,6 +96,15 @@ export const candidateController = {
     }
   },
 
+  async listSkillCatalog(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const skills = await candidateService.listSkillCatalog();
+      res.json({ data: skills });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async setSkills(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const skills = await candidateService.setSkills(

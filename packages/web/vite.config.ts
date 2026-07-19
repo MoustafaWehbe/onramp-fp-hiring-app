@@ -16,6 +16,12 @@ export default defineConfig({
         target: "http://localhost:3000",
         changeOrigin: true,
       },
+      // Locally-stored resume uploads (see packages/api/src/lib/storage) are
+      // served by the API at this same path, not by Vite.
+      "/uploads": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
     },
   },
   build: {
