@@ -1,4 +1,3 @@
 export const initializeDatabase = async () => {
-  console.log("Workers DB disabled (Prisma mode)");
+  console.info("Workers DB disabled (Prisma mode)");
 };
-

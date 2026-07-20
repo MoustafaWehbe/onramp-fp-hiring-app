@@ -14,9 +14,14 @@
 
 export type ResourceLoader<T> = (req: Request) => Promise<T | null | undefined>;
 export type OwnerIdExtractor<T> = (resource: T) => string | null | undefined;
+export type CallerIdExtractor = (
+  req: Request,
+) => string | null | undefined | Promise<string | null | undefined>;
 
 const defaultGetOwnerId = (resource: unknown): string | null | undefined =>
   (resource as { userId?: string | null }).userId;
+
+const defaultGetCallerId: CallerIdExtractor = (req) => req.user?.userId;
 
 /**
  * Pure check, usable outside Express (e.g. inside a service method) when a
@@ -41,19 +46,28 @@ export function isOwner<T>(
  *
  * Requires authenticate() to have run first (needs req.user.userId).
  *
+ * Ownership is normally "does resource.userId match req.user.userId", but
+ * some resources are owned at the company level instead (a Job belongs to
+ * whichever company its creator works for, not to req.user.userId directly).
+ * getCallerId lets a call site swap in a different identity to compare
+ * against — e.g. the caller's companyId, resolved via a DB lookup since the
+ * JWT itself doesn't carry it — without duplicating this guard.
+ *
  * Non-owned and missing resources both come back as 404 — never 403 — so a
- * candidate probing another candidate's resource id cannot tell the
- * difference between "not yours" and "doesn't exist".
+ * caller probing another owner's resource id cannot tell the difference
+ * between "not yours" and "doesn't exist".
  */
 export function ownershipGuard<T>(
   loadResource: ResourceLoader<T>,
   options: {
     getOwnerId?: OwnerIdExtractor<T>;
+    getCallerId?: CallerIdExtractor;
     resultKey?: string;
     notFoundMessage?: string;
   } = {},
 ) {
   const getOwnerId = options.getOwnerId ?? defaultGetOwnerId;
+  const getCallerId = options.getCallerId ?? defaultGetCallerId;
   const resultKey = options.resultKey ?? "resource";
   const notFoundMessage = options.notFoundMessage ?? "Not found";
 
@@ -65,8 +79,9 @@ export function ownershipGuard<T>(
 
     try {
       const resource = await loadResource(req);
+      const callerId = await getCallerId(req);
 
-      if (!isOwner(resource, req.user.userId, getOwnerId)) {
+      if (!callerId || !isOwner(resource, callerId, getOwnerId)) {
         res.status(404).json({ error: notFoundMessage });
         return;
       }
