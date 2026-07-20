@@ -392,6 +392,31 @@ describe("GET/PUT /api/candidate/skills", () => {
   });
 });
 
+describe("GET /api/candidate/skills/catalog", () => {
+  it("returns the full skill catalog, not just the candidate's own selections, sorted by name", async () => {
+    const res = await request(app)
+      .get("/api/candidate/skills/catalog")
+      .set("Cookie", cookie(tokenA));
+
+    expect(res.status).toBe(200);
+    const ids = res.body.data.map((s: { id: string }) => s.id);
+    expect(ids).toEqual(expect.arrayContaining([skillReact.id, skillNode.id]));
+
+    const names = res.body.data.map((s: { name: string }) => s.name);
+    expect(names).toEqual([...names].sort());
+  });
+
+  it("returns 401 unauthenticated and 403 for a RECRUITER", async () => {
+    const unauth = await request(app).get("/api/candidate/skills/catalog");
+    expect(unauth.status).toBe(401);
+
+    const forbidden = await request(app)
+      .get("/api/candidate/skills/catalog")
+      .set("Cookie", cookie(recruiterToken));
+    expect(forbidden.status).toBe(403);
+  });
+});
+
 // ─── Resume upload: local disk storage, validated type/size ───────────────────
 
 describe("POST /api/candidate/resume", () => {

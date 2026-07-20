@@ -103,6 +103,11 @@ export class CandidateService {
     return this.loadSkills(profile.id);
   }
 
+  /** The full reference list a candidate picks from — not scoped to any profile. */
+  async listSkillCatalog(): Promise<Skill[]> {
+    return Skill.findAll({ order: [["name", "ASC"]] });
+  }
+
   async setSkills(userId: string, skillIds: string[]): Promise<Skill[]> {
     const profile = await this.requireOwnProfile(userId);
     const uniqueSkillIds = [...new Set(skillIds)];

@@ -99,6 +99,13 @@ router.delete(
 
 // ─── Skills ───────────────────────────────────────────────────────────────────
 
+// Static "catalog" segment — no conflict with the exact-match "/skills" above,
+// and there's no "/skills/:id" route for it to collide with.
+router.get(
+  "/skills/catalog",
+  ...requireCandidate,
+  candidateController.listSkillCatalog,
+);
 router.get("/skills", ...requireCandidate, candidateController.getSkills);
 router.put(
   "/skills",
