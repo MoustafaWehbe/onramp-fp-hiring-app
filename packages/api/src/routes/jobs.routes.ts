@@ -15,5 +15,28 @@ router.post(
   validate(createJobSchema),
   jobController.create,
 );
-
+router.get(
+  "/",
+  authenticate,
+  authorize("RECRUITER", "ADMIN"),
+  jobController.list,
+);
+router.get(
+  "/:id",
+  authenticate,
+  authorize("RECRUITER", "ADMIN"),
+  jobController.getById,
+);
+router.put(
+  "/:id",
+  authenticate,
+  authorize("RECRUITER", "ADMIN"),
+  jobController.update,
+);
+router.delete(
+  "/:id",
+  authenticate,
+  authorize("RECRUITER", "ADMIN"),
+  jobController.delete,
+);
 export { router as jobRouter };

@@ -19,6 +19,10 @@ import { RecruiterPipelinePage } from "../pages/recruiter/RecruiterPipelinePage"
 import { RecruiterCandidatesPage } from "../pages/recruiter/RecruiterCandidatesPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { RecruiterCandidateDetailsPage } from "../pages/recruiter/RecruiterCandidateDetailsPage";
+import { RecruiterCreateCompanyPage } from "../pages/recruiter/RecruiterCreateCompanyPage";
+import { RecruiterCreateJobPage } from "../pages/recruiter/RecruiterCreateJobPage";
+import { RecruiterJobDetailsPage } from "../pages/recruiter/RecruiterJobDetailsPage";
+import { RecruiterEditJobPage } from "../pages/recruiter/RecruiterEditJobPage";
 export function AppRoutes() {
   return (
     <Routes>
@@ -62,6 +66,27 @@ export function AppRoutes() {
           <Route
   path="/recruiter/candidates/:id"
   element={<RecruiterCandidateDetailsPage />}
+/>
+<Route
+  path="/recruiter/company/create"
+  element={<RecruiterCreateCompanyPage />}
+/>
+<Route
+  path="/recruiter/jobs/create"
+  element={<RecruiterCreateJobPage />}
+/>
+<Route
+  path="/recruiter/jobs/:id"
+  element={<RecruiterJobDetailsPage />}
+/>
+
+<Route
+  path="/recruiter/jobs/:id/edit"
+  element={<RecruiterEditJobPage />}
+/>
+<Route
+  path="/recruiter/pipeline/:id"
+  element={<RecruiterPipelinePage />}
 />
         </Route>
           

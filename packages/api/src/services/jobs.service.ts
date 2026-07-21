@@ -33,6 +33,47 @@ export class JobService {
       status: job.status,
     };
   }
+  async getAll() {
+  const jobs = await Job.findAll();
+
+  return jobs;
+}
+async getById(id: string) {
+  const job = await Job.findByPk(id);
+
+  if (!job) {
+    throw createError("Job not found", 404);
+  }
+
+  return job;
+}
+async update(
+  id: string,
+  input: {
+    title?: string;
+    description?: string;
+    location?: string;
+  },
+) {
+  const job = await Job.findByPk(id);
+
+  if (!job) {
+    throw createError("Job not found", 404);
+  }
+
+  await job.update(input);
+
+  return job;
+}
+async delete(id: string) {
+  const job = await Job.findByPk(id);
+
+  if (!job) {
+    throw createError("Job not found", 404);
+  }
+
+  await job.destroy();
+}
 }
 
 export const jobService = new JobService();
