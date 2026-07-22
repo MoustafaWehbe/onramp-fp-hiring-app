@@ -27,7 +27,7 @@ interface AuthContextValue {
   isLoading: boolean;
   setIntendedRole: (role: PlatformRole | null) => void;
   login: (email: string, password: string) => Promise<AuthUser>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, name: string,role: PlatformRole) => Promise<void>;
   /** TEMPORARY: frontend-only session for UX testing; remove with backend roles. */
   loginAsDemoUser: (role: PlatformRole) => AuthUser;
   logout: () => Promise<void>;
@@ -128,12 +128,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const register = useCallback(
-    async (email: string, password: string, name: string): Promise<void> => {
+  async (
+    email: string,
+    password: string,
+    name: string,
+    role: PlatformRole,
+  ): Promise<void> => {
       // TODO(backend-roles): the register endpoint now accepts an optional
       // role (CANDIDATE/RECRUITER/INTERVIEWER); wiring the picked intendedRole
       // through this call is UI work for the next branch. Until then the
       // picked role stays in intendedRole storage.
-      await apiClient.post("/auth/register", { email, password, name });
+      await apiClient.post("/auth/register", {
+  email,
+  password,
+  name,
+  role: role.toUpperCase(),
+});
     },
     [],
   );

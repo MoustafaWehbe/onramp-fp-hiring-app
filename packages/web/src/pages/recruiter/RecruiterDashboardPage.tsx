@@ -33,20 +33,43 @@ export function RecruiterDashboardPage() {
     <div className="bg-muted/30">
       <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-sm font-medium text-primary">Recruiter dashboard</p>
-            <h1 className="mt-2 text-4xl font-bold">Keep hiring momentum visible.</h1>
-            <p className="mt-3 max-w-2xl text-muted-foreground">
-              Review role health, pipeline flow, and upcoming interviews from a
-              single recruiter workspace.
-            </p>
-          </div>
-          <Link
-            to="/recruiter/pipeline"
-            className={cn(buttonVariants(), "w-full sm:w-auto")}
-          >
-            View pipeline
-          </Link>
+  <div>
+    <p className="text-sm font-medium text-primary">
+      Recruiter dashboard
+    </p>
+
+    <h1 className="mt-2 text-4xl font-bold">
+      Keep hiring momentum visible.
+    </h1>
+
+    <p className="mt-3 max-w-2xl text-muted-foreground">
+      Review role health, pipeline flow, and upcoming interviews from a
+      single recruiter workspace.
+    </p>
+  </div>
+
+  <div className="flex flex-wrap gap-3">
+    <Link
+      to="/recruiter/company/create"
+      className={cn(buttonVariants({ variant: "outline" }))}
+    >
+      Create Company
+    </Link>
+
+    <Link
+      to="/recruiter/jobs/create"
+      className={cn(buttonVariants())}
+    >
+      Create Job
+    </Link>
+
+    <Link
+      to="/recruiter/pipeline"
+      className={cn(buttonVariants({ variant: "secondary" }))}
+    >
+      View Pipeline
+    </Link>
+  </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">

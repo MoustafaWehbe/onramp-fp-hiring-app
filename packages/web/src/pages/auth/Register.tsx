@@ -78,7 +78,7 @@ export function Register() {
       setIntendedRole(role);
       // TODO(backend-roles): the API register endpoint has no role field yet.
       // The chosen role stays in frontend storage and is applied after login.
-      await registerUser(data.email, data.password, data.name);
+      await registerUser(data.email, data.password,data.name,role,);
       navigate(`/login?role=${role}`, {
         state: { registered: true, email: data.email },
       });
