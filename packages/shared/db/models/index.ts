@@ -32,7 +32,12 @@ export {
   CandidateSkill,
   JobSkill,
 };
-export { JOB_STATUSES, type JobStatus } from "./Job";
+export {
+  EMPLOYMENT_TYPES,
+  JOB_STATUSES,
+  type EmploymentType,
+  type JobStatus,
+} from "./Job";
 export { APPLICATION_STAGES, type ApplicationStage } from "./Application";
 
 export function initModels(sequelize: Sequelize): void {

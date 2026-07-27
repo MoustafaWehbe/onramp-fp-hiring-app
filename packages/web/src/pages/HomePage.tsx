@@ -17,8 +17,10 @@ import { RoleSwitcher } from "../components/jobs/RoleSwitcher";
 import { roleIcons } from "../components/auth/RolePicker";
 import { buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
-import { mockJobs } from "../data/jobs";
+import { Skeleton } from "../components/ui/skeleton";
+import { usePublicJobs } from "../features/jobs/hooks";
 import { useAuth } from "../hooks/useAuth";
+import { toJobSummary } from "../lib/job-presentation";
 import { getRoleHomePath, PLATFORM_ROLES, roleConfig } from "../lib/roles";
 import { cn } from "../lib/utils";
 import type { PlatformRole } from "../types/users";
@@ -26,9 +28,9 @@ import type { PlatformRole } from "../types/users";
 const interviewerHighlights = [
   {
     icon: CalendarClock,
-    title: "Upcoming interviews",
+    title: "Live assignments",
     description:
-      "See every scheduled session with role, stage, and timing in one calm list.",
+      "See every candidate assigned to you with their role and current stage.",
   },
   {
     icon: UserSearch,
@@ -38,15 +40,15 @@ const interviewerHighlights = [
   },
   {
     icon: ClipboardCheck,
-    title: "Feedback status",
+    title: "Application status",
     description:
-      "Know exactly which reviews are submitted, drafted, or still waiting on you.",
+      "Follow each assigned candidate as recruiters move the application forward.",
   },
   {
     icon: ListChecks,
-    title: "Scorecard-ready reviews",
+    title: "Assignment timeline",
     description:
-      "Structured prompts turn your notes into consistent, comparable scorecards.",
+      "Keep a clear history of when candidates entered your interviewer workspace.",
   },
 ];
 
@@ -79,26 +81,21 @@ const recruiterHighlights = [
 
 export function HomePage() {
   const navigate = useNavigate();
+  const publicJobsQuery = usePublicJobs();
+  const featuredJobs = (publicJobsQuery.data ?? [])
+    .slice(0, 3)
+    .map(toJobSummary);
   const {
     user,
     currentRole,
     intendedRole,
-    isDemoSession,
-    loginAsDemoUser,
     setIntendedRole,
   } = useAuth();
+  const signedInRole = user && currentRole ? currentRole : null;
 
   function continueAsRole(role: PlatformRole): void {
-    // Already working in this role — go straight to the workspace.
-    if (user && currentRole === role) {
-      navigate(getRoleHomePath(role));
-      return;
-    }
-
-    // Demo sessions can switch workspace instantly (frontend-only testing).
-    if (user && isDemoSession) {
-      loginAsDemoUser(role);
-      navigate(getRoleHomePath(role));
+    if (signedInRole) {
+      navigate(getRoleHomePath(signedInRole));
       return;
     }
 
@@ -128,10 +125,12 @@ export function HomePage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
-                to="/register"
+                to={
+                  signedInRole ? getRoleHomePath(signedInRole) : "/register"
+                }
                 className={cn(buttonVariants({ size: "lg" }), "gap-2")}
               >
-                Get started
+                {signedInRole ? "Open your workspace" : "Get started"}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <Link
@@ -150,12 +149,16 @@ export function HomePage() {
           {/* Early role selection */}
           <Card>
             <CardContent className="p-5">
-              <p className="text-sm font-semibold">Choose your workspace</p>
+              <p className="text-sm font-semibold">
+                {signedInRole ? "Your workspace" : "Choose your workspace"}
+              </p>
               <p className="mb-4 mt-1 text-sm text-muted-foreground">
-                Pick how you'll use HireFlow to get a tailored start.
+                {signedInRole
+                  ? "Your account role determines the hiring tools available to you."
+                  : "Pick how you'll use HireFlow to get a tailored start."}
               </p>
               <div className="grid gap-2">
-                {PLATFORM_ROLES.map((role) => {
+                {(signedInRole ? [signedInRole] : PLATFORM_ROLES).map((role) => {
                   const Icon = roleIcons[role];
                   const { label, tagline } = roleConfig[role];
                   return (
@@ -204,18 +207,31 @@ export function HomePage() {
       >
         <div className="mb-8 max-w-2xl">
           <h2 id="roles-heading" className="text-3xl font-bold tracking-tight">
-            One platform, three workspaces
+            {signedInRole
+              ? `Your ${roleConfig[signedInRole].label.toLowerCase()} workspace`
+              : "One platform, three workspaces"}
           </h2>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
-            Candidates, recruiters, and interviewers each get pages, navigation,
-            and workflows built for their side of hiring.
+            {signedInRole
+              ? roleConfig[signedInRole].description
+              : "Candidates, recruiters, and interviewers each get pages, navigation, and workflows built for their side of hiring."}
           </p>
         </div>
-        <RoleSwitcher
-          value={user ? currentRole : intendedRole}
-          onChange={continueAsRole}
-          ctaPrefix="Continue as"
-        />
+        {signedInRole ? (
+          <Link
+            to={getRoleHomePath(signedInRole)}
+            className={cn(buttonVariants({ size: "lg" }), "gap-2")}
+          >
+            Open {roleConfig[signedInRole].label.toLowerCase()} workspace
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        ) : (
+          <RoleSwitcher
+            value={intendedRole}
+            onChange={continueAsRole}
+            ctaPrefix="Continue as"
+          />
+        )}
       </section>
 
       {/* Open roles */}
@@ -248,11 +264,38 @@ export function HomePage() {
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {mockJobs.slice(0, 3).map((job) => (
-              <JobCard key={job.id} job={job} />
-            ))}
-          </div>
+          {publicJobsQuery.isLoading ? (
+            <div
+              className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+              aria-label="Loading open roles"
+            >
+              {[0, 1, 2].map((item) => (
+                <Skeleton key={item} className="h-56 rounded-lg" />
+              ))}
+            </div>
+          ) : publicJobsQuery.isError ? (
+            <Card>
+              <CardContent className="p-6 text-sm text-muted-foreground">
+                Open roles are temporarily unavailable.{" "}
+                <Link to="/jobs" className="font-medium text-primary hover:underline">
+                  Try the jobs page
+                </Link>
+                .
+              </CardContent>
+            </Card>
+          ) : featuredJobs.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-sm text-muted-foreground">
+                There are no open roles right now. Check back soon.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {featuredJobs.map((job) => (
+                <JobCard key={job.id} job={job} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -269,11 +312,11 @@ export function HomePage() {
             id="interviews-heading"
             className="mt-2 text-3xl font-bold tracking-tight"
           >
-            Structured interviews
+            Prepared interviews
           </h2>
           <p className="mt-3 text-base leading-7 text-muted-foreground">
-            Prepare with context and submit structured feedback faster — no
-            more scrambling five minutes before the call.
+            Prepare with current candidate, role, resume, and application
+            context — no more scrambling before the call.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -350,27 +393,33 @@ export function HomePage() {
             id="final-cta-heading"
             className="text-3xl font-bold tracking-tight"
           >
-            Choose your workspace
+            {signedInRole ? "Return to your workspace" : "Choose your workspace"}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-base leading-7 text-muted-foreground">
-            Start where you fit today — you can always explore the other sides
-            of HireFlow later.
+            {signedInRole
+              ? `Continue managing your ${roleConfig[signedInRole].label.toLowerCase()} work with live hiring data.`
+              : "Start where you fit today and create the account role that matches your work."}
           </p>
           <div className="mx-auto mt-8 flex max-w-lg flex-col gap-3 sm:flex-row sm:justify-center">
-            {PLATFORM_ROLES.map((role) => (
+            {(signedInRole ? [signedInRole] : PLATFORM_ROLES).map((role) => (
               <button
                 key={role}
                 type="button"
                 onClick={() => continueAsRole(role)}
                 className={cn(
                   buttonVariants({
-                    variant: role === "candidate" ? "default" : "outline",
+                    variant:
+                      signedInRole || role === "candidate"
+                        ? "default"
+                        : "outline",
                     size: "lg",
                   }),
                   "w-full sm:w-auto",
                 )}
               >
-                {roleConfig[role].label}
+                {signedInRole
+                  ? `Open ${roleConfig[role].label.toLowerCase()} workspace`
+                  : roleConfig[role].label}
               </button>
             ))}
           </div>

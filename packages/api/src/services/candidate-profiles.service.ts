@@ -4,6 +4,7 @@ import {
   Job,
   User,
 } from "@starter-kit/shared/db";
+import { Op } from "sequelize";
 
 import { createError } from "../middleware/error-handler";
 
@@ -31,6 +32,9 @@ export class CandidateProfileService {
   async getAll(companyId: string) {
   const applications = await Application.findAll({
     attributes: ["candidateProfileId"],
+    where: {
+      stage: { [Op.ne]: "DRAFT" },
+    },
     include: [
       { model: Job, as: "job", attributes: [], where: { companyId } },
     ],
@@ -73,7 +77,10 @@ export class CandidateProfileService {
   }
 
   const hasAppliedToCompany = await Application.findOne({
-    where: { candidateProfileId: id },
+    where: {
+      candidateProfileId: id,
+      stage: { [Op.ne]: "DRAFT" },
+    },
     include: [
       { model: Job, as: "job", attributes: [], where: { companyId } },
     ],

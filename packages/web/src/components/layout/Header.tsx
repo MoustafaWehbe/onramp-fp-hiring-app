@@ -20,7 +20,7 @@ const publicNavItems: RoleNavItem[] = [
 const exactMatchPaths = new Set(["/", "/candidate", "/interviewer"]);
 
 export function Header() {
-  const { user, currentRole, isDemoSession, logout } = useAuth();
+  const { user, currentRole, logout } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const navItems = currentRole ? getRoleNavItems(currentRole) : publicNavItems;
@@ -78,7 +78,6 @@ export function Header() {
                 {user.name}
                 <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-medium">
                   {getRoleLabel(currentRole)}
-                  {isDemoSession && " · demo"}
                 </span>
               </span>
               <button
@@ -132,7 +131,6 @@ export function Header() {
             {user && currentRole && (
               <p className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {user.name} · {getRoleLabel(currentRole)}
-                {isDemoSession && " (demo)"}
               </p>
             )}
             {navItems.map((item) => (

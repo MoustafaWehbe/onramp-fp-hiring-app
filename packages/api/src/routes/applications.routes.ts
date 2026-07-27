@@ -1,23 +1,14 @@
 import { Router } from "express";
+import { Op } from "sequelize";
 
-import { validate }
-  from "../middleware/validate";
-import {
-  updateApplicationStageSchema,
-} from "../schemas/applications.schemas";
-
-import {
-  applicationController,
-} from "../controllers/applications.controllers";
-
-import {
-  createApplicationSchema,
-} from "../schemas/applications.schemas";
 import {
   assignInterviewerSchema,
+  createApplicationSchema,
+  updateApplicationStageSchema,
 } from "../schemas/applications.schemas";
-
 import { Application, CandidateProfile, Job } from "@starter-kit/shared/db";
+import { applicationController } from "../controllers/applications.controllers";
+import { validate } from "../middleware/validate";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { ownershipGuard } from "../lib/ownership";
@@ -56,8 +47,18 @@ type ApplicationWithJob = Application & { job?: Job };
 // WorkExperience ownership runs through its parent CandidateProfile.
 const ownApplicationGuard = ownershipGuard<ApplicationWithJob>(
   (req) =>
-    Application.findByPk(req.params.id as string, {
-      include: [{ model: Job, as: "job" }],
+    Application.findOne({
+      where: {
+        id: req.params.id as string,
+        stage: { [Op.ne]: "DRAFT" },
+      },
+      include: [
+        {
+          model: Job,
+          as: "job",
+          attributes: ["companyId"],
+        },
+      ],
     }) as Promise<ApplicationWithJob | null>,
   {
     getOwnerId: (application) => application.job?.companyId,
@@ -73,6 +74,12 @@ router.post(
   validate(createApplicationSchema),
   ownCandidateProfileGuard,
   applicationController.create,
+);
+router.get(
+  "/me",
+  ...requireCandidate,
+  ownCandidateProfileGuard,
+  applicationController.getMine,
 );
 router.get(
   "/job/:jobId",

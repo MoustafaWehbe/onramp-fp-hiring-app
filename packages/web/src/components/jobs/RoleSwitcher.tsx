@@ -7,27 +7,25 @@ import type { PlatformRole } from "../../types/users";
 interface RoleSwitcherProps {
   value: PlatformRole | null;
   onChange: (role: PlatformRole) => void;
-  compact?: boolean;
   /** CTA prefix, e.g. "Continue as" -> "Continue as Candidate". */
   ctaPrefix?: string;
 }
 
 /**
- * Role cards used on the homepage ("Continue as …") and the jobs page
- * ("View as …", compact). Equal-height, keyboard-focusable real buttons.
+ * Role cards used on the homepage. Equal-height, keyboard-focusable buttons
+ * that continue into registration for the selected account role.
  */
 export function RoleSwitcher({
   value,
   onChange,
-  compact = false,
   ctaPrefix,
 }: RoleSwitcherProps) {
-  const ctaText = ctaPrefix ?? (compact ? "View as" : "Continue as");
+  const ctaText = ctaPrefix ?? "Continue as";
 
   return (
     <div
       aria-label="Choose your role"
-      className={cn("grid gap-3", compact ? "sm:grid-cols-3" : "md:grid-cols-3")}
+      className="grid gap-3 md:grid-cols-3"
     >
       {PLATFORM_ROLES.map((role) => {
         const { label, tagline, description } = roleConfig[role];
@@ -46,7 +44,7 @@ export function RoleSwitcher({
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               isActive &&
                 "border-primary bg-primary/5 shadow-md ring-1 ring-primary/40",
-              compact ? "min-h-36 p-4" : "min-h-48",
+              "min-h-48",
             )}
           >
             <span
@@ -65,16 +63,11 @@ export function RoleSwitcher({
             <span className="mt-1 text-sm font-medium text-primary">
               {tagline}
             </span>
-            {!compact && (
-              <span className="mt-3 flex-1 text-sm leading-6 text-muted-foreground">
-                {description}
-              </span>
-            )}
+            <span className="mt-3 flex-1 text-sm leading-6 text-muted-foreground">
+              {description}
+            </span>
             <span
-              className={cn(
-                "inline-flex items-center gap-1.5 text-sm font-semibold text-foreground",
-                compact ? "mt-3" : "mt-5",
-              )}
+              className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground"
             >
               {ctaText} {label.toLowerCase()}
               <ArrowRight
