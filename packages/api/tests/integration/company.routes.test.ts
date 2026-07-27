@@ -34,6 +34,14 @@ let adminToken: string;
 let creatorRecruiterToken: string;
 let createdCompanyId: string | undefined;
 
+const completeCompanyInput = {
+  name: "First Created Company",
+  industry: "Software",
+  size: "11-50 employees",
+  location: "Beirut, Lebanon",
+  contact: "hiring@example.com",
+};
+
 beforeAll(async () => {
   await initializeDatabase();
 
@@ -123,6 +131,11 @@ describe("GET /api/companies/me", () => {
     expect(res.body.data).toMatchObject({
       id: ownCompany.id,
       name: ownCompany.name,
+      industry: null,
+      size: null,
+      location: null,
+      contact: null,
+      profileComplete: false,
     });
   });
 
@@ -194,21 +207,62 @@ describe("GET /api/companies/:id", () => {
 });
 
 describe("POST /api/companies duplicate create", () => {
+  it("requires every company setup field", async () => {
+    const res = await request(app)
+      .post("/api/companies")
+      .set("Cookie", cookie(creatorRecruiterToken))
+      .send({ name: "Incomplete Company" });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe("Validation failed");
+  });
+
   it("409s on the second POST for a recruiter who already has a company", async () => {
     const createRes = await request(app)
       .post("/api/companies")
       .set("Cookie", cookie(creatorRecruiterToken))
-      .send({ name: "First Created Company" });
+      .send(completeCompanyInput);
 
     expect(createRes.status).toBe(201);
     createdCompanyId = createRes.body.data.id;
+    expect(createRes.body.data).toMatchObject({
+      ...completeCompanyInput,
+      profileComplete: true,
+    });
 
     const duplicateRes = await request(app)
       .post("/api/companies")
       .set("Cookie", cookie(creatorRecruiterToken))
-      .send({ name: "Second Created Company" });
+      .send({
+        ...completeCompanyInput,
+        name: "Second Created Company",
+      });
 
     expect(duplicateRes.status).toBe(409);
     expect(duplicateRes.body.error).toBe("Company already exists");
+  });
+});
+
+describe("PUT /api/companies/:id profile completeness", () => {
+  it("completes the recruiter's company profile and returns the computed flag", async () => {
+    const res = await request(app)
+      .put(`/api/companies/${ownCompany.id}`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({
+        industry: "Technology",
+        size: "51-200 employees",
+        location: "Remote",
+        contact: "people@own-company.example.com",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      id: ownCompany.id,
+      industry: "Technology",
+      size: "51-200 employees",
+      location: "Remote",
+      contact: "people@own-company.example.com",
+      profileComplete: true,
+    });
   });
 });

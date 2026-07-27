@@ -1,16 +1,97 @@
-export type ApplicationStatus =
-  | "Applied"
-  | "Reviewing"
-  | "Interviewing"
-  | "Offer"
-  | "Closed";
+export type ApplicationStage =
+  | "DRAFT"
+  | "APPLIED"
+  | "REVIEWED"
+  | "INTERVIEWING"
+  | "OFFER"
+  | "HIRED"
+  | "REJECTED";
 
-export interface Application {
+export interface CandidateApplication {
   id: string;
   jobId: string;
-  company: string;
-  title: string;
-  stage: string;
-  status: ApplicationStatus;
+  stage: ApplicationStage;
+  coverLetter: string | null;
+  resumeUrl: string | null;
+  submittedAt: string | null;
+  createdAt: string;
   updatedAt: string;
+  job: {
+    id: string;
+    title: string;
+    description: string;
+    location: string | null;
+    status: "OPEN" | "CLOSED";
+    createdAt: string;
+    company: {
+      id: string;
+      name: string;
+      website: string | null;
+      logoUrl: string | null;
+    };
+  };
+}
+
+export interface ApplicationSubmission {
+  jobId: string;
+  coverLetter?: string;
+}
+
+/** Response returned when a draft is submitted or a new application is made. */
+export interface SubmittedApplication {
+  id: string;
+  jobId: string;
+  candidateProfileId: string;
+  stage: ApplicationStage;
+  coverLetter: string | null;
+  resumeUrl: string | null;
+  submittedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RecruiterApplicationStage = Exclude<ApplicationStage, "DRAFT">;
+
+export type RecruiterMutableApplicationStage = Exclude<
+  RecruiterApplicationStage,
+  "APPLIED"
+>;
+
+/**
+ * Application shape returned by GET /applications/job/:jobId. The recruiter
+ * endpoint includes the candidate profile and only the safe identity fields
+ * selected for its nested user.
+ */
+export interface RecruiterPipelineApplication {
+  id: string;
+  jobId: string;
+  candidateProfileId: string;
+  stage: RecruiterApplicationStage;
+  coverLetter: string | null;
+  resumeUrl: string | null;
+  submittedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  candidateProfile: {
+    id: string;
+    userId: string;
+    headline: string | null;
+    bio: string | null;
+    phone: string | null;
+    location: string | null;
+    resumeUrl: string | null;
+    createdAt: string;
+    updatedAt: string;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  };
+}
+
+export interface UpdateApplicationStageInput {
+  applicationId: string;
+  jobId: string;
+  stage: RecruiterMutableApplicationStage;
 }

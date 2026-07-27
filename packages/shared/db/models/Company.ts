@@ -3,6 +3,10 @@ import { Model, DataTypes, type Sequelize, type Optional } from "sequelize";
 export interface CompanyAttributes {
   id: string;
   name: string;
+  industry?: string;
+  size?: string;
+  location?: string;
+  contact?: string;
   website?: string;
   description?: string;
   logoUrl?: string;
@@ -12,7 +16,14 @@ export interface CompanyAttributes {
 
 export type CompanyCreationAttributes = Optional<
   CompanyAttributes,
-  "id" | "website" | "description" | "logoUrl"
+  | "id"
+  | "industry"
+  | "size"
+  | "location"
+  | "contact"
+  | "website"
+  | "description"
+  | "logoUrl"
 >;
 
 export class Company
@@ -21,6 +32,10 @@ export class Company
 {
   declare id: string;
   declare name: string;
+  declare industry: string | undefined;
+  declare size: string | undefined;
+  declare location: string | undefined;
+  declare contact: string | undefined;
   declare website: string | undefined;
   declare description: string | undefined;
   declare logoUrl: string | undefined;
@@ -38,6 +53,22 @@ export class Company
         name: {
           type: DataTypes.STRING(255),
           allowNull: false,
+        },
+        industry: {
+          type: DataTypes.STRING(255),
+          allowNull: true,
+        },
+        size: {
+          type: DataTypes.STRING(100),
+          allowNull: true,
+        },
+        location: {
+          type: DataTypes.STRING(255),
+          allowNull: true,
+        },
+        contact: {
+          type: DataTypes.STRING(255),
+          allowNull: true,
         },
         website: {
           type: DataTypes.STRING(2048),

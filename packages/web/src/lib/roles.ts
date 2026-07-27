@@ -51,18 +51,20 @@ export const roleConfig: Record<PlatformRole, RoleConfig> = {
       { to: "/recruiter/dashboard", label: "Dashboard" },
       { to: "/recruiter/pipeline", label: "Pipeline" },
       { to: "/recruiter/jobs", label: "Jobs" },
+      { to: "/recruiter/candidates", label: "Candidates" },
+      { to: "/recruiter/company/create", label: "Company" },
     ],
   },
   interviewer: {
     label: "Interviewer",
-    tagline: "Prepare structured feedback",
+    tagline: "Review assigned candidates",
     description:
-      "See assigned interviews, review candidate context, and submit feedback on time.",
+      "See assigned candidates, review role context, and follow application stages.",
     homePath: "/interviewer",
     navItems: [
       { to: "/interviewer", label: "Home" },
-      { to: "/interviewer/pipeline", label: "Pipeline" },
-      { to: "/interviewer/schedule", label: "Schedule" },
+      { to: "/interviewer/pipeline", label: "Assignments" },
+      { to: "/interviewer/schedule", label: "Timeline" },
     ],
   },
 };
@@ -101,9 +103,9 @@ export function normalizeRole(role: string | undefined): PlatformRole | null {
 /**
  * Resolve the effective platform role for a signed-in user.
  *
- * The backend issues canonical roles, so normalizeRole covers real sessions.
- * The intendedRole fallback remains only for the TEMPORARY frontend-only
- * demo session; remove it together with the mock session.
+ * The backend issues canonical roles, so normalizeRole covers signed-in
+ * sessions. The intended-role fallback preserves the visitor's role choice
+ * while they move through registration and login.
  */
 export function resolveRole(
   backendRole: string | undefined,

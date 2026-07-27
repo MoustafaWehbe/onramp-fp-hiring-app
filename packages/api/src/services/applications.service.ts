@@ -1,14 +1,14 @@
 import {
   Application,
   CandidateProfile,
+  Company,
+  InterviewAssignment,
   Job,
   User,
 } from "@starter-kit/shared/db";
-
 import type { ApplicationStage } from "@starter-kit/shared/db";
-
+import { Op, UniqueConstraintError } from "sequelize";
 import { createError } from "../middleware/error-handler";
-import { InterviewAssignment } from "@starter-kit/shared/db";
 
 export class ApplicationService {
   async create(input: {
@@ -16,7 +16,12 @@ export class ApplicationService {
     candidateProfileId: string;
     coverLetter?: string;
   }) {
-    const job = await Job.findByPk(input.jobId);
+    const job = await Job.findOne({
+      where: {
+        id: input.jobId,
+        status: "OPEN",
+      },
+    });
 
     if (!job) {
       throw createError("Job not found", 404);
@@ -33,33 +38,125 @@ export class ApplicationService {
       );
     }
 
-    const existingApplication = await Application.findOne({
+    const existing = await Application.findOne({
       where: {
         jobId: input.jobId,
         candidateProfileId: input.candidateProfileId,
       },
     });
 
-    if (existingApplication) {
+    if (existing?.stage === "DRAFT") {
+      const [updatedCount] = await Application.update(
+        {
+          stage: "APPLIED",
+          coverLetter: input.coverLetter ?? existing.coverLetter,
+          submittedAt: new Date(),
+          resumeUrl: profile.resumeUrl,
+        },
+        {
+          where: {
+            id: existing.id,
+            stage: "DRAFT",
+          },
+        },
+      );
+
+      if (updatedCount === 0) {
+        throw createError(
+          "You have already applied for this job",
+          409,
+        );
+      }
+
+      await existing.reload();
+
+      return {
+        application: existing,
+        created: false,
+      };
+    }
+
+    if (existing) {
       throw createError(
         "You have already applied for this job",
-        400,
+        409,
       );
     }
 
-    const application = await Application.create({
-      ...input,
-      stage: "APPLIED",
-      submittedAt: new Date(),
-      resumeUrl: profile.resumeUrl,
-    });
+    try {
+      const application = await Application.create({
+        ...input,
+        stage: "APPLIED",
+        submittedAt: new Date(),
+        resumeUrl: profile.resumeUrl,
+      });
 
-    return application;
+      return {
+        application,
+        created: true,
+      };
+    } catch (err) {
+      // The unique index is the final authority under concurrent requests.
+      if (err instanceof UniqueConstraintError) {
+        throw createError(
+          "You have already applied for this job",
+          409,
+        );
+      }
+
+      throw err;
+    }
   }
+
+  async getMine(candidateProfileId: string) {
+    return Application.findAll({
+      attributes: [
+        "id",
+        "jobId",
+        "stage",
+        "coverLetter",
+        "resumeUrl",
+        "submittedAt",
+        "createdAt",
+        "updatedAt",
+      ],
+      where: { candidateProfileId },
+      include: [
+        {
+          model: Job,
+          as: "job",
+          attributes: [
+            "id",
+            "title",
+            "description",
+            "location",
+            "status",
+            "createdAt",
+          ],
+          required: true,
+          include: [
+            {
+              model: Company,
+              as: "company",
+              attributes: ["id", "name", "website", "logoUrl"],
+              required: true,
+            },
+          ],
+        },
+      ],
+      order: [
+        ["updatedAt", "DESC"],
+        ["createdAt", "DESC"],
+        ["id", "ASC"],
+      ],
+    });
+  }
+
   async getByJob(jobId: string) {
     return Application.findAll({
       where: {
         jobId,
+        stage: { [Op.ne]: "DRAFT" },
       },
       include: [
         {
@@ -80,57 +177,53 @@ export class ApplicationService {
       ],
     });
   }
+
   async updateStage(
-  id: string,
-  stage: ApplicationStage,
-){
-  const application = await Application.findByPk(id);
+    application: Application,
+    stage: ApplicationStage,
+  ) {
+    await application.update({ stage });
 
-  if (!application) {
-    throw createError("Application not found", 404);
+    // The ownership guard loads a minimal job association. Reload without it
+    // so ownership-only job metadata does not alter the response contract.
+    const updated = await Application.findByPk(application.id);
+
+    if (!updated) {
+      throw createError("Application not found", 404);
+    }
+
+    return updated;
   }
 
-  await application.update({ stage });
+  async assignInterviewer(
+    application: Application,
+    interviewerId: string,
+    companyId: string,
+  ) {
+    const interviewer = await User.findOne({
+      where: {
+        id: interviewerId,
+        role: "INTERVIEWER",
+        companyId,
+      },
+    });
 
-  return application;
+    if (!interviewer) {
+      throw createError(
+        "Interviewer not found",
+        404,
+      );
+    }
+
+    const [assignment] = await InterviewAssignment.findOrCreate({
+      where: {
+        applicationId: application.id,
+        interviewerId,
+      },
+    });
+
+    return assignment;
+  }
 }
-async assignInterviewer(
-  applicationId: string,
-  interviewerId: string,
-) {
-  const application =
-    await Application.findByPk(applicationId);
 
-  if (!application) {
-    throw createError(
-      "Application not found",
-      404,
-    );
-  }
-
-  const interviewer =
-    await User.findByPk(interviewerId);
-
-  if (!interviewer) {
-    throw createError(
-      "Interviewer not found",
-      404,
-    );
-  }
-
-  if (interviewer.role !== "INTERVIEWER") {
-    throw createError(
-      "User is not an interviewer",
-      400,
-    );
-  }
-
-  return InterviewAssignment.create({
-    applicationId,
-    interviewerId,
-  });
-}
-};
-
-export const applicationService =
-  new ApplicationService();
+export const applicationService = new ApplicationService();
