@@ -11,7 +11,7 @@ import {
 import { Skeleton } from "../../components/ui/skeleton";
 import { useRecruiterCandidate } from "../../features/recruiter/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
-import { cn } from "../../lib/utils";
+import { cn, formatDate } from "../../lib/utils";
 
 export function RecruiterCandidateDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -125,20 +125,51 @@ export function RecruiterCandidateDetailsPage() {
               </p>
             </div>
 
-            {candidate.resumeUrl && (
-              <a
-                href={candidate.resumeUrl}
-                target="_blank"
-                rel="noreferrer"
-                className={cn(
-                  buttonVariants({ variant: "outline" }),
-                  "gap-2",
-                )}
-              >
-                <FileText className="h-4 w-4" aria-hidden="true" />
-                View resume
-              </a>
-            )}
+            <div className="border-t pt-6">
+              <h2 className="font-semibold">Application CVs</h2>
+              {(candidate.applicationResumes?.length ?? 0) > 0 ? (
+                <div className="mt-3 grid gap-3">
+                  {candidate.applicationResumes?.map((resume) => (
+                    <div
+                      key={resume.applicationId}
+                      className="rounded-md border bg-muted/20 p-4"
+                    >
+                      <p className="text-sm font-medium">{resume.jobTitle}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {resume.resumeOriginalFilename}
+                        {resume.resumeUploadedAt
+                          ? ` · uploaded ${formatDate(
+                              resume.resumeUploadedAt,
+                            )}`
+                          : ""}
+                      </p>
+                      {(resume.parsedSkills?.length ?? 0) > 0 && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Parsed skills: {resume.parsedSkills.join(", ")}
+                        </p>
+                      )}
+                      <a
+                        href={resume.resumeDownloadUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={cn(
+                          buttonVariants({ variant: "outline", size: "sm" }),
+                          "mt-3 gap-2",
+                        )}
+                      >
+                        <FileText className="h-4 w-4" aria-hidden="true" />
+                        View or download CV
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  This candidate has no application-specific CV for your
+                  company.
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </section>

@@ -17,6 +17,16 @@ export interface RecruiterCandidateRecord {
     name: string;
     email: string;
   };
+  applicationResumes?: Array<{
+    applicationId: string;
+    jobId: string;
+    jobTitle: string;
+    resumeOriginalFilename: string;
+    resumeUploadedAt: string | null;
+    parsedYearsExperience: number | null;
+    parsedSkills: string[];
+    resumeDownloadUrl: string;
+  }>;
 }
 
 export interface RecruiterDashboardMetrics {

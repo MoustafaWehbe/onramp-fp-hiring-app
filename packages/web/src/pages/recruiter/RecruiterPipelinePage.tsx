@@ -239,7 +239,6 @@ function CandidateCard({
 }) {
   const { candidateProfile } = application;
   const { user } = candidateProfile;
-  const resumeUrl = application.resumeUrl ?? candidateProfile.resumeUrl;
   const canMoveToInterviewing =
     application.stage === "APPLIED" || application.stage === "REVIEWED";
 
@@ -305,15 +304,15 @@ function CandidateCard({
           >
             View profile
           </Link>
-          {resumeUrl && (
+          {application.resumeDownloadUrl && (
             <a
-              href={resumeUrl}
+              href={application.resumeDownloadUrl}
               target="_blank"
               rel="noreferrer"
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
               <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
-              View resume
+              View CV
             </a>
           )}
           {canMoveToInterviewing && (
@@ -327,6 +326,31 @@ function CandidateCard({
             </Button>
           )}
         </div>
+        {application.resumeOriginalFilename && (
+          <div className="text-xs text-muted-foreground">
+            <p>
+              CV: {application.resumeOriginalFilename}
+              {application.resumeUploadedAt
+                ? ` · uploaded ${formatDate(application.resumeUploadedAt)}`
+                : ""}
+            </p>
+            {application.resumeParseSucceeded === false && (
+              <p className="mt-1 text-amber-700">
+                The file is available, but text extraction was unsuccessful.
+              </p>
+            )}
+            {application.parsedYearsExperience != null && (
+              <p className="mt-1">
+                Parsed experience: {application.parsedYearsExperience} years
+              </p>
+            )}
+            {(application.parsedSkills?.length ?? 0) > 0 && (
+              <p className="mt-1">
+                Parsed skills: {application.parsedSkills?.join(", ")}
+              </p>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

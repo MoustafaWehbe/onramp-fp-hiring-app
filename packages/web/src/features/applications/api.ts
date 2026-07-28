@@ -2,6 +2,7 @@ import { apiClient } from "../../lib/api-client";
 import type {
   ApplicationSubmission,
   CandidateApplication,
+  ReplaceApplicationResumeInput,
   RecruiterPipelineApplication,
   SubmittedApplication,
   UpdateApplicationStageInput,
@@ -20,10 +21,59 @@ export async function getMyApplications(): Promise<CandidateApplication[]> {
 export async function applyToJob(
   input: ApplicationSubmission,
 ): Promise<SubmittedApplication> {
+  const { resumeFile, onUploadProgress, ...fields } = input;
+  const body = resumeFile ? new FormData() : fields;
+
+  if (resumeFile && body instanceof FormData) {
+    body.append("jobId", fields.jobId);
+    if (fields.coverLetter) {
+      body.append("coverLetter", fields.coverLetter);
+    }
+    body.append("resume", resumeFile);
+  }
+
   const { data } = await apiClient.post<Envelope<SubmittedApplication>>(
     "/applications",
-    input,
+    body,
+    resumeFile
+      ? {
+          headers: { "Content-Type": "multipart/form-data" },
+          onUploadProgress: (event) => {
+            if (event.total) {
+              onUploadProgress?.(
+                Math.min(100, Math.round((event.loaded / event.total) * 100)),
+              );
+            }
+          },
+        }
+      : undefined,
   );
+  return data.data;
+}
+
+export async function replaceApplicationResume({
+  applicationId,
+  file,
+  onUploadProgress,
+}: ReplaceApplicationResumeInput): Promise<SubmittedApplication> {
+  const body = new FormData();
+  body.append("resume", file);
+
+  const { data } = await apiClient.put<Envelope<SubmittedApplication>>(
+    `/applications/${applicationId}/resume`,
+    body,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (event) => {
+        if (event.total) {
+          onUploadProgress?.(
+            Math.min(100, Math.round((event.loaded / event.total) * 100)),
+          );
+        }
+      },
+    },
+  );
+
   return data.data;
 }
 

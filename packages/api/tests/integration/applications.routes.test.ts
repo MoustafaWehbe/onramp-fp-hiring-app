@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 import request from "supertest";
 import { signAccessToken } from "@starter-kit/shared/auth";
 import {
@@ -12,6 +13,10 @@ import {
 import type { ApplicationStage } from "@starter-kit/shared/db";
 import { app } from "../../app";
 import { initializeDatabase } from "../../src/lib/db";
+import {
+  applicationResumeService,
+  extractResumeText,
+} from "../../src/services/application-resume.service";
 
 function cookie(token: string): string[] {
   return [`accessToken=${token}`];
@@ -31,6 +36,12 @@ const APPLICATION_KEYS = [
   "jobId",
   "stage",
   "coverLetter",
+  "parsedSkills",
+  "parsedYearsExperience",
+  "resumeDownloadUrl",
+  "resumeOriginalFilename",
+  "resumeParseSucceeded",
+  "resumeUploadedAt",
   "resumeUrl",
   "submittedAt",
   "createdAt",
@@ -52,6 +63,7 @@ const COMPANY_KEYS = ["id", "name", "website", "logoUrl"].sort();
 
 let company: Company;
 let recruiter: User;
+let otherCompanyRecruiter: User;
 let candidateA: User;
 let candidateB: User;
 let draftOnlyCandidate: User;
@@ -60,6 +72,7 @@ let candidateProfileA: CandidateProfile;
 let candidateProfileB: CandidateProfile;
 let draftOnlyCandidateProfile: CandidateProfile;
 let recruiterToken: string;
+let otherCompanyRecruiterToken: string;
 let candidateAToken: string;
 let candidateBToken: string;
 let candidateWithoutProfileToken: string;
@@ -83,6 +96,8 @@ let concurrentApplicationJob: Job;
 let concurrentDraftJob: Job;
 let pipelineJob: Job;
 let draftOnlyProfileJob: Job;
+let resumeUploadJob: Job;
+let corruptResumeJob: Job;
 
 const createdCompanyIds: string[] = [];
 const createdUserIds: string[] = [];
@@ -117,6 +132,15 @@ async function createApplication(input: {
   return Application.create(input);
 }
 
+async function createTextPdf(text: string): Promise<Buffer> {
+  const document = await PDFDocument.create();
+  const font = await document.embedFont(StandardFonts.Helvetica);
+  const page = document.addPage([612, 792]);
+  page.drawText(text, { x: 72, y: 720, size: 9, font });
+
+  return Buffer.from(await document.save());
+}
+
 beforeAll(async () => {
   await initializeDatabase();
   databaseInitialized = true;
@@ -131,6 +155,15 @@ beforeAll(async () => {
   });
   createdCompanyIds.push(company.id);
 
+  const otherCompany = await Company.create({
+    name: `Other Applications Company ${suffix}`,
+    industry: "Security",
+    size: "1-10 employees",
+    location: "Remote",
+    contact: `other-applications-${suffix}@example.com`,
+  });
+  createdCompanyIds.push(otherCompany.id);
+
   recruiter = await User.create({
     email: `applications-recruiter-${suffix}@example.com`,
     passwordHash: "unused-in-these-tests",
@@ -139,6 +172,15 @@ beforeAll(async () => {
     companyId: company.id,
   });
   createdUserIds.push(recruiter.id);
+
+  otherCompanyRecruiter = await User.create({
+    email: `other-recruiter-${suffix}@example.com`,
+    passwordHash: "unused-in-these-tests",
+    name: "Other Applications Recruiter",
+    role: "RECRUITER",
+    companyId: otherCompany.id,
+  });
+  createdUserIds.push(otherCompanyRecruiter.id);
 
   candidateA = await User.create({
     email: `applications-candidate-a-${suffix}@example.com`,
@@ -193,6 +235,7 @@ beforeAll(async () => {
   createdCandidateProfileIds.push(draftOnlyCandidateProfile.id);
 
   recruiterToken = tokenFor(recruiter);
+  otherCompanyRecruiterToken = tokenFor(otherCompanyRecruiter);
   candidateAToken = tokenFor(candidateA);
   candidateBToken = tokenFor(candidateB);
   candidateWithoutProfileToken = tokenFor(candidateWithoutProfile);
@@ -231,6 +274,12 @@ beforeAll(async () => {
   });
   draftOnlyProfileJob = await createTrackedJob({
     title: `Draft-Only Profile Job ${suffix}`,
+  });
+  resumeUploadJob = await createTrackedJob({
+    title: `Resume Upload Job ${suffix}`,
+  });
+  corruptResumeJob = await createTrackedJob({
+    title: `Corrupt Resume Job ${suffix}`,
   });
 
   ownDraftApplication = await createApplication({
@@ -305,6 +354,16 @@ afterAll(async () => {
 
   try {
     if (createdJobIds.length > 0) {
+      const storedResumes = await Application.findAll({
+        attributes: ["resumeFileUrl"],
+        where: { jobId: createdJobIds },
+      });
+      await Promise.all(
+        storedResumes
+          .map((application) => application.resumeFileUrl)
+          .filter((key): key is string => Boolean(key))
+          .map((key) => applicationResumeService.delete(key)),
+      );
       await Application.destroy({ where: { jobId: createdJobIds } });
       await Job.destroy({ where: { id: createdJobIds } });
     }
@@ -486,7 +545,7 @@ describe("POST /api/applications", () => {
       candidateProfileId: candidateProfileA.id,
       stage: "APPLIED",
       coverLetter: "Final cover letter",
-      resumeUrl: candidateProfileA.resumeUrl,
+      resumeUrl: "/uploads/resumes/stale-draft.pdf",
     });
     expect(res.body.data.submittedAt).toBeTruthy();
 
@@ -603,6 +662,222 @@ describe("POST /api/applications", () => {
         },
       }),
     ).toBe(1);
+  });
+});
+
+describe("application CV upload, parsing, replacement, and access", () => {
+  it("stores and parses a real PDF and serves it only to authorized users", async () => {
+    const pdf = await createTextPdf(
+      "Amara has 6+ years of professional experience with React, TypeScript, Node.js, PostgreSQL, Docker, and AWS.",
+    );
+    expect(await extractResumeText(pdf, "application/pdf")).toContain(
+      "6+ years of professional experience",
+    );
+    const submission = await request(app)
+      .post("/api/applications")
+      .set("Cookie", cookie(candidateAToken))
+      .field("jobId", resumeUploadJob.id)
+      .field("coverLetter", "Application with a real CV")
+      .attach("resume", pdf, {
+        filename: "Amara Okafor CV.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(submission.status).toBe(201);
+    expect(submission.body.data).toMatchObject({
+      jobId: resumeUploadJob.id,
+      candidateProfileId: candidateProfileA.id,
+      resumeOriginalFilename: "Amara Okafor CV.pdf",
+      parsedYearsExperience: 6,
+      resumeParseSucceeded: true,
+    });
+    expect(submission.body.data.parsedSkills).toEqual(
+      expect.arrayContaining([
+        "React",
+        "TypeScript",
+        "Node.js",
+        "PostgreSQL",
+        "Docker",
+        "AWS",
+      ]),
+    );
+    expect(submission.body.data.resumeDownloadUrl).toBe(
+      `/api/applications/${submission.body.data.id}/resume`,
+    );
+    expect(submission.body.data).not.toHaveProperty("resumeFileUrl");
+    expect(submission.body.data).not.toHaveProperty("resumeText");
+
+    const persisted = await Application.findByPk(submission.body.data.id);
+    expect(persisted).not.toBeNull();
+    expect(persisted!.resumeFileUrl).toMatch(
+      /^application-resumes\/.+\.pdf$/,
+    );
+    expect(persisted!.resumeText).toContain("6+ years");
+    expect(persisted!.parsedYearsExperience).toBe(6);
+    expect(persisted!.parsedSkills).toEqual(
+      expect.arrayContaining(["React", "TypeScript", "PostgreSQL"]),
+    );
+    expect(persisted!.resumeUploadedAt).toBeInstanceOf(Date);
+
+    const candidateDownload = await request(app)
+      .get(`/api/applications/${persisted!.id}/resume`)
+      .set("Cookie", cookie(candidateAToken));
+    expect(candidateDownload.status).toBe(200);
+    expect(candidateDownload.headers["content-type"]).toContain(
+      "application/pdf",
+    );
+    expect(candidateDownload.headers["content-disposition"]).toContain(
+      "Amara%20Okafor%20CV.pdf",
+    );
+    expect(Buffer.compare(candidateDownload.body as Buffer, pdf)).toBe(0);
+
+    const recruiterDownload = await request(app)
+      .get(`/api/applications/${persisted!.id}/resume`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(recruiterDownload.status).toBe(200);
+
+    const otherCompanyDownload = await request(app)
+      .get(`/api/applications/${persisted!.id}/resume`)
+      .set("Cookie", cookie(otherCompanyRecruiterToken));
+    expect(otherCompanyDownload.status).toBe(403);
+    expect(otherCompanyDownload.body.error).toBe(
+      "You cannot access this application's CV",
+    );
+
+    const otherCandidateDownload = await request(app)
+      .get(`/api/applications/${persisted!.id}/resume`)
+      .set("Cookie", cookie(candidateBToken));
+    expect(otherCandidateDownload.status).toBe(403);
+
+    const pipeline = await request(app)
+      .get(`/api/applications/job/${resumeUploadJob.id}`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(pipeline.status).toBe(200);
+    expect(pipeline.body.data[0]).toMatchObject({
+      id: persisted!.id,
+      resumeOriginalFilename: "Amara Okafor CV.pdf",
+      resumeDownloadUrl: `/api/applications/${persisted!.id}/resume`,
+      resumeParseSucceeded: true,
+    });
+
+    const candidateDetail = await request(app)
+      .get(`/api/candidate-profiles/${candidateProfileA.id}`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(candidateDetail.status).toBe(200);
+    expect(candidateDetail.body.data.applicationResumes).toContainEqual(
+      expect.objectContaining({
+        applicationId: persisted!.id,
+        jobId: resumeUploadJob.id,
+        jobTitle: resumeUploadJob.title,
+        resumeOriginalFilename: "Amara Okafor CV.pdf",
+        resumeDownloadUrl: `/api/applications/${persisted!.id}/resume`,
+      }),
+    );
+  });
+
+  it("replaces a CV, clears stale parsing, and keeps an unreadable file downloadable", async () => {
+    const application = await Application.findOne({
+      where: {
+        jobId: resumeUploadJob.id,
+        candidateProfileId: candidateProfileA.id,
+      },
+    });
+    expect(application?.resumeFileUrl).toBeTruthy();
+    const previousStorageKey = application!.resumeFileUrl as string;
+    const corruptedPdf = Buffer.from("%PDF-1.4\nthis is not a readable PDF");
+
+    const replacement = await request(app)
+      .put(`/api/applications/${application!.id}/resume`)
+      .set("Cookie", cookie(candidateAToken))
+      .attach("resume", corruptedPdf, {
+        filename: "replacement.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(replacement.status).toBe(200);
+    expect(replacement.body.data).toMatchObject({
+      id: application!.id,
+      resumeOriginalFilename: "replacement.pdf",
+      resumeParseSucceeded: false,
+      parsedYearsExperience: null,
+      parsedSkills: [],
+    });
+
+    await application!.reload();
+    expect(application!.resumeText).toBeNull();
+    expect(application!.parsedYearsExperience).toBeNull();
+    expect(application!.parsedSkills).toEqual([]);
+    expect(application!.resumeFileUrl).not.toBe(previousStorageKey);
+    await expect(
+      applicationResumeService.read(previousStorageKey),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+
+    const download = await request(app)
+      .get(`/api/applications/${application!.id}/resume`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(download.status).toBe(200);
+    expect(Buffer.compare(download.body as Buffer, corruptedPdf)).toBe(0);
+  });
+
+  it("submits a corrupted PDF without crashing and leaves parsing fields empty", async () => {
+    const submission = await request(app)
+      .post("/api/applications")
+      .set("Cookie", cookie(candidateAToken))
+      .field("jobId", corruptResumeJob.id)
+      .attach("resume", Buffer.from("%PDF-corrupted"), {
+        filename: "corrupted.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(submission.status).toBe(201);
+    expect(submission.body.data).toMatchObject({
+      jobId: corruptResumeJob.id,
+      resumeOriginalFilename: "corrupted.pdf",
+      resumeParseSucceeded: false,
+      parsedYearsExperience: null,
+      parsedSkills: [],
+    });
+
+    const persisted = await Application.findByPk(submission.body.data.id);
+    expect(persisted!.resumeFileUrl).toBeTruthy();
+    expect(persisted!.resumeText).toBeNull();
+  });
+
+  it("rejects unsupported and oversized files without creating an application", async () => {
+    const validationJob = await createTrackedJob({
+      title: `CV Validation ${randomUUID()}`,
+    });
+    const unsupported = await request(app)
+      .post("/api/applications")
+      .set("Cookie", cookie(candidateAToken))
+      .field("jobId", validationJob.id)
+      .attach("resume", Buffer.from("not a CV"), {
+        filename: "resume.txt",
+        contentType: "text/plain",
+      });
+
+    expect(unsupported.status).toBe(422);
+    expect(unsupported.body.error).toBe("Only PDF or DOCX files are allowed");
+
+    const oversized = await request(app)
+      .post("/api/applications")
+      .set("Cookie", cookie(candidateAToken))
+      .field("jobId", validationJob.id)
+      .attach("resume", Buffer.alloc(5 * 1024 * 1024 + 1), {
+        filename: "too-large.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(oversized.status).toBe(413);
+    expect(oversized.body.error).toBe("CV must be 5MB or smaller");
+    expect(
+      await Application.count({
+        where: {
+          jobId: validationJob.id,
+          candidateProfileId: candidateProfileA.id,
+        },
+      }),
+    ).toBe(0);
   });
 });
 

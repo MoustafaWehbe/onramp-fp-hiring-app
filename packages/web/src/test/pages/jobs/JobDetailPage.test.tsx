@@ -12,6 +12,7 @@ const {
   toastSuccess,
   toastInfo,
   toastError,
+  toastWarning,
 } = vi.hoisted(() => ({
   usePublicJob: vi.fn(),
   useMyApplications: vi.fn(),
@@ -20,6 +21,7 @@ const {
   toastSuccess: vi.fn(),
   toastInfo: vi.fn(),
   toastError: vi.fn(),
+  toastWarning: vi.fn(),
 }));
 
 vi.mock("@/features/jobs/hooks", () => ({
@@ -40,6 +42,7 @@ vi.mock("sonner", () => ({
     success: toastSuccess,
     info: toastInfo,
     error: toastError,
+    warning: toastWarning,
   },
 }));
 
@@ -163,9 +166,50 @@ describe("JobDetailPage candidate application action", () => {
 
     await user.click(screen.getByRole("button", { name: "Apply" }));
 
-    expect(mutateAsync).toHaveBeenCalledWith({ jobId: "job-1" });
+    expect(mutateAsync).toHaveBeenCalledWith({
+      jobId: "job-1",
+      onUploadProgress: expect.any(Function),
+    });
     expect(toastSuccess).toHaveBeenCalledWith("Application submitted");
     expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("submits the selected PDF with the application", async () => {
+    const { mutateAsync } = arrangeCandidate();
+    const user = userEvent.setup();
+    const file = new File(["resume"], "amara.pdf", {
+      type: "application/pdf",
+    });
+    renderPage();
+
+    await user.upload(
+      screen.getByLabelText("CV for this application"),
+      file,
+    );
+    expect(screen.getByText("amara.pdf")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      jobId: "job-1",
+      resumeFile: file,
+      onUploadProgress: expect.any(Function),
+    });
+  });
+
+  it("rejects an unsupported file before submission", async () => {
+    const { mutateAsync } = arrangeCandidate();
+    const user = userEvent.setup({ applyAccept: false });
+    renderPage();
+
+    await user.upload(
+      screen.getByLabelText("CV for this application"),
+      new File(["image"], "photo.png", { type: "image/png" }),
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Choose a PDF or DOCX file.",
+    );
+    expect(mutateAsync).not.toHaveBeenCalled();
   });
 
   it("handles an already-applied conflict without showing an error", async () => {
@@ -231,7 +275,10 @@ describe("JobDetailPage candidate application action", () => {
       screen.getByRole("button", { name: "Submit application" }),
     );
 
-    expect(mutateAsync).toHaveBeenCalledWith({ jobId: "job-1" });
+    expect(mutateAsync).toHaveBeenCalledWith({
+      jobId: "job-1",
+      onUploadProgress: expect.any(Function),
+    });
     expect(toastSuccess).toHaveBeenCalledWith(
       "Draft application submitted",
     );

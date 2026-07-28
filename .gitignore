@@ -11,6 +11,7 @@ out/
 
 # ─── Local file storage (dev/test stand-in for S3) ───────────────────────────
 packages/api/uploads/
+packages/api/private-uploads/
 
 # ─── Environment ──────────────────────────────────────────────────────────────
 .env

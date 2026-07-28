@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Op } from "sequelize";
 
 import {
+  applicationIdParamSchema,
   assignInterviewerSchema,
   createApplicationSchema,
   updateApplicationStageSchema,
@@ -13,6 +14,8 @@ import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { ownershipGuard } from "../lib/ownership";
 import { getCallerCompanyId } from "../lib/company-membership";
+import { resumeUpload } from "../lib/resume-upload";
+import { handleUploadError } from "../middleware/upload-error";
 
 const router = Router();
 
@@ -71,6 +74,8 @@ const ownApplicationGuard = ownershipGuard<ApplicationWithJob>(
 router.post(
   "/",
   ...requireCandidate,
+  resumeUpload.single("resume"),
+  handleUploadError,
   validate(createApplicationSchema),
   ownCandidateProfileGuard,
   applicationController.create,
@@ -87,9 +92,25 @@ router.get(
   ownJobForApplicationsGuard,
   applicationController.getByJob,
 );
+router.put(
+  "/:id/resume",
+  ...requireCandidate,
+  validate(applicationIdParamSchema, "params"),
+  resumeUpload.single("resume"),
+  handleUploadError,
+  applicationController.replaceResume,
+);
+router.get(
+  "/:id/resume",
+  authenticate,
+  authorize("CANDIDATE", "RECRUITER", "ADMIN"),
+  validate(applicationIdParamSchema, "params"),
+  applicationController.downloadResume,
+);
 router.patch(
   "/:id/stage",
   ...requireRecruiter,
+  validate(applicationIdParamSchema, "params"),
   validate(updateApplicationStageSchema),
   ownApplicationGuard,
   applicationController.updateStage,

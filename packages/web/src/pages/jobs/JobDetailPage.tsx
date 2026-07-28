@@ -8,6 +8,7 @@ import {
   CalendarRange,
   DollarSign,
   ExternalLink,
+  FileUp,
   Laptop,
   MapPin,
 } from "lucide-react";
@@ -22,10 +23,16 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import {
   useApplyToJob,
   useMyApplications,
 } from "../../features/applications/hooks";
+import {
+  APPLICATION_RESUME_ACCEPT,
+  validateApplicationResume,
+} from "../../features/applications/resume-files";
 import { usePublicJob } from "../../features/jobs/hooks";
 import { useAuth } from "../../hooks/useAuth";
 import { getApiErrorMessage } from "../../lib/api-errors";
@@ -71,6 +78,9 @@ export function JobDetailPage() {
   );
   const applyToJob = useApplyToJob();
   const [duplicateJobId, setDuplicateJobId] = useState<string | null>(null);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   if (jobQuery.isLoading) {
     return <JobDetailSkeleton />;
@@ -128,11 +138,34 @@ export function JobDetailPage() {
     duplicateJobId === job.id;
 
   async function handleApply() {
+    if (resumeFile) {
+      const validationError = validateApplicationResume(resumeFile);
+      if (validationError) {
+        setResumeError(validationError);
+        return;
+      }
+    }
+
+    setResumeError(null);
+    setUploadProgress(0);
+
     try {
-      await applyToJob.mutateAsync({ jobId: job.id });
-      toast.success(
-        hasDraft ? "Draft application submitted" : "Application submitted",
-      );
+      const application = await applyToJob.mutateAsync({
+        jobId: job.id,
+        ...(resumeFile ? { resumeFile } : {}),
+        onUploadProgress: setUploadProgress,
+      });
+
+      if (resumeFile && application.resumeParseSucceeded === false) {
+        toast.warning(
+          "Application submitted. Your CV was stored, but its text couldn't be parsed.",
+        );
+      } else {
+        toast.success(
+          hasDraft ? "Draft application submitted" : "Application submitted",
+        );
+      }
+      setResumeFile(null);
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 409) {
         setDuplicateJobId(job.id);
@@ -172,27 +205,83 @@ export function JobDetailPage() {
     const isApplyingToThisJob =
       applyToJob.isPending && applyToJob.variables?.jobId === job.id;
 
+    if (alreadyApplied) {
+      return (
+        <Button type="button" className="w-full sm:w-auto" disabled>
+          Already applied
+        </Button>
+      );
+    }
+
     return (
-      <Button
-        type="button"
-        className="w-full sm:w-auto"
-        disabled={
-          isCheckingApplications || isApplyingToThisJob || alreadyApplied
-        }
-        onClick={() => void handleApply()}
-      >
-        {isCheckingApplications
-          ? "Checking..."
-          : isApplyingToThisJob
-            ? hasDraft
-              ? "Submitting..."
-              : "Applying..."
-            : alreadyApplied
-              ? "Already applied"
+      <div className="w-full space-y-3 rounded-lg border bg-card p-4 sm:w-80">
+        <div>
+          <Label htmlFor="application-resume">CV for this application</Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            PDF or DOCX, up to 5MB. Existing policy allows applying without a
+            new CV.
+          </p>
+        </div>
+        <Input
+          id="application-resume"
+          type="file"
+          accept={APPLICATION_RESUME_ACCEPT}
+          disabled={isCheckingApplications || isApplyingToThisJob}
+          onChange={(event) => {
+            const file = event.target.files?.[0] ?? null;
+            const validationError = file
+              ? validateApplicationResume(file)
+              : null;
+            setResumeFile(validationError ? null : file);
+            setResumeError(validationError);
+            setUploadProgress(0);
+            if (validationError) {
+              event.target.value = "";
+            }
+          }}
+        />
+        {resumeFile && (
+          <p className="flex items-center gap-2 truncate text-xs text-muted-foreground">
+            <FileUp className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{resumeFile.name}</span>
+          </p>
+        )}
+        {resumeError && (
+          <p className="text-xs text-destructive" role="alert">
+            {resumeError}
+          </p>
+        )}
+        {isApplyingToThisJob && resumeFile && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Uploading CV</span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <progress
+              className="h-2 w-full accent-primary"
+              max={100}
+              value={uploadProgress}
+              aria-label="CV upload progress"
+            />
+          </div>
+        )}
+        <Button
+          type="button"
+          className="w-full"
+          disabled={isCheckingApplications || isApplyingToThisJob}
+          onClick={() => void handleApply()}
+        >
+          {isCheckingApplications
+            ? "Checking..."
+            : isApplyingToThisJob
+              ? hasDraft
+                ? "Submitting..."
+                : "Applying..."
               : hasDraft
                 ? "Submit application"
                 : "Apply"}
-      </Button>
+        </Button>
+      </div>
     );
   })();
 

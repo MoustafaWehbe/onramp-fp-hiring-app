@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const applicationIdParamSchema = z.object({
+  id: z.string().uuid("id must be a valid UUID"),
+});
+
 export const updateApplicationStageSchema = z.object({
   stage: z.enum([
     "REVIEWED",

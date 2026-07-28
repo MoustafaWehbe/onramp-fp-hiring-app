@@ -9,13 +9,62 @@ import {
 import type { ApplicationStage } from "@starter-kit/shared/db";
 import { Op, UniqueConstraintError } from "sequelize";
 import { createError } from "../middleware/error-handler";
+import {
+  applicationResumeService,
+  resumeContentType,
+  type StoredApplicationResume,
+} from "./application-resume.service";
+
+interface ResumeRequester {
+  userId: string;
+  role: "CANDIDATE" | "RECRUITER" | "ADMIN" | "INTERVIEWER";
+  companyId?: string | null;
+}
+
+type ResumeAccessApplication = Application & {
+  candidateProfile?: CandidateProfile;
+  job?: Job;
+};
 
 export class ApplicationService {
-  async create(input: {
-    jobId: string;
-    candidateProfileId: string;
-    coverLetter?: string;
-  }) {
+  private resumeAttributes(resume: StoredApplicationResume) {
+    return {
+      resumeFileUrl: resume.storageKey,
+      resumeOriginalFilename: resume.originalFilename,
+      resumeText: resume.text,
+      parsedYearsExperience: resume.yearsExperience,
+      parsedSkills: resume.skills,
+      resumeUploadedAt: resume.uploadedAt,
+    };
+  }
+
+  private serialize(application: Application) {
+    const plain = application.toJSON() as unknown as Record<string, unknown>;
+    const {
+      resumeFileUrl,
+      resumeText,
+      ...safeApplication
+    } = plain;
+
+    return {
+      ...safeApplication,
+      resumeDownloadUrl:
+        typeof resumeFileUrl === "string"
+          ? `/api/applications/${application.id}/resume`
+          : null,
+      resumeParseSucceeded:
+        typeof resumeFileUrl === "string" ? Boolean(resumeText) : null,
+    };
+  }
+
+  async create(
+    input: {
+      jobId: string;
+      candidateProfileId: string;
+      coverLetter?: string;
+    },
+    file?: Express.Multer.File,
+  ) {
     const job = await Job.findOne({
       where: {
         id: input.jobId,
@@ -46,32 +95,53 @@ export class ApplicationService {
     });
 
     if (existing?.stage === "DRAFT") {
-      const [updatedCount] = await Application.update(
-        {
-          stage: "APPLIED",
-          coverLetter: input.coverLetter ?? existing.coverLetter,
-          submittedAt: new Date(),
-          resumeUrl: profile.resumeUrl,
-        },
-        {
-          where: {
-            id: existing.id,
-            stage: "DRAFT",
-          },
-        },
-      );
+      const storedResume = file
+        ? await applicationResumeService.storeAndParse(profile.userId, file)
+        : undefined;
+      const previousStorageKey = existing.resumeFileUrl;
 
-      if (updatedCount === 0) {
-        throw createError(
-          "You have already applied for this job",
-          409,
+      try {
+        const [updatedCount] = await Application.update(
+          {
+            stage: "APPLIED",
+            coverLetter: input.coverLetter ?? existing.coverLetter,
+            submittedAt: new Date(),
+            resumeUrl: existing.resumeUrl ?? profile.resumeUrl,
+            ...(storedResume ? this.resumeAttributes(storedResume) : {}),
+          },
+          {
+            where: {
+              id: existing.id,
+              stage: "DRAFT",
+            },
+          },
         );
+
+        if (updatedCount === 0) {
+          throw createError(
+            "You have already applied for this job",
+            409,
+          );
+        }
+
+        await existing.reload();
+      } catch (error) {
+        if (storedResume) {
+          await applicationResumeService.delete(storedResume.storageKey);
+        }
+        throw error;
       }
 
-      await existing.reload();
+      if (
+        storedResume &&
+        previousStorageKey &&
+        previousStorageKey !== storedResume.storageKey
+      ) {
+        await applicationResumeService.delete(previousStorageKey);
+      }
 
       return {
-        application: existing,
+        application: this.serialize(existing),
         created: false,
       };
     }
@@ -83,19 +153,28 @@ export class ApplicationService {
       );
     }
 
+    const storedResume = file
+      ? await applicationResumeService.storeAndParse(profile.userId, file)
+      : undefined;
+
     try {
       const application = await Application.create({
         ...input,
         stage: "APPLIED",
         submittedAt: new Date(),
         resumeUrl: profile.resumeUrl,
+        ...(storedResume ? this.resumeAttributes(storedResume) : {}),
       });
 
       return {
-        application,
+        application: this.serialize(application),
         created: true,
       };
     } catch (err) {
+      if (storedResume) {
+        await applicationResumeService.delete(storedResume.storageKey);
+      }
+
       // The unique index is the final authority under concurrent requests.
       if (err instanceof UniqueConstraintError) {
         throw createError(
@@ -109,13 +188,19 @@ export class ApplicationService {
   }
 
   async getMine(candidateProfileId: string) {
-    return Application.findAll({
+    const applications = await Application.findAll({
       attributes: [
         "id",
         "jobId",
         "stage",
         "coverLetter",
         "resumeUrl",
+        "resumeFileUrl",
+        "resumeOriginalFilename",
+        "resumeText",
+        "parsedYearsExperience",
+        "parsedSkills",
+        "resumeUploadedAt",
         "submittedAt",
         "createdAt",
         "updatedAt",
@@ -150,10 +235,29 @@ export class ApplicationService {
         ["id", "ASC"],
       ],
     });
+
+    return applications.map((application) => this.serialize(application));
   }
 
   async getByJob(jobId: string) {
-    return Application.findAll({
+    const applications = await Application.findAll({
+      attributes: [
+        "id",
+        "jobId",
+        "candidateProfileId",
+        "stage",
+        "coverLetter",
+        "resumeUrl",
+        "resumeFileUrl",
+        "resumeOriginalFilename",
+        "resumeText",
+        "parsedYearsExperience",
+        "parsedSkills",
+        "resumeUploadedAt",
+        "submittedAt",
+        "createdAt",
+        "updatedAt",
+      ],
       where: {
         jobId,
         stage: { [Op.ne]: "DRAFT" },
@@ -176,6 +280,105 @@ export class ApplicationService {
         },
       ],
     });
+
+    return applications.map((application) => this.serialize(application));
+  }
+
+  async replaceResume(
+    applicationId: string,
+    userId: string,
+    file: Express.Multer.File,
+  ) {
+    const application = await Application.findByPk(applicationId, {
+      include: [
+        {
+          model: CandidateProfile,
+          as: "candidateProfile",
+          attributes: ["id", "userId"],
+          required: true,
+        },
+      ],
+    }) as ResumeAccessApplication | null;
+
+    if (!application) {
+      throw createError("Application not found", 404);
+    }
+
+    if (application.candidateProfile?.userId !== userId) {
+      throw createError("You cannot replace this application's CV", 403);
+    }
+
+    const storedResume = await applicationResumeService.storeAndParse(
+      userId,
+      file,
+    );
+    const previousStorageKey = application.resumeFileUrl;
+
+    try {
+      await application.update(this.resumeAttributes(storedResume));
+    } catch (error) {
+      await applicationResumeService.delete(storedResume.storageKey);
+      throw error;
+    }
+
+    if (
+      previousStorageKey &&
+      previousStorageKey !== storedResume.storageKey
+    ) {
+      await applicationResumeService.delete(previousStorageKey);
+    }
+
+    return this.serialize(application);
+  }
+
+  async getResume(applicationId: string, requester: ResumeRequester) {
+    const application = await Application.findByPk(applicationId, {
+      include: [
+        {
+          model: CandidateProfile,
+          as: "candidateProfile",
+          attributes: ["id", "userId"],
+          required: true,
+        },
+        {
+          model: Job,
+          as: "job",
+          attributes: ["id", "companyId"],
+          required: true,
+        },
+      ],
+    }) as ResumeAccessApplication | null;
+
+    if (!application) {
+      throw createError("Application not found", 404);
+    }
+
+    const candidateOwnsApplication =
+      requester.role === "CANDIDATE" &&
+      application.candidateProfile?.userId === requester.userId;
+    const recruiterOwnsJob =
+      requester.role === "RECRUITER" &&
+      Boolean(requester.companyId) &&
+      application.job?.companyId === requester.companyId;
+    const adminAccess = requester.role === "ADMIN";
+
+    if (!candidateOwnsApplication && !recruiterOwnsJob && !adminAccess) {
+      throw createError("You cannot access this application's CV", 403);
+    }
+
+    if (!application.resumeFileUrl || !application.resumeOriginalFilename) {
+      throw createError("Application CV not found", 404);
+    }
+
+    try {
+      return {
+        body: await applicationResumeService.read(application.resumeFileUrl),
+        contentType: resumeContentType(application.resumeFileUrl),
+        filename: application.resumeOriginalFilename,
+      };
+    } catch {
+      throw createError("Application CV not found", 404);
+    }
   }
 
   async updateStage(
@@ -192,7 +395,7 @@ export class ApplicationService {
       throw createError("Application not found", 404);
     }
 
-    return updated;
+    return this.serialize(updated);
   }
 
   async assignInterviewer(

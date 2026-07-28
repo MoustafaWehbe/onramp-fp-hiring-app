@@ -13,6 +13,12 @@ export interface CandidateApplication {
   stage: ApplicationStage;
   coverLetter: string | null;
   resumeUrl: string | null;
+  resumeOriginalFilename?: string | null;
+  resumeUploadedAt?: string | null;
+  parsedYearsExperience?: number | null;
+  parsedSkills?: string[] | null;
+  resumeDownloadUrl?: string | null;
+  resumeParseSucceeded?: boolean | null;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -21,7 +27,7 @@ export interface CandidateApplication {
     title: string;
     description: string;
     location: string | null;
-    status: "OPEN" | "CLOSED";
+    status: "DRAFT" | "OPEN" | "CLOSED";
     createdAt: string;
     company: {
       id: string;
@@ -35,6 +41,14 @@ export interface CandidateApplication {
 export interface ApplicationSubmission {
   jobId: string;
   coverLetter?: string;
+  resumeFile?: File;
+  onUploadProgress?: (percentage: number) => void;
+}
+
+export interface ReplaceApplicationResumeInput {
+  applicationId: string;
+  file: File;
+  onUploadProgress?: (percentage: number) => void;
 }
 
 /** Response returned when a draft is submitted or a new application is made. */
@@ -45,6 +59,12 @@ export interface SubmittedApplication {
   stage: ApplicationStage;
   coverLetter: string | null;
   resumeUrl: string | null;
+  resumeOriginalFilename?: string | null;
+  resumeUploadedAt?: string | null;
+  parsedYearsExperience?: number | null;
+  parsedSkills?: string[] | null;
+  resumeDownloadUrl?: string | null;
+  resumeParseSucceeded?: boolean | null;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -69,6 +89,12 @@ export interface RecruiterPipelineApplication {
   stage: RecruiterApplicationStage;
   coverLetter: string | null;
   resumeUrl: string | null;
+  resumeOriginalFilename?: string | null;
+  resumeUploadedAt?: string | null;
+  parsedYearsExperience?: number | null;
+  parsedSkills?: string[] | null;
+  resumeDownloadUrl?: string | null;
+  resumeParseSucceeded?: boolean | null;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
