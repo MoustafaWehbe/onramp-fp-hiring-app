@@ -1,13 +1,20 @@
 import { Worker } from "bullmq";
-import { getRedisConnection, QUEUE_NAMES } from "@starter-kit/shared";
+import {
+  getQueuePrefix,
+  getRedisConnection,
+  QUEUE_NAMES,
+} from "@starter-kit/shared";
 import { processEmailJob } from "../jobs/email.job";
 import { processEmbeddingsJob } from "../jobs/embeddings.job";
+import { processApplicationFitScoreJob } from "../jobs/application-fit-score.job";
 
 export function createWorkers(): Worker[] {
   const connection = getRedisConnection();
+  const prefix = getQueuePrefix();
 
   const emailWorker = new Worker(QUEUE_NAMES.EMAIL, processEmailJob, {
     connection,
+    prefix,
     concurrency: 10,
   });
 
@@ -16,11 +23,26 @@ export function createWorkers(): Worker[] {
     processEmbeddingsJob,
     {
       connection,
+      prefix,
       concurrency: 5,
     },
   );
 
-  const workers = [emailWorker, embeddingsWorker];
+  const applicationFitScoreWorker = new Worker(
+    QUEUE_NAMES.APPLICATION_FIT_SCORE,
+    processApplicationFitScoreJob,
+    {
+      connection,
+      prefix,
+      concurrency: 3,
+    },
+  );
+
+  const workers = [
+    emailWorker,
+    embeddingsWorker,
+    applicationFitScoreWorker,
+  ];
 
   workers.forEach((worker) => {
     worker.on("completed", (job) => {

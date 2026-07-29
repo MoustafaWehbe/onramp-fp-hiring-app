@@ -32,5 +32,12 @@ export function useRecruiterCandidate(id: string | undefined) {
     queryFn: () => api.getRecruiterCandidate(id as string),
     enabled: Boolean(id),
     retry: false,
+    refetchOnWindowFocus: "always",
+    refetchInterval: (query) =>
+      query.state.data?.applicationInsights?.some(
+        (application) => application.aiScoringStatus === "pending",
+      )
+        ? 10_000
+        : false,
   });
 }

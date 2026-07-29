@@ -11,6 +11,13 @@ export const APPLICATION_STAGES = [
 ] as const;
 export type ApplicationStage = (typeof APPLICATION_STAGES)[number];
 
+export const AI_SCORING_STATUSES = [
+  "pending",
+  "completed",
+  "failed",
+] as const;
+export type AIScoringStatus = (typeof AI_SCORING_STATUSES)[number];
+
 export interface ApplicationAttributes {
   id: string;
   jobId: string;
@@ -30,6 +37,12 @@ export interface ApplicationAttributes {
   parsedYearsExperience?: number | null;
   parsedSkills?: string[] | null;
   resumeUploadedAt?: Date | null;
+  fitScore?: number | null;
+  aiSummary?: string | null;
+  aiStrengths?: string[] | null;
+  aiGaps?: string[] | null;
+  aiScoredAt?: Date | null;
+  aiScoringStatus: AIScoringStatus;
   /** Null while the application is a DRAFT; set when the candidate submits. */
   submittedAt?: Date;
   createdAt?: Date;
@@ -48,6 +61,12 @@ export type ApplicationCreationAttributes = Optional<
   | "parsedYearsExperience"
   | "parsedSkills"
   | "resumeUploadedAt"
+  | "fitScore"
+  | "aiSummary"
+  | "aiStrengths"
+  | "aiGaps"
+  | "aiScoredAt"
+  | "aiScoringStatus"
   | "submittedAt"
 >;
 
@@ -67,6 +86,12 @@ export class Application
   declare parsedYearsExperience: number | null | undefined;
   declare parsedSkills: string[] | null | undefined;
   declare resumeUploadedAt: Date | null | undefined;
+  declare fitScore: number | null | undefined;
+  declare aiSummary: string | null | undefined;
+  declare aiStrengths: string[] | null | undefined;
+  declare aiGaps: string[] | null | undefined;
+  declare aiScoredAt: Date | null | undefined;
+  declare aiScoringStatus: AIScoringStatus;
   declare submittedAt: Date | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
@@ -137,6 +162,38 @@ export class Application
         resumeUploadedAt: {
           type: DataTypes.DATE,
           allowNull: true,
+        },
+        fitScore: {
+          type: DataTypes.INTEGER,
+          allowNull: true,
+          validate: { min: 0, max: 100 },
+        },
+        aiSummary: {
+          type: DataTypes.TEXT,
+          allowNull: true,
+        },
+        aiStrengths: {
+          type: DataTypes.JSONB,
+          allowNull: true,
+        },
+        aiGaps: {
+          type: DataTypes.JSONB,
+          allowNull: true,
+        },
+        aiScoredAt: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
+        aiScoringStatus: {
+          type: DataTypes.STRING(20),
+          allowNull: false,
+          defaultValue: "pending",
+          validate: {
+            isIn: {
+              args: [[...AI_SCORING_STATUSES]],
+              msg: `aiScoringStatus must be one of: ${AI_SCORING_STATUSES.join(", ")}`,
+            },
+          },
         },
         submittedAt: {
           type: DataTypes.DATE,

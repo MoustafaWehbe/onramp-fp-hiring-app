@@ -11,18 +11,21 @@ const {
   toastSuccess,
   useApplicationsByJob,
   useRecruiterJobs,
+  useRescoreApplication,
   useUpdateApplicationStage,
 } = vi.hoisted(() => ({
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   useApplicationsByJob: vi.fn(),
   useRecruiterJobs: vi.fn(),
+  useRescoreApplication: vi.fn(),
   useUpdateApplicationStage: vi.fn(),
 }));
 
 vi.mock("@/features/applications/hooks", () => ({
   useApplicationsByJob: (jobId: string | undefined) =>
     useApplicationsByJob(jobId),
+  useRescoreApplication: () => useRescoreApplication(),
   useUpdateApplicationStage: () => useUpdateApplicationStage(),
 }));
 
@@ -50,6 +53,13 @@ const amaraApplication: RecruiterPipelineApplication = {
   resumeParseSucceeded: true,
   parsedYearsExperience: 6,
   parsedSkills: ["React", "TypeScript"],
+  fitScore: 87,
+  aiSummary:
+    "Amara's frontend product experience strongly matches this role.",
+  aiStrengths: ["React delivery", "TypeScript depth"],
+  aiGaps: ["Limited platform operations evidence"],
+  aiScoredAt: "2026-07-27T10:01:00.000Z",
+  aiScoringStatus: "completed",
   submittedAt: "2026-07-27T10:00:00.000Z",
   createdAt: "2026-07-27T10:00:00.000Z",
   updatedAt: "2026-07-27T10:00:00.000Z",
@@ -83,6 +93,12 @@ const offeredApplication: RecruiterPipelineApplication = {
   resumeParseSucceeded: null,
   parsedYearsExperience: null,
   parsedSkills: [],
+  fitScore: null,
+  aiSummary: null,
+  aiStrengths: [],
+  aiGaps: [],
+  aiScoredAt: null,
+  aiScoringStatus: "failed",
   candidateProfile: {
     ...amaraApplication.candidateProfile,
     id: "candidate-profile-jordan",
@@ -170,6 +186,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   useApplicationsByJob.mockReturnValue(queryState());
   useRecruiterJobs.mockReturnValue(queryState({ data: [recruiterJob] }));
+  useRescoreApplication.mockReturnValue(mutationState());
   useUpdateApplicationStage.mockReturnValue(mutationState());
 });
 
@@ -293,6 +310,11 @@ describe("RecruiterPipelinePage", () => {
     expect(
       screen.getByText("Parsed skills: React, TypeScript"),
     ).toBeInTheDocument();
+    expect(screen.getByText("87% fit")).toBeInTheDocument();
+    expect(screen.getByText("Not yet scored")).toBeInTheDocument();
+    expect(
+      screen.getByText("Showing 2 of 2 candidates, highest fit first."),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByRole("link", { name: "View profile" })[0],
     ).toHaveAttribute(
@@ -308,6 +330,74 @@ describe("RecruiterPipelinePage", () => {
     expect(
       within(summary).getByText("Interviewing").nextElementSibling,
     ).toHaveTextContent("0");
+  });
+
+  it("filters candidates by the minimum fit score", async () => {
+    useApplicationsByJob.mockReturnValue(
+      queryState({ data: [offeredApplication, amaraApplication] }),
+    );
+    const user = userEvent.setup();
+
+    renderPage("job-1");
+    await user.clear(screen.getByLabelText("Minimum fit score"));
+    await user.type(screen.getByLabelText("Minimum fit score"), "80");
+
+    expect(screen.getByText("Amara Okafor")).toBeInTheDocument();
+    expect(screen.queryByText("Jordan Lee")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Showing 1 of 2 candidates, highest fit first."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a pending scoring state without inventing a score", () => {
+    const pendingApplication: RecruiterPipelineApplication = {
+      ...amaraApplication,
+      fitScore: null,
+      aiSummary: null,
+      aiStrengths: [],
+      aiGaps: [],
+      aiScoredAt: null,
+      aiScoringStatus: "pending",
+    };
+    useApplicationsByJob.mockReturnValue(
+      queryState({ data: [pendingApplication] }),
+    );
+
+    renderPage("job-1");
+
+    expect(screen.getByText("Scoring")).toBeInTheDocument();
+    expect(screen.queryByText(/% fit/)).not.toBeInTheDocument();
+  });
+
+  it("queues a failed application for rescoring", async () => {
+    const mutate = vi.fn(
+      (
+        _input: unknown,
+        options: { onSuccess: () => void },
+      ) => options.onSuccess(),
+    );
+    useApplicationsByJob.mockReturnValue(
+      queryState({ data: [offeredApplication] }),
+    );
+    useRescoreApplication.mockReturnValue(mutationState({ mutate }));
+    const user = userEvent.setup();
+
+    renderPage("job-1");
+    await user.click(screen.getByRole("button", { name: "Rescore" }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      {
+        applicationId: "application-jordan",
+        jobId: "job-1",
+      },
+      expect.objectContaining({
+        onError: expect.any(Function),
+        onSuccess: expect.any(Function),
+      }),
+    );
+    expect(toastSuccess).toHaveBeenCalledWith(
+      "Jordan Lee's fit score was queued.",
+    );
   });
 
   it("moves an eligible candidate to interviewing and reports success", async () => {

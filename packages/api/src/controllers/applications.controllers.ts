@@ -151,6 +151,22 @@ export const applicationController = {
     }
   },
 
+  async rescore(
+    _req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const application = await applicationService.rescore(
+        res.locals.application as Application,
+      );
+
+      res.status(202).json({ data: application });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async assignInterviewer(
     req: Request,
     res: Response,

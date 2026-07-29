@@ -81,6 +81,12 @@ export class CandidateProfileService {
         "resumeUploadedAt",
         "parsedYearsExperience",
         "parsedSkills",
+        "fitScore",
+        "aiSummary",
+        "aiStrengths",
+        "aiGaps",
+        "aiScoredAt",
+        "aiScoringStatus",
       ],
       where: {
         candidateProfileId: id,
@@ -103,6 +109,32 @@ export class CandidateProfileService {
 
     return {
       ...profile.toJSON(),
+      applicationInsights: companyApplications.map((application) => {
+        const job = application.get("job") as Job | undefined;
+
+        return {
+          applicationId: application.id,
+          jobId: application.jobId,
+          jobTitle: job?.title ?? "Job application",
+          resumeOriginalFilename:
+            application.resumeOriginalFilename ?? null,
+          resumeUploadedAt: application.resumeUploadedAt ?? null,
+          parsedYearsExperience:
+            application.parsedYearsExperience ?? null,
+          parsedSkills: application.parsedSkills ?? [],
+          resumeDownloadUrl:
+            application.resumeFileUrl &&
+            application.resumeOriginalFilename
+              ? `/api/applications/${application.id}/resume`
+              : null,
+          fitScore: application.fitScore ?? null,
+          aiSummary: application.aiSummary ?? null,
+          aiStrengths: application.aiStrengths ?? [],
+          aiGaps: application.aiGaps ?? [],
+          aiScoredAt: application.aiScoredAt ?? null,
+          aiScoringStatus: application.aiScoringStatus,
+        };
+      }),
       applicationResumes: companyApplications
         .filter(
           (application) =>
