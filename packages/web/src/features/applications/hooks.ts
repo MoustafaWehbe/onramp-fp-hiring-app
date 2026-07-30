@@ -3,8 +3,10 @@ import type {
   ApplicationSubmission,
   ReplaceApplicationResumeInput,
   RescoreApplicationInput,
+  UpdateApplicationInterviewInput,
   UpdateApplicationStageInput,
 } from "../../types/applications";
+import { recruiterKeys } from "../recruiter/hooks";
 import * as api from "./api";
 
 export const applicationKeys = {
@@ -82,6 +84,28 @@ export function useUpdateApplicationStage() {
       void queryClient.invalidateQueries({
         queryKey: applicationKeys.byJob(input.jobId),
       });
+    },
+  });
+}
+
+export function useUpdateApplicationInterview() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateApplicationInterviewInput) =>
+      api.updateApplicationInterview(input),
+    onSuccess: (_application, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: applicationKeys.byJob(input.jobId),
+      });
+
+      // The same application is also rendered from the candidate detail
+      // endpoint, which carries its own copy of these fields.
+      if (input.candidateProfileId) {
+        void queryClient.invalidateQueries({
+          queryKey: recruiterKeys.candidate(input.candidateProfileId),
+        });
+      }
     },
   });
 }

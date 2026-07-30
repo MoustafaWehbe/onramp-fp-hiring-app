@@ -4,8 +4,10 @@ import type {
   CandidateApplication,
   ReplaceApplicationResumeInput,
   RescoreApplicationInput,
+  RecruiterApplicationRecord,
   RecruiterPipelineApplication,
   SubmittedApplication,
+  UpdateApplicationInterviewInput,
   UpdateApplicationStageInput,
 } from "../../types/applications";
 
@@ -90,11 +92,30 @@ export async function getApplicationsByJob(
 export async function updateApplicationStage({
   applicationId,
   stage,
-}: UpdateApplicationStageInput): Promise<SubmittedApplication> {
-  const { data } = await apiClient.patch<Envelope<SubmittedApplication>>(
-    `/applications/${applicationId}/stage`,
-    { stage },
-  );
+  interviewDate,
+}: UpdateApplicationStageInput): Promise<RecruiterApplicationRecord> {
+  const { data } = await apiClient.patch<
+    Envelope<RecruiterApplicationRecord>
+  >(`/applications/${applicationId}/stage`, {
+    stage,
+    // Sent only when the recruiter actually chose one, so a skipped prompt
+    // never clears a date that was set earlier.
+    ...(interviewDate === undefined ? {} : { interviewDate }),
+  });
+  return data.data;
+}
+
+export async function updateApplicationInterview({
+  applicationId,
+  interviewDate,
+  recruiterNotes,
+}: UpdateApplicationInterviewInput): Promise<RecruiterApplicationRecord> {
+  const { data } = await apiClient.patch<
+    Envelope<RecruiterApplicationRecord>
+  >(`/applications/${applicationId}/interview`, {
+    ...(interviewDate === undefined ? {} : { interviewDate }),
+    ...(recruiterNotes === undefined ? {} : { recruiterNotes }),
+  });
   return data.data;
 }
 

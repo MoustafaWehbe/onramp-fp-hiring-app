@@ -5,10 +5,12 @@ import {
   getMyApplications,
   replaceApplicationResume,
   rescoreApplication,
+  updateApplicationInterview,
   updateApplicationStage,
 } from "@/features/applications/api";
 import type {
   CandidateApplication,
+  RecruiterApplicationRecord,
   RecruiterPipelineApplication,
   SubmittedApplication,
 } from "@/types/applications";
@@ -76,6 +78,9 @@ const recruiterApplication: RecruiterPipelineApplication = {
   aiGaps: ["No direct hiring-platform experience"],
   aiScoredAt: "2026-07-27T10:01:00.000Z",
   aiScoringStatus: "completed",
+  interviewDate: null,
+  recruiterNotes: null,
+  interviewScheduledAt: null,
   candidateProfile: {
     id: "candidate-profile-1",
     userId: "candidate-1",
@@ -187,8 +192,8 @@ describe("candidate applications API", () => {
   });
 
   it("updates an application stage and unwraps the response", async () => {
-    const interviewingApplication: SubmittedApplication = {
-      ...submittedApplication,
+    const interviewingApplication: RecruiterApplicationRecord = {
+      ...recruiterApplication,
       stage: "INTERVIEWING",
     };
     apiPatch.mockResolvedValue({
@@ -206,6 +211,61 @@ describe("candidate applications API", () => {
     expect(apiPatch).toHaveBeenCalledWith(
       "/applications/application-1/stage",
       { stage: "INTERVIEWING" },
+    );
+  });
+
+  it("sends an interview date alongside a stage change when one was chosen", async () => {
+    apiPatch.mockResolvedValue({
+      data: { data: recruiterApplication },
+    });
+
+    await updateApplicationStage({
+      applicationId: "application-1",
+      jobId: "job-1",
+      stage: "INTERVIEWING",
+      interviewDate: "2026-08-05T13:30:00.000Z",
+    });
+
+    expect(apiPatch).toHaveBeenCalledWith(
+      "/applications/application-1/stage",
+      {
+        stage: "INTERVIEWING",
+        interviewDate: "2026-08-05T13:30:00.000Z",
+      },
+    );
+  });
+
+  it("sends only the interview fields the recruiter actually changed", async () => {
+    apiPatch.mockResolvedValue({
+      data: { data: recruiterApplication },
+    });
+
+    await updateApplicationInterview({
+      applicationId: "application-1",
+      jobId: "job-1",
+      recruiterNotes: "Strong systems answers; schedule the panel.",
+    });
+
+    expect(apiPatch).toHaveBeenCalledWith(
+      "/applications/application-1/interview",
+      { recruiterNotes: "Strong systems answers; schedule the panel." },
+    );
+  });
+
+  it("sends an explicit null to clear a previously set interview date", async () => {
+    apiPatch.mockResolvedValue({
+      data: { data: recruiterApplication },
+    });
+
+    await updateApplicationInterview({
+      applicationId: "application-1",
+      jobId: "job-1",
+      interviewDate: null,
+    });
+
+    expect(apiPatch).toHaveBeenCalledWith(
+      "/applications/application-1/interview",
+      { interviewDate: null },
     );
   });
 

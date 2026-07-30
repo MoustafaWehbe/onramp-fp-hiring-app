@@ -32,6 +32,7 @@ export interface RecruiterCandidateRecord {
     applicationId: string;
     jobId: string;
     jobTitle: string;
+    stage: RecruiterApplicationStage;
     resumeOriginalFilename: string | null;
     resumeUploadedAt: string | null;
     parsedYearsExperience: number | null;
@@ -43,6 +44,9 @@ export interface RecruiterCandidateRecord {
     aiGaps: string[];
     aiScoredAt: string | null;
     aiScoringStatus: AIScoringStatus;
+    interviewDate: string | null;
+    recruiterNotes: string | null;
+    interviewScheduledAt: string | null;
   }>;
 }
 

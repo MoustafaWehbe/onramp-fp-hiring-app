@@ -5,6 +5,7 @@ import {
   applicationIdParamSchema,
   assignInterviewerSchema,
   createApplicationSchema,
+  updateApplicationInterviewSchema,
   updateApplicationStageSchema,
 } from "../schemas/applications.schemas";
 import { Application, CandidateProfile, Job } from "@starter-kit/shared/db";
@@ -114,6 +115,16 @@ router.patch(
   validate(updateApplicationStageSchema),
   ownApplicationGuard,
   applicationController.updateStage,
+);
+// Separate from /stage so scheduling and note-taking are never coupled to a
+// stage change — the same guard scopes both to the job's company.
+router.patch(
+  "/:id/interview",
+  ...requireRecruiter,
+  validate(applicationIdParamSchema, "params"),
+  validate(updateApplicationInterviewSchema),
+  ownApplicationGuard,
+  applicationController.updateInterview,
 );
 router.post(
   "/:id/rescore",

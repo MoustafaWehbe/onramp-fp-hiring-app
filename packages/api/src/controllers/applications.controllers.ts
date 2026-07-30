@@ -141,6 +141,29 @@ export const applicationController = {
       const application = await applicationService.updateStage(
         res.locals.application as Application,
         req.body.stage,
+        { interviewDate: req.body.interviewDate },
+      );
+
+      res.status(200).json({
+        data: application,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateInterview(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const application = await applicationService.updateInterview(
+        res.locals.application as Application,
+        {
+          interviewDate: req.body.interviewDate,
+          recruiterNotes: req.body.recruiterNotes,
+        },
       );
 
       res.status(200).json({
