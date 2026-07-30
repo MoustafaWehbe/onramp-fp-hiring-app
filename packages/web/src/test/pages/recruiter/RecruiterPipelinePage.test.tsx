@@ -12,6 +12,7 @@ const {
   useApplicationsByJob,
   useRecruiterJobs,
   useRescoreApplication,
+  useUpdateApplicationInterview,
   useUpdateApplicationStage,
 } = vi.hoisted(() => ({
   toastError: vi.fn(),
@@ -19,6 +20,7 @@ const {
   useApplicationsByJob: vi.fn(),
   useRecruiterJobs: vi.fn(),
   useRescoreApplication: vi.fn(),
+  useUpdateApplicationInterview: vi.fn(),
   useUpdateApplicationStage: vi.fn(),
 }));
 
@@ -26,6 +28,7 @@ vi.mock("@/features/applications/hooks", () => ({
   useApplicationsByJob: (jobId: string | undefined) =>
     useApplicationsByJob(jobId),
   useRescoreApplication: () => useRescoreApplication(),
+  useUpdateApplicationInterview: () => useUpdateApplicationInterview(),
   useUpdateApplicationStage: () => useUpdateApplicationStage(),
 }));
 
@@ -60,6 +63,9 @@ const amaraApplication: RecruiterPipelineApplication = {
   aiGaps: ["Limited platform operations evidence"],
   aiScoredAt: "2026-07-27T10:01:00.000Z",
   aiScoringStatus: "completed",
+  interviewDate: null,
+  recruiterNotes: null,
+  interviewScheduledAt: null,
   submittedAt: "2026-07-27T10:00:00.000Z",
   createdAt: "2026-07-27T10:00:00.000Z",
   updatedAt: "2026-07-27T10:00:00.000Z",
@@ -187,6 +193,7 @@ beforeEach(() => {
   useApplicationsByJob.mockReturnValue(queryState());
   useRecruiterJobs.mockReturnValue(queryState({ data: [recruiterJob] }));
   useRescoreApplication.mockReturnValue(mutationState());
+  useUpdateApplicationInterview.mockReturnValue(mutationState());
   useUpdateApplicationStage.mockReturnValue(mutationState());
 });
 
@@ -400,7 +407,7 @@ describe("RecruiterPipelinePage", () => {
     );
   });
 
-  it("moves an eligible candidate to interviewing and reports success", async () => {
+  it("moves an eligible candidate to interviewing without forcing a date", async () => {
     const mutate = vi.fn(
       (
         _input: unknown,
@@ -417,6 +424,7 @@ describe("RecruiterPipelinePage", () => {
     await user.click(
       screen.getByRole("button", { name: "Move to interviewing" }),
     );
+    await user.click(screen.getByRole("button", { name: "Confirm move" }));
 
     expect(mutate).toHaveBeenCalledWith(
       {
@@ -433,6 +441,103 @@ describe("RecruiterPipelinePage", () => {
       "Amara Okafor moved to interviewing.",
     );
     expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("sends the interview date chosen in the move prompt as an instant", async () => {
+    const mutate = vi.fn(
+      (
+        _input: unknown,
+        options: { onSuccess: () => void },
+      ) => options.onSuccess(),
+    );
+    useApplicationsByJob.mockReturnValue(
+      queryState({ data: [amaraApplication] }),
+    );
+    useUpdateApplicationStage.mockReturnValue(mutationState({ mutate }));
+    const user = userEvent.setup();
+
+    renderPage("job-1");
+    await user.click(
+      screen.getByRole("button", { name: "Move to interviewing" }),
+    );
+    await user.type(
+      screen.getByLabelText("Interview date (optional)"),
+      "2026-08-05T13:30",
+    );
+    await user.click(screen.getByRole("button", { name: "Confirm move" }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      {
+        applicationId: "application-amara",
+        jobId: "job-1",
+        stage: "INTERVIEWING",
+        interviewDate: new Date("2026-08-05T13:30").toISOString(),
+      },
+      expect.anything(),
+    );
+    expect(toastSuccess).toHaveBeenCalledWith(
+      expect.stringContaining("Amara Okafor moved to interviewing for"),
+    );
+  });
+
+  it("badges only the candidates that have an interview scheduled", () => {
+    useApplicationsByJob.mockReturnValue(
+      queryState({
+        data: [
+          {
+            ...amaraApplication,
+            interviewDate: "2026-08-05T13:30:00.000Z",
+            interviewScheduledAt: "2026-07-29T09:00:00.000Z",
+          },
+          offeredApplication,
+        ],
+      }),
+    );
+
+    renderPage("job-1");
+
+    const badges = screen.getAllByText(/^Interview /);
+    expect(badges).toHaveLength(1);
+    expect(badges[0]).toHaveTextContent(
+      `Interview ${new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date("2026-08-05T13:30:00.000Z"))}`,
+    );
+  });
+
+  it("saves recruiter notes on a candidate that is not interviewing", async () => {
+    const mutate = vi.fn();
+    useApplicationsByJob.mockReturnValue(
+      queryState({ data: [offeredApplication] }),
+    );
+    useUpdateApplicationInterview.mockReturnValue(mutationState({ mutate }));
+    const user = userEvent.setup();
+
+    renderPage("job-1");
+    await user.click(
+      screen.getByRole("button", { name: "Notes & interview date" }),
+    );
+    await user.type(
+      screen.getByLabelText("Recruiter notes"),
+      "Reference check pending.",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Save interview details" }),
+    );
+
+    expect(mutate).toHaveBeenCalledWith(
+      {
+        applicationId: "application-jordan",
+        jobId: "job-1",
+        candidateProfileId: "candidate-profile-jordan",
+        recruiterNotes: "Reference check pending.",
+      },
+      expect.anything(),
+    );
   });
 
   it("reports the API error when moving a candidate fails", async () => {
@@ -459,6 +564,7 @@ describe("RecruiterPipelinePage", () => {
     await user.click(
       screen.getByRole("button", { name: "Move to interviewing" }),
     );
+    await user.click(screen.getByRole("button", { name: "Confirm move" }));
 
     expect(toastError).toHaveBeenCalledWith(
       "Stage updates are temporarily unavailable.",

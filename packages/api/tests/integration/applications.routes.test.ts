@@ -146,6 +146,9 @@ async function createApplication(input: {
   aiGaps?: string[] | null;
   aiScoredAt?: Date | null;
   aiScoringStatus?: "pending" | "completed" | "failed";
+  interviewDate?: Date | null;
+  recruiterNotes?: string | null;
+  interviewScheduledAt?: Date | null;
 }): Promise<Application> {
   return Application.create(input);
 }
@@ -1152,6 +1155,356 @@ describe("recruiter application pipeline", () => {
 
     await draftOnlyProfileApplication.reload();
     expect(draftOnlyProfileApplication.stage).toBe("DRAFT");
+  });
+});
+
+describe("interview scheduling and recruiter notes", () => {
+  async function pipelineApplication(input: {
+    title: string;
+    stage: ApplicationStage;
+    interviewDate?: Date | null;
+    interviewScheduledAt?: Date | null;
+    recruiterNotes?: string | null;
+  }): Promise<Application> {
+    const job = await createTrackedJob({ title: input.title });
+
+    return createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: input.stage,
+      submittedAt: new Date("2026-07-20T09:00:00.000Z"),
+      interviewDate: input.interviewDate ?? null,
+      interviewScheduledAt: input.interviewScheduledAt ?? null,
+      recruiterNotes: input.recruiterNotes ?? null,
+    });
+  }
+
+  it("schedules a date while moving a candidate to INTERVIEWING", async () => {
+    const application = await pipelineApplication({
+      title: `Schedule On Move ${randomUUID()}`,
+      stage: "REVIEWED",
+    });
+    const interviewDate = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const beforeUpdate = Date.now();
+
+    const res = await request(app)
+      .patch(`/api/applications/${application.id}/stage`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ stage: "INTERVIEWING", interviewDate });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      id: application.id,
+      stage: "INTERVIEWING",
+      interviewDate,
+      recruiterNotes: null,
+    });
+
+    await application.reload();
+    expect(application.stage).toBe("INTERVIEWING");
+    expect(application.interviewDate?.toISOString()).toBe(interviewDate);
+    // Stamped for auditing the first time a date is set.
+    expect(application.interviewScheduledAt).toBeInstanceOf(Date);
+    expect(
+      application.interviewScheduledAt!.getTime(),
+    ).toBeGreaterThanOrEqual(beforeUpdate);
+  });
+
+  it("moves a candidate to INTERVIEWING with no date and leaves it null", async () => {
+    const application = await pipelineApplication({
+      title: `Move Without Date ${randomUUID()}`,
+      stage: "APPLIED",
+    });
+
+    const res = await request(app)
+      .patch(`/api/applications/${application.id}/stage`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ stage: "INTERVIEWING" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      stage: "INTERVIEWING",
+      interviewDate: null,
+      interviewScheduledAt: null,
+    });
+
+    await application.reload();
+    expect(application.stage).toBe("INTERVIEWING");
+    expect(application.interviewDate).toBeNull();
+    expect(application.interviewScheduledAt).toBeNull();
+  });
+
+  it("edits notes at any stage without touching a scheduled date", async () => {
+    const scheduledAt = new Date("2026-07-25T08:00:00.000Z");
+    const interviewDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const applied = await pipelineApplication({
+      title: `Notes While Applied ${randomUUID()}`,
+      stage: "APPLIED",
+    });
+    const rejected = await pipelineApplication({
+      title: `Notes After Rejection ${randomUUID()}`,
+      stage: "REJECTED",
+      interviewDate,
+      interviewScheduledAt: scheduledAt,
+    });
+
+    const earlyStage = await request(app)
+      .patch(`/api/applications/${applied.id}/interview`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ recruiterNotes: "Worth a screen before the team commits." });
+
+    expect(earlyStage.status).toBe(200);
+    expect(earlyStage.body.data).toMatchObject({
+      stage: "APPLIED",
+      recruiterNotes: "Worth a screen before the team commits.",
+      interviewDate: null,
+    });
+
+    const lateStage = await request(app)
+      .patch(`/api/applications/${rejected.id}/interview`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ recruiterNotes: "Rejected for level, revisit for a senior req." });
+
+    expect(lateStage.status).toBe(200);
+    expect(lateStage.body.data).toMatchObject({
+      stage: "REJECTED",
+      recruiterNotes: "Rejected for level, revisit for a senior req.",
+    });
+
+    await rejected.reload();
+    // Writing only notes must leave the date and its audit stamp intact.
+    expect(rejected.interviewDate?.toISOString()).toBe(
+      interviewDate.toISOString(),
+    );
+    expect(rejected.interviewScheduledAt?.toISOString()).toBe(
+      scheduledAt.toISOString(),
+    );
+  });
+
+  it("clears a scheduled date to null and keeps the audit stamp and notes", async () => {
+    const scheduledAt = new Date("2026-07-26T08:00:00.000Z");
+    const application = await pipelineApplication({
+      title: `Clear Date ${randomUUID()}`,
+      stage: "INTERVIEWING",
+      interviewDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+      interviewScheduledAt: scheduledAt,
+      recruiterNotes: "Panel scheduled with the platform team.",
+    });
+
+    const res = await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ interviewDate: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      interviewDate: null,
+      recruiterNotes: "Panel scheduled with the platform team.",
+    });
+
+    await application.reload();
+    expect(application.interviewDate).toBeNull();
+    expect(application.interviewScheduledAt?.toISOString()).toBe(
+      scheduledAt.toISOString(),
+    );
+  });
+
+  it("stores blank notes as null rather than an empty string", async () => {
+    const application = await pipelineApplication({
+      title: `Blank Notes ${randomUUID()}`,
+      stage: "REVIEWED",
+      recruiterNotes: "Something to erase.",
+    });
+
+    const res = await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ recruiterNotes: "   " });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.recruiterNotes).toBeNull();
+
+    await application.reload();
+    expect(application.recruiterNotes).toBeNull();
+  });
+
+  it("resolves concurrent note edits as last-write-wins", async () => {
+    const application = await pipelineApplication({
+      title: `Concurrent Notes ${randomUUID()}`,
+      stage: "INTERVIEWING",
+    });
+
+    const responses = await Promise.all([
+      request(app)
+        .patch(`/api/applications/${application.id}/interview`)
+        .set("Cookie", cookie(recruiterToken))
+        .send({ recruiterNotes: "First recruiter note." }),
+      request(app)
+        .patch(`/api/applications/${application.id}/interview`)
+        .set("Cookie", cookie(recruiterToken))
+        .send({ recruiterNotes: "Second recruiter note." }),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+
+    await application.reload();
+    expect([
+      "First recruiter note.",
+      "Second recruiter note.",
+    ]).toContain(application.recruiterNotes);
+  });
+
+  it("rejects nonsensical dates and an empty update", async () => {
+    const application = await pipelineApplication({
+      title: `Date Validation ${randomUUID()}`,
+      stage: "INTERVIEWING",
+    });
+
+    const notADate = await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ interviewDate: "next tuesday" });
+    expect(notADate.status).toBe(422);
+    expect(notADate.body.errors[0].message).toBe(
+      "interviewDate must be an ISO 8601 datetime",
+    );
+
+    const farPast = await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ interviewDate: "1999-01-01T09:00:00.000Z" });
+    expect(farPast.status).toBe(422);
+    expect(farPast.body.errors[0].message).toBe(
+      "interviewDate is too far in the past",
+    );
+
+    const farFuture = await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ interviewDate: "2099-01-01T09:00:00.000Z" });
+    expect(farFuture.status).toBe(422);
+    expect(farFuture.body.errors[0].message).toBe(
+      "interviewDate is too far in the future",
+    );
+
+    const empty = await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({});
+    expect(empty.status).toBe(422);
+
+    await application.reload();
+    expect(application.interviewDate).toBeNull();
+    expect(application.recruiterNotes).toBeNull();
+  });
+
+  it("refuses a recruiter from another company and a candidate", async () => {
+    const application = await pipelineApplication({
+      title: `Cross Company Interview ${randomUUID()}`,
+      stage: "INTERVIEWING",
+      recruiterNotes: "Only the owning company may read or edit this.",
+    });
+
+    // The ownership guard reports 404 rather than 403 so an outside caller
+    // cannot confirm the application id exists — the same response the
+    // phase-2 rescore endpoint gives.
+    const crossCompany = await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .set("Cookie", cookie(otherCompanyRecruiterToken))
+      .send({ recruiterNotes: "Injected by another company." });
+    expect(crossCompany.status).toBe(404);
+
+    const candidate = await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .set("Cookie", cookie(candidateAToken))
+      .send({ recruiterNotes: "Injected by the candidate." });
+    expect(candidate.status).toBe(403);
+
+    const unauthenticated = await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .send({ recruiterNotes: "Injected anonymously." });
+    expect(unauthenticated.status).toBe(401);
+
+    await application.reload();
+    expect(application.recruiterNotes).toBe(
+      "Only the owning company may read or edit this.",
+    );
+  });
+
+  it("keeps recruiter notes out of the candidate's own application view", async () => {
+    const job = await createTrackedJob({
+      title: `Candidate Visibility ${randomUUID()}`,
+    });
+    const application = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: "INTERVIEWING",
+      submittedAt: new Date("2026-07-21T09:00:00.000Z"),
+      interviewDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+      interviewScheduledAt: new Date("2026-07-27T09:00:00.000Z"),
+      recruiterNotes: "Internal-only hiring context.",
+    });
+
+    const mine = await request(app)
+      .get("/api/applications/me")
+      .set("Cookie", cookie(candidateAToken));
+
+    expect(mine.status).toBe(200);
+
+    const own = mine.body.data.find(
+      (item: { id: string }) => item.id === application.id,
+    );
+    expect(own).toBeDefined();
+    expect(Object.keys(own).sort()).toEqual(APPLICATION_KEYS);
+    expect(own).not.toHaveProperty("recruiterNotes");
+    expect(own).not.toHaveProperty("interviewDate");
+    expect(own).not.toHaveProperty("interviewScheduledAt");
+  });
+
+  it("surfaces the fields on both recruiter read paths", async () => {
+    const job = await createTrackedJob({
+      title: `Interview Read Paths ${randomUUID()}`,
+    });
+    const interviewDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    const scheduledAt = new Date("2026-07-28T09:00:00.000Z");
+    const application = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileB.id,
+      stage: "INTERVIEWING",
+      submittedAt: new Date("2026-07-22T09:00:00.000Z"),
+      interviewDate,
+      interviewScheduledAt: scheduledAt,
+      recruiterNotes: "Loop confirmed with the hiring manager.",
+    });
+
+    const pipeline = await request(app)
+      .get(`/api/applications/job/${job.id}`)
+      .set("Cookie", cookie(recruiterToken));
+
+    expect(pipeline.status).toBe(200);
+    expect(pipeline.body.data[0]).toMatchObject({
+      id: application.id,
+      interviewDate: interviewDate.toISOString(),
+      interviewScheduledAt: scheduledAt.toISOString(),
+      recruiterNotes: "Loop confirmed with the hiring manager.",
+    });
+
+    const detail = await request(app)
+      .get(`/api/candidate-profiles/${candidateProfileB.id}`)
+      .set("Cookie", cookie(recruiterToken));
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.data.applicationInsights).toContainEqual(
+      expect.objectContaining({
+        applicationId: application.id,
+        stage: "INTERVIEWING",
+        interviewDate: interviewDate.toISOString(),
+        interviewScheduledAt: scheduledAt.toISOString(),
+        recruiterNotes: "Loop confirmed with the hiring manager.",
+      }),
+    );
   });
 });
 

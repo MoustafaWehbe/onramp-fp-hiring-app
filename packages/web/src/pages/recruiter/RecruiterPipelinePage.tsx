@@ -1,9 +1,11 @@
 import {
+  CalendarCheck,
   CalendarDays,
   FileText,
   Loader2,
   Mail,
   MapPin,
+  NotebookPen,
   RefreshCw,
   Sparkles,
   UserRound,
@@ -22,11 +24,17 @@ import {
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Skeleton } from "../../components/ui/skeleton";
+import { InterviewDetailsForm } from "../../features/applications/components/InterviewDetailsForm";
 import {
   useApplicationsByJob,
   useRescoreApplication,
   useUpdateApplicationStage,
 } from "../../features/applications/hooks";
+import {
+  formatInterviewDate,
+  fromInterviewDateInput,
+  toInterviewDateInput,
+} from "../../features/applications/interview-date";
 import { useRecruiterJobs } from "../../features/jobs/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
@@ -242,7 +250,10 @@ function CandidateCard({
   mutationPending,
 }: {
   application: RecruiterPipelineApplication;
-  onMoveToInterviewing: (application: RecruiterPipelineApplication) => void;
+  onMoveToInterviewing: (
+    application: RecruiterPipelineApplication,
+    interviewDate: string | null,
+  ) => void;
   onRescore: (application: RecruiterPipelineApplication) => void;
   isMoving: boolean;
   isRescoring: boolean;
@@ -250,6 +261,11 @@ function CandidateCard({
 }) {
   const { candidateProfile } = application;
   const { user } = candidateProfile;
+  const [schedulePromptOpen, setSchedulePromptOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [scheduleValue, setScheduleValue] = useState(() =>
+    toInterviewDateInput(application.interviewDate),
+  );
   const canMoveToInterviewing =
     application.stage === "APPLIED" || application.stage === "REVIEWED";
   const scoreBadge =
@@ -299,6 +315,18 @@ function CandidateCard({
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {scoreBadge}
+          {/* Only candidates with a scheduled interview carry this badge. */}
+          {application.interviewDate && (
+            <Badge
+              variant="outline"
+              title={`Interview scheduled for ${formatInterviewDate(
+                application.interviewDate,
+              )}`}
+            >
+              <CalendarCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+              Interview {formatInterviewDate(application.interviewDate)}
+            </Badge>
+          )}
           <Badge variant={stageBadgeVariant(application.stage)}>
             {stageLabels[application.stage]}
           </Badge>
@@ -359,12 +387,27 @@ function CandidateCard({
             <Button
               type="button"
               size="sm"
-              onClick={() => onMoveToInterviewing(application)}
+              onClick={() => {
+                // Re-read the stored date on open so the prompt cannot
+                // confirm a value that was changed in the notes panel.
+                setScheduleValue(toInterviewDateInput(application.interviewDate));
+                setSchedulePromptOpen((open) => !open);
+              }}
               disabled={mutationPending}
             >
               {isMoving ? "Moving…" : "Move to interviewing"}
             </Button>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setDetailsOpen((open) => !open)}
+            aria-expanded={detailsOpen}
+          >
+            <NotebookPen className="mr-2 h-4 w-4" aria-hidden="true" />
+            {detailsOpen ? "Hide notes" : "Notes & interview date"}
+          </Button>
           {application.aiScoringStatus === "failed" && (
             <Button
               type="button"
@@ -383,6 +426,76 @@ function CandidateCard({
             </Button>
           )}
         </div>
+
+        {schedulePromptOpen && canMoveToInterviewing && (
+          <div className="rounded-md border bg-muted/30 p-4">
+            <Label htmlFor={`schedule-${application.id}`}>
+              Interview date (optional)
+            </Label>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Leave it empty to move {user.name} now and schedule later.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Input
+                id={`schedule-${application.id}`}
+                type="datetime-local"
+                className="w-auto"
+                value={scheduleValue}
+                onChange={(event) => setScheduleValue(event.target.value)}
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={mutationPending}
+                onClick={() => {
+                  onMoveToInterviewing(
+                    application,
+                    fromInterviewDateInput(scheduleValue),
+                  );
+                  setSchedulePromptOpen(false);
+                }}
+              >
+                {isMoving ? "Moving…" : "Confirm move"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setScheduleValue(
+                    toInterviewDateInput(application.interviewDate),
+                  );
+                  setSchedulePromptOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {detailsOpen && (
+          <div className="rounded-md border bg-muted/30 p-4">
+            <InterviewDetailsForm
+              applicationId={application.id}
+              jobId={application.jobId}
+              candidateProfileId={application.candidateProfileId}
+              interviewDate={application.interviewDate}
+              recruiterNotes={application.recruiterNotes}
+              interviewScheduledAt={application.interviewScheduledAt}
+            />
+          </div>
+        )}
+
+        {!detailsOpen && application.recruiterNotes && (
+          <div className="rounded-md border bg-muted/30 p-4">
+            <p className="text-sm font-medium">Recruiter notes</p>
+            <p className="mt-2 line-clamp-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">
+              {application.recruiterNotes}
+            </p>
+          </div>
+        )}
+
         {application.resumeOriginalFilename && (
           <div className="text-xs text-muted-foreground">
             <p>
@@ -438,7 +551,10 @@ export function RecruiterPipelinePage() {
     [applications, minimumFitScore],
   );
 
-  function moveToInterviewing(application: RecruiterPipelineApplication) {
+  function moveToInterviewing(
+    application: RecruiterPipelineApplication,
+    interviewDate: string | null,
+  ) {
     if (!jobId) {
       return;
     }
@@ -448,11 +564,18 @@ export function RecruiterPipelinePage() {
         applicationId: application.id,
         jobId,
         stage: "INTERVIEWING",
+        // A skipped prompt leaves the date untouched rather than clearing it,
+        // so the transition never depends on one being chosen.
+        ...(interviewDate === (application.interviewDate ?? null)
+          ? {}
+          : { interviewDate }),
       },
       {
         onSuccess: () => {
           toast.success(
-            `${application.candidateProfile.user.name} moved to interviewing.`,
+            interviewDate
+              ? `${application.candidateProfile.user.name} moved to interviewing for ${formatInterviewDate(interviewDate)}.`
+              : `${application.candidateProfile.user.name} moved to interviewing.`,
           );
         },
         onError: (error) => {

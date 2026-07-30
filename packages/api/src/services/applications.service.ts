@@ -39,7 +39,12 @@ export class ApplicationService {
     };
   }
 
-  private serialize(application: Application, includeAI = false) {
+  /**
+   * AI scoring, interview scheduling, and recruiter notes are internal hiring
+   * context, so they are stripped unless the caller is on a recruiter-scoped
+   * endpoint.
+   */
+  private serialize(application: Application, forRecruiter = false) {
     const plain = application.toJSON() as unknown as Record<string, unknown>;
     const {
       aiGaps,
@@ -48,6 +53,9 @@ export class ApplicationService {
       aiStrengths,
       aiSummary,
       fitScore,
+      interviewDate,
+      interviewScheduledAt,
+      recruiterNotes,
       resumeFileUrl,
       resumeText,
       ...safeApplication
@@ -61,7 +69,7 @@ export class ApplicationService {
           : null,
       resumeParseSucceeded:
         typeof resumeFileUrl === "string" ? Boolean(resumeText) : null,
-      ...(includeAI
+      ...(forRecruiter
         ? {
             fitScore: fitScore ?? null,
             aiSummary: aiSummary ?? null,
@@ -69,9 +77,52 @@ export class ApplicationService {
             aiGaps: aiGaps ?? [],
             aiScoredAt: aiScoredAt ?? null,
             aiScoringStatus: aiScoringStatus ?? "failed",
+            interviewDate: interviewDate ?? null,
+            recruiterNotes: recruiterNotes ?? null,
+            interviewScheduledAt: interviewScheduledAt ?? null,
           }
         : {}),
     };
+  }
+
+  /**
+   * Absent keys mean "leave unchanged"; an explicit null means "clear". That
+   * distinction is what lets a recruiter edit notes without touching a
+   * scheduled date, and clear a date without wiping their notes.
+   */
+  private interviewAttributes(
+    application: Application,
+    input: {
+      interviewDate?: string | null;
+      recruiterNotes?: string | null;
+    },
+  ) {
+    const attributes: {
+      interviewDate?: Date | null;
+      recruiterNotes?: string | null;
+      interviewScheduledAt?: Date | null;
+    } = {};
+
+    if (input.interviewDate !== undefined) {
+      attributes.interviewDate = input.interviewDate
+        ? new Date(input.interviewDate)
+        : null;
+
+      // Stamped the first time a date exists and never rewritten, so a
+      // reschedule or a clear still shows when scheduling first happened.
+      if (attributes.interviewDate && !application.interviewScheduledAt) {
+        attributes.interviewScheduledAt = new Date();
+      }
+    }
+
+    if (input.recruiterNotes !== undefined) {
+      // Whitespace-only text is "no notes", stored as null rather than "".
+      attributes.recruiterNotes = input.recruiterNotes?.trim()
+        ? input.recruiterNotes
+        : null;
+    }
+
+    return attributes;
   }
 
   private pendingScoringAttributes() {
@@ -294,6 +345,9 @@ export class ApplicationService {
         "aiGaps",
         "aiScoredAt",
         "aiScoringStatus",
+        "interviewDate",
+        "recruiterNotes",
+        "interviewScheduledAt",
         "submittedAt",
         "createdAt",
         "updatedAt",
@@ -462,11 +516,40 @@ export class ApplicationService {
   async updateStage(
     application: Application,
     stage: ApplicationStage,
+    interview: { interviewDate?: string | null } = {},
   ) {
-    await application.update({ stage });
+    // A date is never required to move stage — omitting it leaves
+    // interviewDate untouched so the transition itself cannot be blocked.
+    await application.update({
+      stage,
+      ...this.interviewAttributes(application, interview),
+    });
 
     // The ownership guard loads a minimal job association. Reload without it
     // so ownership-only job metadata does not alter the response contract.
+    const updated = await Application.findByPk(application.id);
+
+    if (!updated) {
+      throw createError("Application not found", 404);
+    }
+
+    return this.serialize(updated, true);
+  }
+
+  /**
+   * Stage-independent by design: notes and dates are recruiter working
+   * memory, useful on an APPLIED candidate and still editable after OFFER or
+   * REJECTED. Concurrent edits are last-write-wins.
+   */
+  async updateInterview(
+    application: Application,
+    input: {
+      interviewDate?: string | null;
+      recruiterNotes?: string | null;
+    },
+  ) {
+    await application.update(this.interviewAttributes(application, input));
+
     const updated = await Application.findByPk(application.id);
 
     if (!updated) {

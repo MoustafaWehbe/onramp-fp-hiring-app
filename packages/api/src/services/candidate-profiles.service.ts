@@ -76,6 +76,7 @@ export class CandidateProfileService {
       attributes: [
         "id",
         "jobId",
+        "stage",
         "resumeFileUrl",
         "resumeOriginalFilename",
         "resumeUploadedAt",
@@ -87,6 +88,9 @@ export class CandidateProfileService {
         "aiGaps",
         "aiScoredAt",
         "aiScoringStatus",
+        "interviewDate",
+        "recruiterNotes",
+        "interviewScheduledAt",
       ],
       where: {
         candidateProfileId: id,
@@ -116,6 +120,7 @@ export class CandidateProfileService {
           applicationId: application.id,
           jobId: application.jobId,
           jobTitle: job?.title ?? "Job application",
+          stage: application.stage,
           resumeOriginalFilename:
             application.resumeOriginalFilename ?? null,
           resumeUploadedAt: application.resumeUploadedAt ?? null,
@@ -133,6 +138,9 @@ export class CandidateProfileService {
           aiGaps: application.aiGaps ?? [],
           aiScoredAt: application.aiScoredAt ?? null,
           aiScoringStatus: application.aiScoringStatus,
+          interviewDate: application.interviewDate ?? null,
+          recruiterNotes: application.recruiterNotes ?? null,
+          interviewScheduledAt: application.interviewScheduledAt ?? null,
         };
       }),
       applicationResumes: companyApplications

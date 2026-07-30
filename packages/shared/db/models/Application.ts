@@ -43,6 +43,12 @@ export interface ApplicationAttributes {
   aiGaps?: string[] | null;
   aiScoredAt?: Date | null;
   aiScoringStatus: AIScoringStatus;
+  /** Optional — a candidate can sit in INTERVIEWING with no date agreed yet. */
+  interviewDate?: Date | null;
+  /** Free text, latest-wins. Editable at any stage, not just INTERVIEWING. */
+  recruiterNotes?: string | null;
+  /** Audit stamp of when interviewDate was first set; survives a later clear. */
+  interviewScheduledAt?: Date | null;
   /** Null while the application is a DRAFT; set when the candidate submits. */
   submittedAt?: Date;
   createdAt?: Date;
@@ -67,6 +73,9 @@ export type ApplicationCreationAttributes = Optional<
   | "aiGaps"
   | "aiScoredAt"
   | "aiScoringStatus"
+  | "interviewDate"
+  | "recruiterNotes"
+  | "interviewScheduledAt"
   | "submittedAt"
 >;
 
@@ -92,6 +101,9 @@ export class Application
   declare aiGaps: string[] | null | undefined;
   declare aiScoredAt: Date | null | undefined;
   declare aiScoringStatus: AIScoringStatus;
+  declare interviewDate: Date | null | undefined;
+  declare recruiterNotes: string | null | undefined;
+  declare interviewScheduledAt: Date | null | undefined;
   declare submittedAt: Date | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
@@ -194,6 +206,18 @@ export class Application
               msg: `aiScoringStatus must be one of: ${AI_SCORING_STATUSES.join(", ")}`,
             },
           },
+        },
+        interviewDate: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
+        recruiterNotes: {
+          type: DataTypes.TEXT,
+          allowNull: true,
+        },
+        interviewScheduledAt: {
+          type: DataTypes.DATE,
+          allowNull: true,
         },
         submittedAt: {
           type: DataTypes.DATE,

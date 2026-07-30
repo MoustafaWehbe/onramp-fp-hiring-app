@@ -1,6 +1,7 @@
 import { isAxiosError } from "axios";
 import {
   ArrowLeft,
+  CalendarCheck,
   FileText,
   Loader2,
   Mail,
@@ -18,6 +19,8 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
+import { InterviewDetailsForm } from "../../features/applications/components/InterviewDetailsForm";
+import { formatInterviewDate } from "../../features/applications/interview-date";
 import { useRecruiterCandidate } from "../../features/recruiter/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
@@ -132,6 +135,52 @@ export function RecruiterCandidateDetailsPage() {
               <p className="mt-2 whitespace-pre-line text-sm leading-7 text-muted-foreground">
                 {candidate.bio ?? "No biography provided."}
               </p>
+            </div>
+
+            <div className="border-t pt-6">
+              <h2 className="font-semibold">Interviews and notes</h2>
+              {(candidate.applicationInsights?.length ?? 0) > 0 ? (
+                <div className="mt-3 grid gap-4">
+                  {candidate.applicationInsights?.map((application) => (
+                    <div
+                      key={application.applicationId}
+                      className="rounded-md border bg-muted/20 p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium">
+                          {application.jobTitle}
+                        </p>
+                        {application.interviewDate && (
+                          <Badge variant="outline">
+                            <CalendarCheck
+                              className="mr-1 h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                            Interview{" "}
+                            {formatInterviewDate(application.interviewDate)}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-4">
+                        <InterviewDetailsForm
+                          applicationId={application.applicationId}
+                          jobId={application.jobId}
+                          candidateProfileId={candidate.id}
+                          interviewDate={application.interviewDate}
+                          recruiterNotes={application.recruiterNotes}
+                          interviewScheduledAt={
+                            application.interviewScheduledAt
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No company-scoped applications are available to annotate.
+                </p>
+              )}
             </div>
 
             <div className="border-t pt-6">
