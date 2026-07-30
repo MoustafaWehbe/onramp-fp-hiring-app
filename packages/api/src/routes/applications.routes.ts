@@ -116,6 +116,13 @@ router.patch(
   applicationController.updateStage,
 );
 router.post(
+  "/:id/rescore",
+  ...requireRecruiter,
+  validate(applicationIdParamSchema, "params"),
+  ownApplicationGuard,
+  applicationController.rescore,
+);
+router.post(
   "/:id/assign-interviewer",
   ...requireRecruiter,
   validate(assignInterviewerSchema),

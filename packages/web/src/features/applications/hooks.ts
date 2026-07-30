@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   ApplicationSubmission,
   ReplaceApplicationResumeInput,
+  RescoreApplicationInput,
   UpdateApplicationStageInput,
 } from "../../types/applications";
 import * as api from "./api";
@@ -53,7 +54,21 @@ export function useApplicationsByJob(jobId: string | undefined) {
     retry: false,
     staleTime: 0,
     refetchOnWindowFocus: "always",
-    refetchInterval: jobId ? 30_000 : false,
+    refetchInterval: jobId ? 10_000 : false,
+  });
+}
+
+export function useRescoreApplication() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: RescoreApplicationInput) =>
+      api.rescoreApplication(input),
+    onSuccess: (_application, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: applicationKeys.byJob(input.jobId),
+      });
+    },
   });
 }
 

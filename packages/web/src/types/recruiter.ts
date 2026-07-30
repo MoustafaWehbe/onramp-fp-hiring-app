@@ -1,4 +1,5 @@
 import type {
+  AIScoringStatus,
   RecruiterApplicationStage,
 } from "./applications";
 
@@ -26,6 +27,22 @@ export interface RecruiterCandidateRecord {
     parsedYearsExperience: number | null;
     parsedSkills: string[];
     resumeDownloadUrl: string;
+  }>;
+  applicationInsights?: Array<{
+    applicationId: string;
+    jobId: string;
+    jobTitle: string;
+    resumeOriginalFilename: string | null;
+    resumeUploadedAt: string | null;
+    parsedYearsExperience: number | null;
+    parsedSkills: string[];
+    resumeDownloadUrl: string | null;
+    fitScore: number | null;
+    aiSummary: string | null;
+    aiStrengths: string[];
+    aiGaps: string[];
+    aiScoredAt: string | null;
+    aiScoringStatus: AIScoringStatus;
   }>;
 }
 

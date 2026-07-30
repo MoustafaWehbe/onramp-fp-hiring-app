@@ -1,1 +1,5 @@
-export { emailQueue, embeddingsQueue } from "@starter-kit/shared/queue";
+export {
+  applicationFitScoreQueue,
+  emailQueue,
+  embeddingsQueue,
+} from "@starter-kit/shared/queue";

@@ -40,6 +40,28 @@ describe("RecruiterCandidateDetailsPage", () => {
             resumeDownloadUrl: "/api/applications/application-1/resume",
           },
         ],
+        applicationInsights: [
+          {
+            applicationId: "application-1",
+            jobId: "job-1",
+            jobTitle: "Senior Platform Engineer",
+            resumeOriginalFilename: "amara-platform.pdf",
+            resumeUploadedAt: "2026-07-27T10:00:00.000Z",
+            parsedYearsExperience: 7,
+            parsedSkills: ["TypeScript", "Docker"],
+            resumeDownloadUrl: "/api/applications/application-1/resume",
+            fitScore: 91,
+            aiSummary:
+              "Amara's platform background strongly aligns with the role's reliability requirements.",
+            aiStrengths: [
+              "Strong TypeScript delivery",
+              "Production Docker experience",
+            ],
+            aiGaps: ["Limited evidence of Kubernetes ownership"],
+            aiScoredAt: "2026-07-27T10:02:00.000Z",
+            aiScoringStatus: "completed",
+          },
+        ],
       },
       error: null,
       isLoading: false,
@@ -64,7 +86,9 @@ describe("RecruiterCandidateDetailsPage", () => {
     expect(useRecruiterCandidate).toHaveBeenCalledWith(
       "candidate-profile-amara",
     );
-    expect(screen.getByText("Senior Platform Engineer")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Senior Platform Engineer"),
+    ).toHaveLength(2);
     expect(screen.getByText(/amara-platform.pdf/)).toBeInTheDocument();
     expect(
       screen.getByText("Parsed skills: TypeScript, Docker"),
@@ -75,5 +99,15 @@ describe("RecruiterCandidateDetailsPage", () => {
       "href",
       "/api/applications/application-1/resume",
     );
+    expect(screen.getByText("91% fit")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Amara's platform background strongly aligns with the role's reliability requirements.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Strong TypeScript delivery")).toBeInTheDocument();
+    expect(
+      screen.getByText("Limited evidence of Kubernetes ownership"),
+    ).toBeInTheDocument();
   });
 });

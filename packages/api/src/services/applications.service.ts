@@ -14,6 +14,7 @@ import {
   resumeContentType,
   type StoredApplicationResume,
 } from "./application-resume.service";
+import { scheduleApplicationFitScore } from "./application-scoring-queue.service";
 
 interface ResumeRequester {
   userId: string;
@@ -38,9 +39,15 @@ export class ApplicationService {
     };
   }
 
-  private serialize(application: Application) {
+  private serialize(application: Application, includeAI = false) {
     const plain = application.toJSON() as unknown as Record<string, unknown>;
     const {
+      aiGaps,
+      aiScoredAt,
+      aiScoringStatus,
+      aiStrengths,
+      aiSummary,
+      fitScore,
       resumeFileUrl,
       resumeText,
       ...safeApplication
@@ -54,6 +61,27 @@ export class ApplicationService {
           : null,
       resumeParseSucceeded:
         typeof resumeFileUrl === "string" ? Boolean(resumeText) : null,
+      ...(includeAI
+        ? {
+            fitScore: fitScore ?? null,
+            aiSummary: aiSummary ?? null,
+            aiStrengths: aiStrengths ?? [],
+            aiGaps: aiGaps ?? [],
+            aiScoredAt: aiScoredAt ?? null,
+            aiScoringStatus: aiScoringStatus ?? "failed",
+          }
+        : {}),
+    };
+  }
+
+  private pendingScoringAttributes() {
+    return {
+      fitScore: null,
+      aiSummary: null,
+      aiStrengths: null,
+      aiGaps: null,
+      aiScoredAt: null,
+      aiScoringStatus: "pending" as const,
     };
   }
 
@@ -107,6 +135,7 @@ export class ApplicationService {
             coverLetter: input.coverLetter ?? existing.coverLetter,
             submittedAt: new Date(),
             resumeUrl: existing.resumeUrl ?? profile.resumeUrl,
+            ...this.pendingScoringAttributes(),
             ...(storedResume ? this.resumeAttributes(storedResume) : {}),
           },
           {
@@ -140,6 +169,8 @@ export class ApplicationService {
         await applicationResumeService.delete(previousStorageKey);
       }
 
+      scheduleApplicationFitScore(existing);
+
       return {
         application: this.serialize(existing),
         created: false,
@@ -163,8 +194,11 @@ export class ApplicationService {
         stage: "APPLIED",
         submittedAt: new Date(),
         resumeUrl: profile.resumeUrl,
+        ...this.pendingScoringAttributes(),
         ...(storedResume ? this.resumeAttributes(storedResume) : {}),
       });
+
+      scheduleApplicationFitScore(application);
 
       return {
         application: this.serialize(application),
@@ -254,6 +288,12 @@ export class ApplicationService {
         "parsedYearsExperience",
         "parsedSkills",
         "resumeUploadedAt",
+        "fitScore",
+        "aiSummary",
+        "aiStrengths",
+        "aiGaps",
+        "aiScoredAt",
+        "aiScoringStatus",
         "submittedAt",
         "createdAt",
         "updatedAt",
@@ -281,7 +321,22 @@ export class ApplicationService {
       ],
     });
 
-    return applications.map((application) => this.serialize(application));
+    return applications.sort((left, right) => {
+      const leftScore = left.fitScore ?? -1;
+      const rightScore = right.fitScore ?? -1;
+
+      if (leftScore !== rightScore) {
+        return rightScore - leftScore;
+      }
+
+      const leftSubmittedAt = left.submittedAt
+        ? left.submittedAt.getTime()
+        : 0;
+      const rightSubmittedAt = right.submittedAt
+        ? right.submittedAt.getTime()
+        : 0;
+      return rightSubmittedAt - leftSubmittedAt;
+    }).map((application) => this.serialize(application, true));
   }
 
   async replaceResume(
@@ -315,7 +370,10 @@ export class ApplicationService {
     const previousStorageKey = application.resumeFileUrl;
 
     try {
-      await application.update(this.resumeAttributes(storedResume));
+      await application.update({
+        ...this.resumeAttributes(storedResume),
+        ...this.pendingScoringAttributes(),
+      });
     } catch (error) {
       await applicationResumeService.delete(storedResume.storageKey);
       throw error;
@@ -328,7 +386,27 @@ export class ApplicationService {
       await applicationResumeService.delete(previousStorageKey);
     }
 
+    if (application.stage !== "DRAFT") {
+      scheduleApplicationFitScore(application);
+    }
+
     return this.serialize(application);
+  }
+
+  async rescore(application: Application) {
+    if (application.aiScoringStatus === "pending") {
+      throw createError("Application scoring is already pending", 409);
+    }
+
+    await application.update(this.pendingScoringAttributes());
+    scheduleApplicationFitScore(application);
+    const pending = await Application.findByPk(application.id);
+
+    if (!pending) {
+      throw createError("Application not found", 404);
+    }
+
+    return this.serialize(pending, true);
   }
 
   async getResume(applicationId: string, requester: ResumeRequester) {
@@ -395,7 +473,7 @@ export class ApplicationService {
       throw createError("Application not found", 404);
     }
 
-    return this.serialize(updated);
+    return this.serialize(updated, true);
   }
 
   async assignInterviewer(

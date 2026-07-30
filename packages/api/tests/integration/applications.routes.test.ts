@@ -11,12 +11,20 @@ import {
   getSequelize,
 } from "@starter-kit/shared/db";
 import type { ApplicationStage } from "@starter-kit/shared/db";
+import {
+  applicationFitScoreQueue,
+  getRedisConnection,
+  type ApplicationFitScoreJobData,
+  type ApplicationFitScoreJobResult,
+} from "@starter-kit/shared/queue";
+import type { Job as QueueJob } from "bullmq";
 import { app } from "../../app";
 import { initializeDatabase } from "../../src/lib/db";
 import {
   applicationResumeService,
   extractResumeText,
 } from "../../src/services/application-resume.service";
+import { processApplicationFitScoreJobWithScorer } from "../../../workers/src/jobs/application-fit-score.job";
 
 function cookie(token: string): string[] {
   return [`accessToken=${token}`];
@@ -128,6 +136,16 @@ async function createApplication(input: {
   coverLetter?: string;
   resumeUrl?: string;
   submittedAt?: Date;
+  resumeText?: string | null;
+  parsedSkills?: string[] | null;
+  parsedYearsExperience?: number | null;
+  resumeUploadedAt?: Date | null;
+  fitScore?: number | null;
+  aiSummary?: string | null;
+  aiStrengths?: string[] | null;
+  aiGaps?: string[] | null;
+  aiScoredAt?: Date | null;
+  aiScoringStatus?: "pending" | "completed" | "failed";
 }): Promise<Application> {
   return Application.create(input);
 }
@@ -139,6 +157,24 @@ async function createTextPdf(text: string): Promise<Buffer> {
   page.drawText(text, { x: 72, y: 720, size: 9, font });
 
   return Buffer.from(await document.save());
+}
+
+function fitScoreQueueJob(
+  application: Application,
+  attemptsMade = 0,
+  resumeUploadedAt = application.resumeUploadedAt?.toISOString() ?? null,
+): QueueJob<ApplicationFitScoreJobData, ApplicationFitScoreJobResult> {
+  return {
+    data: {
+      applicationId: application.id,
+      resumeUploadedAt,
+    },
+    opts: { attempts: 3 },
+    attemptsMade,
+  } as unknown as QueueJob<
+    ApplicationFitScoreJobData,
+    ApplicationFitScoreJobResult
+  >;
 }
 
 beforeAll(async () => {
@@ -379,6 +415,9 @@ afterAll(async () => {
       await Company.destroy({ where: { id: createdCompanyIds } });
     }
   } finally {
+    await applicationFitScoreQueue.obliterate({ force: true });
+    await applicationFitScoreQueue.close();
+    await getRedisConnection().quit();
     await getSequelize().close();
   }
 });
@@ -525,8 +564,13 @@ describe("POST /api/applications", () => {
       candidateProfileId: candidateProfileA.id,
       stage: "APPLIED",
       resumeUrl: candidateProfileA.resumeUrl,
+      aiScoringStatus: "pending",
+      fitScore: null,
     });
     expect(persisted!.submittedAt!.getTime()).toBe(submittedAt);
+    expect(res.body.data).not.toHaveProperty("fitScore");
+    expect(res.body.data).not.toHaveProperty("aiSummary");
+    expect(res.body.data).not.toHaveProperty("aiScoringStatus");
   });
 
   it("submits an existing DRAFT in place and returns 200", async () => {
@@ -558,6 +602,7 @@ describe("POST /api/applications", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].id).toBe(transitionDraftApplication.id);
     expect(rows[0].stage).toBe("APPLIED");
+    expect(rows[0].aiScoringStatus).toBe("pending");
   });
 
   it("returns 409 when the candidate already submitted for the job", async () => {
@@ -773,6 +818,14 @@ describe("application CV upload, parsing, replacement, and access", () => {
         resumeDownloadUrl: `/api/applications/${persisted!.id}/resume`,
       }),
     );
+    expect(candidateDetail.body.data.applicationInsights).toContainEqual(
+      expect.objectContaining({
+        applicationId: persisted!.id,
+        jobId: resumeUploadJob.id,
+        aiScoringStatus: "pending",
+        fitScore: null,
+      }),
+    );
   });
 
   it("replaces a CV, clears stale parsing, and keeps an unreadable file downloadable", async () => {
@@ -783,6 +836,14 @@ describe("application CV upload, parsing, replacement, and access", () => {
       },
     });
     expect(application?.resumeFileUrl).toBeTruthy();
+    await application!.update({
+      fitScore: 84,
+      aiSummary: "This score must be invalidated by the replacement CV.",
+      aiStrengths: ["Previous resume strength"],
+      aiGaps: ["Previous resume gap"],
+      aiScoredAt: new Date(),
+      aiScoringStatus: "completed",
+    });
     const previousStorageKey = application!.resumeFileUrl as string;
     const corruptedPdf = Buffer.from("%PDF-1.4\nthis is not a readable PDF");
 
@@ -808,6 +869,12 @@ describe("application CV upload, parsing, replacement, and access", () => {
     expect(application!.parsedYearsExperience).toBeNull();
     expect(application!.parsedSkills).toEqual([]);
     expect(application!.resumeFileUrl).not.toBe(previousStorageKey);
+    expect(application!.fitScore).toBeNull();
+    expect(application!.aiSummary).toBeNull();
+    expect(application!.aiStrengths).toBeNull();
+    expect(application!.aiGaps).toBeNull();
+    expect(application!.aiScoredAt).toBeNull();
+    expect(application!.aiScoringStatus).toBe("pending");
     await expect(
       applicationResumeService.read(previousStorageKey),
     ).rejects.toMatchObject({ code: "ENOENT" });
@@ -917,6 +984,12 @@ describe("recruiter application pipeline", () => {
       candidateProfileId: candidateProfileA.id,
       stage: "APPLIED",
       coverLetter: "Ready for recruiter review",
+      fitScore: null,
+      aiSummary: null,
+      aiStrengths: [],
+      aiGaps: [],
+      aiScoredAt: null,
+      aiScoringStatus: "pending",
       candidateProfile: {
         id: candidateProfileA.id,
         user: {
@@ -926,6 +999,108 @@ describe("recruiter application pipeline", () => {
         },
       },
     });
+  });
+
+  it("sorts completed scores highest-first and blocks another company", async () => {
+    const job = await createTrackedJob({
+      title: `Score Sorting ${randomUUID()}`,
+    });
+    const lowerScore = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: "APPLIED",
+      submittedAt: new Date("2026-07-01T10:00:00.000Z"),
+      fitScore: 58,
+      aiSummary: "Relevant experience with several role-specific gaps.",
+      aiStrengths: ["Relevant product delivery"],
+      aiGaps: ["Less experience than requested"],
+      aiScoredAt: new Date("2026-07-01T10:01:00.000Z"),
+      aiScoringStatus: "completed",
+    });
+    const higherScore = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileB.id,
+      stage: "APPLIED",
+      submittedAt: new Date("2026-07-01T10:02:00.000Z"),
+      fitScore: 92,
+      aiSummary: "Strong evidence across the role's core requirements.",
+      aiStrengths: ["Direct role experience"],
+      aiGaps: [],
+      aiScoredAt: new Date("2026-07-01T10:03:00.000Z"),
+      aiScoringStatus: "completed",
+    });
+
+    const pipeline = await request(app)
+      .get(`/api/applications/job/${job.id}`)
+      .set("Cookie", cookie(recruiterToken));
+
+    expect(pipeline.status).toBe(200);
+    expect(
+      pipeline.body.data.map((application: { id: string }) => application.id),
+    ).toEqual([higherScore.id, lowerScore.id]);
+    expect(pipeline.body.data[0]).toMatchObject({
+      fitScore: 92,
+      aiScoringStatus: "completed",
+      aiStrengths: ["Direct role experience"],
+    });
+
+    const crossCompany = await request(app)
+      .get(`/api/applications/job/${job.id}`)
+      .set("Cookie", cookie(otherCompanyRecruiterToken));
+    expect(crossCompany.status).toBe(404);
+  });
+
+  it("allows only the owning recruiter to rescore and resets stale values", async () => {
+    await pipelineSubmittedApplication.update({
+      fitScore: 44,
+      aiSummary: "A stale result that must be cleared.",
+      aiStrengths: ["Stale strength"],
+      aiGaps: ["Stale gap"],
+      aiScoredAt: new Date(),
+      aiScoringStatus: "failed",
+    });
+
+    const crossCompany = await request(app)
+      .post(
+        `/api/applications/${pipelineSubmittedApplication.id}/rescore`,
+      )
+      .set("Cookie", cookie(otherCompanyRecruiterToken));
+    expect(crossCompany.status).toBe(404);
+
+    const candidate = await request(app)
+      .post(
+        `/api/applications/${pipelineSubmittedApplication.id}/rescore`,
+      )
+      .set("Cookie", cookie(candidateBToken));
+    expect(candidate.status).toBe(403);
+
+    const rescore = await request(app)
+      .post(
+        `/api/applications/${pipelineSubmittedApplication.id}/rescore`,
+      )
+      .set("Cookie", cookie(recruiterToken));
+    expect(rescore.status).toBe(202);
+    expect(rescore.body.data).toMatchObject({
+      id: pipelineSubmittedApplication.id,
+      fitScore: null,
+      aiSummary: null,
+      aiStrengths: [],
+      aiGaps: [],
+      aiScoredAt: null,
+      aiScoringStatus: "pending",
+    });
+
+    await pipelineSubmittedApplication.reload();
+    expect(pipelineSubmittedApplication.fitScore).toBeNull();
+    expect(pipelineSubmittedApplication.aiSummary).toBeNull();
+    expect(pipelineSubmittedApplication.aiScoringStatus).toBe("pending");
+
+    const duplicate = await request(app)
+      .post(
+        `/api/applications/${pipelineSubmittedApplication.id}/rescore`,
+      )
+      .set("Cookie", cookie(recruiterToken));
+    expect(duplicate.status).toBe(409);
   });
 
   it("excludes DRAFT applications from the job pipeline", async () => {
@@ -977,5 +1152,117 @@ describe("recruiter application pipeline", () => {
 
     await draftOnlyProfileApplication.reload();
     expect(draftOnlyProfileApplication.stage).toBe("DRAFT");
+  });
+});
+
+describe("application fit-score worker", () => {
+  it("persists a strictly shaped completed score", async () => {
+    const job = await createTrackedJob({
+      title: `Worker Completion ${randomUUID()}`,
+    });
+    const uploadedAt = new Date("2026-07-28T10:00:00.000Z");
+    const application = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: "APPLIED",
+      submittedAt: new Date(),
+      resumeText:
+        "Senior product engineer with 7 years using TypeScript and React.",
+      parsedSkills: ["TypeScript", "React"],
+      parsedYearsExperience: 7,
+      resumeUploadedAt: uploadedAt,
+      aiScoringStatus: "pending",
+    });
+
+    const result = await processApplicationFitScoreJobWithScorer(
+      fitScoreQueueJob(application),
+      async () => ({
+        fit_score: 89,
+        summary:
+          "The candidate's experience aligns strongly with the role. Their resume provides direct evidence for the core requirements.",
+        strengths: ["Relevant seniority", "Direct TypeScript evidence"],
+        gaps: ["No explicit domain experience"],
+      }),
+    );
+
+    expect(result).toEqual({ status: "completed", fitScore: 89 });
+    await application.reload();
+    expect(application).toMatchObject({
+      fitScore: 89,
+      aiScoringStatus: "completed",
+      aiStrengths: ["Relevant seniority", "Direct TypeScript evidence"],
+      aiGaps: ["No explicit domain experience"],
+    });
+    expect(application.aiScoredAt).toBeInstanceOf(Date);
+  });
+
+  it("marks a final LLM failure without persisting partial score data", async () => {
+    const job = await createTrackedJob({
+      title: `Worker Failure ${randomUUID()}`,
+    });
+    const application = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: "APPLIED",
+      submittedAt: new Date(),
+      resumeText: "Candidate resume evidence.",
+      aiScoringStatus: "pending",
+    });
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    await expect(
+      processApplicationFitScoreJobWithScorer(
+        fitScoreQueueJob(application, 2),
+        async () => {
+          throw new Error("Simulated LLM timeout");
+        },
+      ),
+    ).rejects.toThrow("Simulated LLM timeout");
+
+    await application.reload();
+    expect(application).toMatchObject({
+      fitScore: null,
+      aiSummary: null,
+      aiStrengths: null,
+      aiGaps: null,
+      aiScoredAt: null,
+      aiScoringStatus: "failed",
+    });
+    consoleError.mockRestore();
+  });
+
+  it("does not let a stale pre-replacement job overwrite the current CV", async () => {
+    const job = await createTrackedJob({
+      title: `Worker Stale CV ${randomUUID()}`,
+    });
+    const currentUpload = new Date("2026-07-28T12:00:00.000Z");
+    const application = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: "APPLIED",
+      submittedAt: new Date(),
+      resumeText: "Current replacement CV.",
+      resumeUploadedAt: currentUpload,
+      aiScoringStatus: "pending",
+    });
+    const score = jest.fn();
+
+    await expect(
+      processApplicationFitScoreJobWithScorer(
+        fitScoreQueueJob(
+          application,
+          0,
+          "2026-07-27T12:00:00.000Z",
+        ),
+        score,
+      ),
+    ).resolves.toEqual({ status: "stale" });
+    expect(score).not.toHaveBeenCalled();
+
+    await application.reload();
+    expect(application.aiScoringStatus).toBe("pending");
+    expect(application.fitScore).toBeNull();
   });
 });

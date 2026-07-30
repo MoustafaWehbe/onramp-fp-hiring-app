@@ -11,3 +11,4 @@ process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
 process.env.DATABASE_URL =
   "postgresql://postgres:postgres@localhost:5432/starter_kit_test";
 process.env.REDIS_URL = "redis://localhost:6379";
+process.env.BULLMQ_PREFIX = "starter-kit-test";

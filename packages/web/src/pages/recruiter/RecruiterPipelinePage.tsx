@@ -1,10 +1,14 @@
 import {
   CalendarDays,
   FileText,
+  Loader2,
   Mail,
   MapPin,
+  RefreshCw,
+  Sparkles,
   UserRound,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "../../components/ui/badge";
@@ -15,9 +19,12 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { Skeleton } from "../../components/ui/skeleton";
 import {
   useApplicationsByJob,
+  useRescoreApplication,
   useUpdateApplicationStage,
 } from "../../features/applications/hooks";
 import { useRecruiterJobs } from "../../features/jobs/hooks";
@@ -229,18 +236,48 @@ function PipelineSummary({
 function CandidateCard({
   application,
   onMoveToInterviewing,
+  onRescore,
   isMoving,
+  isRescoring,
   mutationPending,
 }: {
   application: RecruiterPipelineApplication;
   onMoveToInterviewing: (application: RecruiterPipelineApplication) => void;
+  onRescore: (application: RecruiterPipelineApplication) => void;
   isMoving: boolean;
+  isRescoring: boolean;
   mutationPending: boolean;
 }) {
   const { candidateProfile } = application;
   const { user } = candidateProfile;
   const canMoveToInterviewing =
     application.stage === "APPLIED" || application.stage === "REVIEWED";
+  const scoreBadge =
+    application.aiScoringStatus === "completed" &&
+    application.fitScore !== null ? (
+      <Badge
+        variant={
+          application.fitScore >= 75
+            ? "success"
+            : application.fitScore >= 50
+              ? "secondary"
+              : "muted"
+        }
+      >
+        <Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+        {application.fitScore}% fit
+      </Badge>
+    ) : application.aiScoringStatus === "pending" ? (
+      <Badge variant="outline">
+        <Loader2
+          className="mr-1 h-3.5 w-3.5 animate-spin"
+          aria-hidden="true"
+        />
+        Scoring
+      </Badge>
+    ) : (
+      <Badge variant="muted">Not yet scored</Badge>
+    );
 
   return (
     <Card>
@@ -260,9 +297,12 @@ function CandidateCard({
             </a>
           </div>
         </div>
-        <Badge variant={stageBadgeVariant(application.stage)}>
-          {stageLabels[application.stage]}
-        </Badge>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {scoreBadge}
+          <Badge variant={stageBadgeVariant(application.stage)}>
+            {stageLabels[application.stage]}
+          </Badge>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
@@ -325,6 +365,23 @@ function CandidateCard({
               {isMoving ? "Moving…" : "Move to interviewing"}
             </Button>
           )}
+          {application.aiScoringStatus === "failed" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onRescore(application)}
+              disabled={mutationPending}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${
+                  isRescoring ? "animate-spin" : ""
+                }`}
+                aria-hidden="true"
+              />
+              {isRescoring ? "Queuing…" : "Rescore"}
+            </Button>
+          )}
         </div>
         {application.resumeOriginalFilename && (
           <div className="text-xs text-muted-foreground">
@@ -358,9 +415,28 @@ function CandidateCard({
 
 export function RecruiterPipelinePage() {
   const { jobId } = useParams<{ jobId: string }>();
+  const [minimumFitScore, setMinimumFitScore] = useState(0);
   const applicationsQuery = useApplicationsByJob(jobId);
   const updateStage = useUpdateApplicationStage();
+  const rescoreApplication = useRescoreApplication();
   const applications = applicationsQuery.data ?? [];
+  const visibleApplications = useMemo(
+    () =>
+      [...applications]
+        .sort((left, right) => {
+          const leftScore = left.fitScore ?? -1;
+          const rightScore = right.fitScore ?? -1;
+          return rightScore - leftScore;
+        })
+        .filter(
+          (application) =>
+            minimumFitScore === 0 ||
+            (application.aiScoringStatus === "completed" &&
+              application.fitScore !== null &&
+              application.fitScore >= minimumFitScore),
+        ),
+    [applications, minimumFitScore],
+  );
 
   function moveToInterviewing(application: RecruiterPipelineApplication) {
     if (!jobId) {
@@ -384,6 +460,34 @@ export function RecruiterPipelinePage() {
             getApiErrorMessage(
               error,
               "Couldn't update the application stage.",
+            ),
+          );
+        },
+      },
+    );
+  }
+
+  function rescore(application: RecruiterPipelineApplication) {
+    if (!jobId) {
+      return;
+    }
+
+    rescoreApplication.mutate(
+      {
+        applicationId: application.id,
+        jobId,
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            `${application.candidateProfile.user.name}'s fit score was queued.`,
+          );
+        },
+        onError: (error) => {
+          toast.error(
+            getApiErrorMessage(
+              error,
+              "Couldn't queue this application for scoring.",
             ),
           );
         },
@@ -449,20 +553,74 @@ export function RecruiterPipelinePage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4">
-                {applications.map((application) => (
-                  <CandidateCard
-                    key={application.id}
-                    application={application}
-                    onMoveToInterviewing={moveToInterviewing}
-                    mutationPending={updateStage.isPending}
-                    isMoving={
-                      updateStage.isPending &&
-                      updateStage.variables?.applicationId === application.id
-                    }
-                  />
-                ))}
-              </div>
+              <>
+                <Card>
+                  <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="w-full max-w-xs space-y-2">
+                      <Label htmlFor="minimum-fit-score">
+                        Minimum fit score
+                      </Label>
+                      <Input
+                        id="minimum-fit-score"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={minimumFitScore}
+                        onChange={(event) => {
+                          const nextValue = Number(event.target.value);
+                          setMinimumFitScore(
+                            Number.isFinite(nextValue)
+                              ? Math.min(100, Math.max(0, nextValue))
+                              : 0,
+                          );
+                        }}
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Showing {visibleApplications.length} of{" "}
+                      {applications.length} candidates, highest fit first.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {visibleApplications.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-6">
+                      <h2 className="font-semibold">
+                        No candidates meet this threshold
+                      </h2>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Lower the minimum fit score to include more candidates.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="grid gap-4">
+                    {visibleApplications.map((application) => (
+                      <CandidateCard
+                        key={application.id}
+                        application={application}
+                        onMoveToInterviewing={moveToInterviewing}
+                        onRescore={rescore}
+                        mutationPending={
+                          updateStage.isPending ||
+                          rescoreApplication.isPending
+                        }
+                        isMoving={
+                          updateStage.isPending &&
+                          updateStage.variables?.applicationId ===
+                            application.id
+                        }
+                        isRescoring={
+                          rescoreApplication.isPending &&
+                          rescoreApplication.variables?.applicationId ===
+                            application.id
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

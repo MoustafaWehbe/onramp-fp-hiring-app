@@ -4,6 +4,7 @@ import {
   getApplicationsByJob,
   getMyApplications,
   replaceApplicationResume,
+  rescoreApplication,
   updateApplicationStage,
 } from "@/features/applications/api";
 import type {
@@ -68,6 +69,13 @@ const submittedApplication: SubmittedApplication = {
 const recruiterApplication: RecruiterPipelineApplication = {
   ...submittedApplication,
   stage: "APPLIED",
+  fitScore: 87,
+  aiSummary:
+    "The candidate's product engineering background aligns well with the role.",
+  aiStrengths: ["Strong TypeScript experience", "Product delivery ownership"],
+  aiGaps: ["No direct hiring-platform experience"],
+  aiScoredAt: "2026-07-27T10:01:00.000Z",
+  aiScoringStatus: "completed",
   candidateProfile: {
     id: "candidate-profile-1",
     userId: "candidate-1",
@@ -198,6 +206,31 @@ describe("candidate applications API", () => {
     expect(apiPatch).toHaveBeenCalledWith(
       "/applications/application-1/stage",
       { stage: "INTERVIEWING" },
+    );
+  });
+
+  it("queues a recruiter-authorized application rescore", async () => {
+    const pendingApplication: RecruiterPipelineApplication = {
+      ...recruiterApplication,
+      fitScore: null,
+      aiSummary: null,
+      aiStrengths: [],
+      aiGaps: [],
+      aiScoredAt: null,
+      aiScoringStatus: "pending",
+    };
+    apiPost.mockResolvedValue({
+      data: { data: pendingApplication },
+    });
+
+    await expect(
+      rescoreApplication({
+        applicationId: "application-1",
+        jobId: "job-1",
+      }),
+    ).resolves.toEqual(pendingApplication);
+    expect(apiPost).toHaveBeenCalledWith(
+      "/applications/application-1/rescore",
     );
   });
 });

@@ -77,6 +77,8 @@ export type RecruiterMutableApplicationStage = Exclude<
   "APPLIED"
 >;
 
+export type AIScoringStatus = "pending" | "completed" | "failed";
+
 /**
  * Application shape returned by GET /applications/job/:jobId. The recruiter
  * endpoint includes the candidate profile and only the safe identity fields
@@ -95,6 +97,12 @@ export interface RecruiterPipelineApplication {
   parsedSkills?: string[] | null;
   resumeDownloadUrl?: string | null;
   resumeParseSucceeded?: boolean | null;
+  fitScore: number | null;
+  aiSummary: string | null;
+  aiStrengths: string[];
+  aiGaps: string[];
+  aiScoredAt: string | null;
+  aiScoringStatus: AIScoringStatus;
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -120,4 +128,9 @@ export interface UpdateApplicationStageInput {
   applicationId: string;
   jobId: string;
   stage: RecruiterMutableApplicationStage;
+}
+
+export interface RescoreApplicationInput {
+  applicationId: string;
+  jobId: string;
 }

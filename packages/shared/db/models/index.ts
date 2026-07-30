@@ -38,7 +38,12 @@ export {
   type EmploymentType,
   type JobStatus,
 } from "./Job";
-export { APPLICATION_STAGES, type ApplicationStage } from "./Application";
+export {
+  AI_SCORING_STATUSES,
+  APPLICATION_STAGES,
+  type AIScoringStatus,
+  type ApplicationStage,
+} from "./Application";
 
 export function initModels(sequelize: Sequelize): void {
   User.initModel(sequelize);

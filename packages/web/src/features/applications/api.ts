@@ -3,6 +3,7 @@ import type {
   ApplicationSubmission,
   CandidateApplication,
   ReplaceApplicationResumeInput,
+  RescoreApplicationInput,
   RecruiterPipelineApplication,
   SubmittedApplication,
   UpdateApplicationStageInput,
@@ -94,5 +95,14 @@ export async function updateApplicationStage({
     `/applications/${applicationId}/stage`,
     { stage },
   );
+  return data.data;
+}
+
+export async function rescoreApplication({
+  applicationId,
+}: RescoreApplicationInput): Promise<RecruiterPipelineApplication> {
+  const { data } = await apiClient.post<
+    Envelope<RecruiterPipelineApplication>
+  >(`/applications/${applicationId}/rescore`);
   return data.data;
 }

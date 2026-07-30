@@ -2,10 +2,13 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 import { createWorkers } from "./src/queues";
+import { closeDatabase, initializeDatabase } from "./src/lib/db";
+import { getRedisConnection } from "@starter-kit/shared";
 
 async function main(): Promise<void> {
   console.info("Starting workers...");
 
+  await initializeDatabase();
   const workers = createWorkers();
 
   console.info(
@@ -16,6 +19,8 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string): Promise<void> => {
     console.info(`\nReceived ${signal}, shutting down workers...`);
     await Promise.all(workers.map((w) => w.close()));
+    await getRedisConnection().quit();
+    await closeDatabase();
     process.exit(0);
   };
 
