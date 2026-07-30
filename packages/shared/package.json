@@ -40,6 +40,16 @@
       "require": "./dist/queue/*.js",
       "default": "./dist/queue/*.js"
     },
+    "./realtime": {
+      "types": "./dist/realtime/index.d.ts",
+      "require": "./dist/realtime/index.js",
+      "default": "./dist/realtime/index.js"
+    },
+    "./realtime/*": {
+      "types": "./dist/realtime/*.d.ts",
+      "require": "./dist/realtime/*.js",
+      "default": "./dist/realtime/*.js"
+    },
     "./ai": {
       "types": "./dist/ai/index.d.ts",
       "require": "./dist/ai/index.js",
@@ -55,7 +65,7 @@
     "build": "tsc --project tsconfig.build.json",
     "dev": "tsc --project tsconfig.build.json --watch",
     "clean": "rm -rf dist",
-    "lint": "eslint \"src/**/*.ts\" \"auth/**/*.ts\" \"db/**/*.ts\" \"queue/**/*.ts\" \"ai/**/*.ts\""
+    "lint": "eslint \"src/**/*.ts\" \"auth/**/*.ts\" \"db/**/*.ts\" \"queue/**/*.ts\" \"realtime/**/*.ts\" \"ai/**/*.ts\""
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

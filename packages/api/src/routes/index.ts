@@ -8,6 +8,7 @@ import { candidateProfileRouter } from "./candidate-profiles.routes";
 import { applicationRouter } from "./applications.routes";
 import { candidateRouter } from "./candidate.routes";
 import { interviewerRouter } from "./interviewer.routes";
+import { notificationRouter } from "./notifications.routes";
 import { recruiterRouter } from "./recruiter.routes";
 
 const router = Router();
@@ -20,6 +21,7 @@ router.use("/candidate-profiles", candidateProfileRouter);
 router.use("/applications", applicationRouter);
 router.use("/candidate", candidateRouter);
 router.use("/interviewer", interviewerRouter);
+router.use("/notifications", notificationRouter);
 router.use("/recruiter", recruiterRouter);
 
 export default router;

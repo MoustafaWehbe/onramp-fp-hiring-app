@@ -55,8 +55,11 @@ export function useApplicationsByJob(jobId: string | undefined) {
     enabled: Boolean(jobId),
     retry: false,
     staleTime: 0,
+    // Phase 2 polled this every 10s. RealtimeProvider now invalidates the
+    // key when the server pushes an application.changed event, so the
+    // refetch happens because something actually changed. The focus refetch
+    // stays as the belt-and-braces path for a tab that was asleep.
     refetchOnWindowFocus: "always",
-    refetchInterval: jobId ? 10_000 : false,
   });
 }
 

@@ -7,6 +7,13 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/**/*", "auth/**/*", "ai/**/*", "queue/**/*", "db/**/*"],
+  "include": [
+    "src/**/*",
+    "auth/**/*",
+    "ai/**/*",
+    "queue/**/*",
+    "realtime/**/*",
+    "db/**/*"
+  ],
   "exclude": ["node_modules", "dist"]
 }

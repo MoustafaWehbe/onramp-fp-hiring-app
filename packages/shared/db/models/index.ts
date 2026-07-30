@@ -11,6 +11,7 @@ import { Application } from "./Application";
 import { ApplicationNote } from "./ApplicationNote";
 import { InterviewAssignment } from "./InterviewAssignment";
 import { AIScreening } from "./AIScreening";
+import { Notification } from "./Notification";
 import { SavedJob } from "./SavedJob";
 import { CandidateSkill } from "./CandidateSkill";
 import { JobSkill } from "./JobSkill";
@@ -28,6 +29,7 @@ export {
   ApplicationNote,
   InterviewAssignment,
   AIScreening,
+  Notification,
   SavedJob,
   CandidateSkill,
   JobSkill,
@@ -44,6 +46,10 @@ export {
   type AIScoringStatus,
   type ApplicationStage,
 } from "./Application";
+export {
+  NOTIFICATION_TYPES,
+  type NotificationType,
+} from "./Notification";
 
 export function initModels(sequelize: Sequelize): void {
   User.initModel(sequelize);
@@ -58,6 +64,7 @@ export function initModels(sequelize: Sequelize): void {
   ApplicationNote.initModel(sequelize);
   InterviewAssignment.initModel(sequelize);
   AIScreening.initModel(sequelize);
+  Notification.initModel(sequelize);
   SavedJob.initModel(sequelize);
   CandidateSkill.initModel(sequelize);
   JobSkill.initModel(sequelize);
@@ -107,6 +114,9 @@ export function initModels(sequelize: Sequelize): void {
 
   User.hasMany(Job, { foreignKey: "createdById", as: "createdJobs" });
   Job.belongsTo(User, { foreignKey: "createdById", as: "createdBy" });
+
+  User.hasMany(Notification, { foreignKey: "userId", as: "notifications" });
+  Notification.belongsTo(User, { foreignKey: "userId", as: "user" });
 
   User.hasMany(AIScreening, {
     foreignKey: "generatedById",
@@ -204,5 +214,14 @@ export function initModels(sequelize: Sequelize): void {
   AIScreening.belongsTo(Application, {
     foreignKey: "applicationId",
     as: "application",
+  });
+
+  Application.hasMany(Notification, {
+    foreignKey: "relatedApplicationId",
+    as: "notifications",
+  });
+  Notification.belongsTo(Application, {
+    foreignKey: "relatedApplicationId",
+    as: "relatedApplication",
   });
 }

@@ -15,6 +15,20 @@ import {
   type StoredApplicationResume,
 } from "./application-resume.service";
 import { scheduleApplicationFitScore } from "./application-scoring-queue.service";
+import { notificationService } from "./notifications.service";
+
+/**
+ * Notifications and realtime pushes are a side channel on data that is
+ * already committed. They must never fail, slow, or roll back the request
+ * that triggered them, so every emission is fire-and-forget with its own
+ * error boundary.
+ */
+function emit(work: Promise<void>, context: string): void {
+  void work.catch((error: unknown) => {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`[notifications] ${context} failed: ${detail}`);
+  });
+}
 
 interface ResumeRequester {
   userId: string;
@@ -221,6 +235,10 @@ export class ApplicationService {
       }
 
       scheduleApplicationFitScore(existing);
+      emit(
+        notificationService.recordNewApplication(existing.id),
+        `new application ${existing.id}`,
+      );
 
       return {
         application: this.serialize(existing),
@@ -250,6 +268,10 @@ export class ApplicationService {
       });
 
       scheduleApplicationFitScore(application);
+      emit(
+        notificationService.recordNewApplication(application.id),
+        `new application ${application.id}`,
+      );
 
       return {
         application: this.serialize(application),
@@ -460,6 +482,13 @@ export class ApplicationService {
       throw createError("Application not found", 404);
     }
 
+    // Flips every open pipeline to the "Scoring" state immediately; the
+    // worker publishes again when the score lands.
+    emit(
+      notificationService.broadcastApplicationChange(pending.id),
+      `rescore on application ${pending.id}`,
+    );
+
     return this.serialize(pending, true);
   }
 
@@ -518,6 +547,8 @@ export class ApplicationService {
     stage: ApplicationStage,
     interview: { interviewDate?: string | null } = {},
   ) {
+    const previousStage = application.stage;
+
     // A date is never required to move stage — omitting it leaves
     // interviewDate untouched so the transition itself cannot be blocked.
     await application.update({
@@ -532,6 +563,12 @@ export class ApplicationService {
     if (!updated) {
       throw createError("Application not found", 404);
     }
+
+    // Notifies the candidate and refreshes every recruiter's pipeline row.
+    emit(
+      notificationService.recordStageChange(updated.id, previousStage),
+      `stage change on application ${updated.id}`,
+    );
 
     return this.serialize(updated, true);
   }
@@ -555,6 +592,14 @@ export class ApplicationService {
     if (!updated) {
       throw createError("Application not found", 404);
     }
+
+    // No notification — a scheduled date is recruiter-side context, and the
+    // candidate is not shown these fields. Other recruiters' open pipelines
+    // still need the row to refresh.
+    emit(
+      notificationService.broadcastApplicationChange(updated.id),
+      `interview update on application ${updated.id}`,
+    );
 
     return this.serialize(updated, true);
   }
