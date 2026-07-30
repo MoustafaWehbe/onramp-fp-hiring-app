@@ -44,6 +44,12 @@ const amaraApplication: RecruiterPipelineApplication = {
   stage: "APPLIED",
   coverLetter: "I would love to help build a thoughtful hiring product.",
   resumeUrl: null,
+  resumeOriginalFilename: "amara-application-cv.pdf",
+  resumeDownloadUrl: "/api/applications/application-amara/resume",
+  resumeUploadedAt: "2026-07-27T10:00:00.000Z",
+  resumeParseSucceeded: true,
+  parsedYearsExperience: 6,
+  parsedSkills: ["React", "TypeScript"],
   submittedAt: "2026-07-27T10:00:00.000Z",
   createdAt: "2026-07-27T10:00:00.000Z",
   updatedAt: "2026-07-27T10:00:00.000Z",
@@ -71,6 +77,12 @@ const offeredApplication: RecruiterPipelineApplication = {
   candidateProfileId: "candidate-profile-jordan",
   stage: "OFFER",
   coverLetter: null,
+  resumeOriginalFilename: null,
+  resumeDownloadUrl: null,
+  resumeUploadedAt: null,
+  resumeParseSucceeded: null,
+  parsedYearsExperience: null,
+  parsedSkills: [],
   candidateProfile: {
     ...amaraApplication.candidateProfile,
     id: "candidate-profile-jordan",
@@ -271,8 +283,16 @@ describe("RecruiterPipelinePage", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "View resume" }),
-    ).toHaveAttribute("href", "https://example.com/amara-resume.pdf");
+      screen.getByRole("link", { name: "View CV" }),
+    ).toHaveAttribute(
+      "href",
+      "/api/applications/application-amara/resume",
+    );
+    expect(screen.getByText(/CV: amara-application-cv.pdf/)).toBeInTheDocument();
+    expect(screen.getByText("Parsed experience: 6 years")).toBeInTheDocument();
+    expect(
+      screen.getByText("Parsed skills: React, TypeScript"),
+    ).toBeInTheDocument();
     expect(
       screen.getAllByRole("link", { name: "View profile" })[0],
     ).toHaveAttribute(

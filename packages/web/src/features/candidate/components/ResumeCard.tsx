@@ -8,7 +8,7 @@ import { getApiErrorMessage } from "../../../lib/api-errors";
 import { useUploadResume } from "../hooks";
 import { CARD_CLASS } from "../theme";
 
-const ACCEPTED_EXTENSIONS = [".pdf", ".doc", ".docx"];
+const ACCEPTED_EXTENSIONS = [".pdf", ".docx"];
 const ACCEPTED_MIME_TYPES = [
   "application/pdf",
   "application/msword",
@@ -43,7 +43,7 @@ export function ResumeCard({ profileExists, resumeUrl }: ResumeCardProps) {
 
   async function handleFile(file: File) {
     if (!isAcceptedFile(file)) {
-      toast.error("Only PDF and Word documents (.pdf, .doc, .docx) are allowed.");
+      toast.error("Only PDF and DOCX files are allowed.");
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -129,12 +129,12 @@ export function ResumeCard({ profileExists, resumeUrl }: ResumeCardProps) {
                   : "Drag and drop your resume, or click to browse"}
               </p>
               <p className="text-xs text-muted-foreground">
-                PDF, DOC, or DOCX — up to 5MB
+                PDF or DOCX — up to 5MB
               </p>
               <input
                 ref={inputRef}
                 type="file"
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 className="sr-only"
                 disabled={uploadResume.isPending}
                 onChange={(event) => {

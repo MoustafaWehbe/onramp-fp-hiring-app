@@ -24,14 +24,71 @@ export const applicationController = {
       // so a candidate can only ever apply as themselves.
       const candidateProfile = res.locals.candidateProfile as CandidateProfile;
 
-      const result = await applicationService.create({
-        ...req.body,
-        candidateProfileId: candidateProfile.id,
-      });
+      const result = await applicationService.create(
+        {
+          ...req.body,
+          candidateProfileId: candidateProfile.id,
+        },
+        req.file,
+      );
 
       res.status(result.created ? 201 : 200).json({
         data: result.application,
       });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async replaceResume(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      if (!req.file) {
+        throw createError("A PDF or DOCX CV is required", 422);
+      }
+
+      const application = await applicationService.replaceResume(
+        req.params.id as string,
+        req.user!.userId,
+        req.file,
+      );
+
+      res.status(200).json({ data: application });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async downloadResume(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const companyId =
+        req.user?.role === "RECRUITER"
+          ? await getCallerCompanyId(req)
+          : undefined;
+      const resume = await applicationService.getResume(
+        req.params.id as string,
+        {
+          userId: req.user!.userId,
+          role: req.user!.role,
+          companyId,
+        },
+      );
+      const encodedFilename = encodeURIComponent(resume.filename);
+
+      res.setHeader("Content-Type", resume.contentType);
+      res.setHeader("Content-Length", String(resume.body.length));
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename*=UTF-8''${encodedFilename}`,
+      );
+      res.status(200).send(resume.body);
     } catch (err) {
       next(err);
     }

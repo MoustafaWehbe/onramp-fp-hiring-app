@@ -3,6 +3,7 @@ import {
   applyToJob,
   getApplicationsByJob,
   getMyApplications,
+  replaceApplicationResume,
   updateApplicationStage,
 } from "@/features/applications/api";
 import type {
@@ -11,10 +12,11 @@ import type {
   SubmittedApplication,
 } from "@/types/applications";
 
-const { apiGet, apiPatch, apiPost } = vi.hoisted(() => ({
+const { apiGet, apiPatch, apiPost, apiPut } = vi.hoisted(() => ({
   apiGet: vi.fn(),
   apiPatch: vi.fn(),
   apiPost: vi.fn(),
+  apiPut: vi.fn(),
 }));
 
 vi.mock("@/lib/api-client", () => ({
@@ -22,6 +24,7 @@ vi.mock("@/lib/api-client", () => ({
     get: apiGet,
     patch: apiPatch,
     post: apiPost,
+    put: apiPut,
   },
 }));
 
@@ -109,9 +112,58 @@ describe("candidate applications API", () => {
       submittedApplication,
     );
     expect(apiPost).toHaveBeenCalledOnce();
-    expect(apiPost).toHaveBeenCalledWith("/applications", {
-      jobId: "job-1",
+    expect(apiPost).toHaveBeenCalledWith(
+      "/applications",
+      { jobId: "job-1" },
+      undefined,
+    );
+  });
+
+  it("uploads a CV as multipart data and reports progress", async () => {
+    const file = new File(["resume"], "amara.pdf", {
+      type: "application/pdf",
     });
+    const onUploadProgress = vi.fn();
+    apiPost.mockResolvedValue({
+      data: { data: submittedApplication },
+    });
+
+    await applyToJob({ jobId: "job-1", resumeFile: file, onUploadProgress });
+
+    const [, body, config] = apiPost.mock.calls[0];
+    expect(body).toBeInstanceOf(FormData);
+    expect(body.get("jobId")).toBe("job-1");
+    expect(body.get("resume")).toBe(file);
+    expect(config.headers).toEqual({
+      "Content-Type": "multipart/form-data",
+    });
+    config.onUploadProgress({ loaded: 1, total: 4 });
+    expect(onUploadProgress).toHaveBeenCalledWith(25);
+  });
+
+  it("replaces an application CV through the authorized endpoint", async () => {
+    const file = new File(["resume"], "amara.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    const onUploadProgress = vi.fn();
+    apiPut.mockResolvedValue({
+      data: { data: submittedApplication },
+    });
+
+    await expect(
+      replaceApplicationResume({
+        applicationId: "application-1",
+        file,
+        onUploadProgress,
+      }),
+    ).resolves.toEqual(submittedApplication);
+
+    const [url, body, config] = apiPut.mock.calls[0];
+    expect(url).toBe("/applications/application-1/resume");
+    expect(body).toBeInstanceOf(FormData);
+    expect(body.get("resume")).toBe(file);
+    config.onUploadProgress({ loaded: 5, total: 5 });
+    expect(onUploadProgress).toHaveBeenCalledWith(100);
   });
 
   it("loads and unwraps a recruiter's applications for one job", async () => {

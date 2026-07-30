@@ -23,6 +23,13 @@ export interface ApplicationAttributes {
   coverLetter?: string;
   /** Snapshot of the candidate's resume URL at the time of applying. */
   resumeUrl?: string;
+  /** Private storage key for the CV uploaded for this application. */
+  resumeFileUrl?: string | null;
+  resumeOriginalFilename?: string | null;
+  resumeText?: string | null;
+  parsedYearsExperience?: number | null;
+  parsedSkills?: string[] | null;
+  resumeUploadedAt?: Date | null;
   /** Null while the application is a DRAFT; set when the candidate submits. */
   submittedAt?: Date;
   createdAt?: Date;
@@ -31,7 +38,17 @@ export interface ApplicationAttributes {
 
 export type ApplicationCreationAttributes = Optional<
   ApplicationAttributes,
-  "id" | "stage" | "coverLetter" | "resumeUrl" | "submittedAt"
+  | "id"
+  | "stage"
+  | "coverLetter"
+  | "resumeUrl"
+  | "resumeFileUrl"
+  | "resumeOriginalFilename"
+  | "resumeText"
+  | "parsedYearsExperience"
+  | "parsedSkills"
+  | "resumeUploadedAt"
+  | "submittedAt"
 >;
 
 export class Application
@@ -44,6 +61,12 @@ export class Application
   declare stage: ApplicationStage;
   declare coverLetter: string | undefined;
   declare resumeUrl: string | undefined;
+  declare resumeFileUrl: string | null | undefined;
+  declare resumeOriginalFilename: string | null | undefined;
+  declare resumeText: string | null | undefined;
+  declare parsedYearsExperience: number | null | undefined;
+  declare parsedSkills: string[] | null | undefined;
+  declare resumeUploadedAt: Date | null | undefined;
   declare submittedAt: Date | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
@@ -85,6 +108,34 @@ export class Application
         },
         resumeUrl: {
           type: DataTypes.STRING(2048),
+          allowNull: true,
+        },
+        resumeFileUrl: {
+          type: DataTypes.STRING(2048),
+          allowNull: true,
+        },
+        resumeOriginalFilename: {
+          type: DataTypes.STRING(255),
+          allowNull: true,
+        },
+        resumeText: {
+          type: DataTypes.TEXT,
+          allowNull: true,
+        },
+        parsedYearsExperience: {
+          type: DataTypes.DECIMAL(4, 1),
+          allowNull: true,
+          get() {
+            const value = this.getDataValue("parsedYearsExperience");
+            return value === undefined || value === null ? null : Number(value);
+          },
+        },
+        parsedSkills: {
+          type: DataTypes.JSONB,
+          allowNull: true,
+        },
+        resumeUploadedAt: {
+          type: DataTypes.DATE,
           allowNull: true,
         },
         submittedAt: {

@@ -4,10 +4,31 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApplicationsPage } from "@/pages/applications/ApplicationsPage";
 
-const useMyApplications = vi.fn();
+const {
+  toastError,
+  toastSuccess,
+  toastWarning,
+  useMyApplications,
+  useReplaceApplicationResume,
+} = vi.hoisted(() => ({
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastWarning: vi.fn(),
+  useMyApplications: vi.fn(),
+  useReplaceApplicationResume: vi.fn(),
+}));
 
 vi.mock("@/features/applications/hooks", () => ({
   useMyApplications: () => useMyApplications(),
+  useReplaceApplicationResume: () => useReplaceApplicationResume(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: toastError,
+    success: toastSuccess,
+    warning: toastWarning,
+  },
 }));
 
 function renderPage() {
@@ -20,6 +41,10 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useReplaceApplicationResume.mockReturnValue({
+    isPending: false,
+    mutateAsync: vi.fn(),
+  });
 });
 
 describe("ApplicationsPage", () => {
@@ -48,6 +73,12 @@ describe("ApplicationsPage", () => {
           stage: "INTERVIEWING",
           coverLetter: null,
           resumeUrl: null,
+          resumeOriginalFilename: "amara-platform-cv.pdf",
+          resumeDownloadUrl: "/api/applications/application-1/resume",
+          resumeUploadedAt: "2026-07-20T09:00:00.000Z",
+          resumeParseSucceeded: true,
+          parsedYearsExperience: 6,
+          parsedSkills: ["TypeScript", "PostgreSQL"],
           submittedAt: "2026-07-20T09:00:00.000Z",
           createdAt: "2026-07-20T09:00:00.000Z",
           updatedAt: "2026-07-22T11:00:00.000Z",
@@ -107,6 +138,14 @@ describe("ApplicationsPage", () => {
     expect(screen.getByText("Northstar Labs")).toBeInTheDocument();
     expect(screen.getByText("Interviewing")).toBeInTheDocument();
     expect(
+      screen.getByRole("link", { name: "amara-platform-cv.pdf" }),
+    ).toHaveAttribute(
+      "href",
+      "/api/applications/application-1/resume",
+    );
+    expect(screen.getByText("Parsed experience: 6 years")).toBeInTheDocument();
+    expect(screen.getByText("TypeScript")).toBeInTheDocument();
+    expect(
       screen.getByRole("heading", { name: "Product Engineer" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Offer")).toBeInTheDocument();
@@ -119,6 +158,71 @@ describe("ApplicationsPage", () => {
     expect(screen.getByText("Offers and hires").previousSibling).toHaveTextContent(
       "1",
     );
+  });
+
+  it("lets the candidate replace an application CV", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({
+      resumeParseSucceeded: true,
+    });
+    useReplaceApplicationResume.mockReturnValue({
+      isPending: false,
+      mutateAsync,
+    });
+    useMyApplications.mockReturnValue({
+      data: [
+        {
+          id: "application-1",
+          jobId: "job-1",
+          stage: "APPLIED",
+          coverLetter: null,
+          resumeUrl: null,
+          resumeOriginalFilename: "old.pdf",
+          resumeDownloadUrl: "/api/applications/application-1/resume",
+          resumeUploadedAt: "2026-07-20T09:00:00.000Z",
+          resumeParseSucceeded: true,
+          parsedSkills: [],
+          parsedYearsExperience: null,
+          submittedAt: "2026-07-20T09:00:00.000Z",
+          createdAt: "2026-07-20T09:00:00.000Z",
+          updatedAt: "2026-07-20T09:00:00.000Z",
+          job: {
+            id: "job-1",
+            title: "Platform Engineer",
+            description: "Build platforms.",
+            location: "Remote",
+            status: "OPEN",
+            createdAt: "2026-07-01T00:00:00.000Z",
+            company: {
+              id: "company-1",
+              name: "Northstar Labs",
+              website: null,
+              logoUrl: null,
+            },
+          },
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      isSuccess: true,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    const user = userEvent.setup();
+    const file = new File(["replacement"], "new.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    renderPage();
+
+    await user.upload(screen.getByLabelText("Replace CV"), file);
+    await user.click(screen.getByRole("button", { name: "Replace CV" }));
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      applicationId: "application-1",
+      file,
+      onUploadProgress: expect.any(Function),
+    });
+    expect(toastSuccess).toHaveBeenCalledWith("Application CV replaced");
   });
 
   it("shows an empty state that links back to open jobs", () => {

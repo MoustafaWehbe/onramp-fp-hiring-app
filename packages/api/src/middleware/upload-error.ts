@@ -16,7 +16,7 @@ export function handleUploadError(
 ): void {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
-      next(createError("File is too large", 413));
+      next(createError("CV must be 5MB or smaller", 413));
       return;
     }
     next(createError(err.message, 422));

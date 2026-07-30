@@ -12,3 +12,8 @@ export interface UploadResult {
 export interface StorageProvider {
   upload(key: string, body: Buffer, contentType: string): Promise<UploadResult>;
 }
+
+export interface PrivateStorageProvider extends StorageProvider {
+  read(key: string): Promise<Buffer>;
+  delete(key: string): Promise<void>;
+}
