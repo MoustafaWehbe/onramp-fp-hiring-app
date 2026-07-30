@@ -3,11 +3,29 @@ import {
   Application,
   Job,
   Skill,
+  publishApplicationChanged,
   scoreApplicationFit,
   InsufficientResumeSignalsError,
   type ApplicationFitScoreJobData,
   type ApplicationFitScoreJobResult,
 } from "@starter-kit/shared";
+
+/**
+ * A recruiter watching the pipeline should see "Scoring" flip to a real score
+ * without polling. This process holds no SSE connections, so the event goes
+ * onto the Redis bus for the API process to fan out.
+ *
+ * Best-effort: the score is already committed, so a failed push must not fail
+ * or retry the job.
+ */
+function announce(applicationId: string): void {
+  void publishApplicationChanged(applicationId).catch((error: unknown) => {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[application-fit-score] Failed to publish update for ${applicationId}: ${detail}`,
+    );
+  });
+}
 
 type ApplicationWithJob = Application & {
   job?: Job & { skills?: Skill[] };
@@ -44,6 +62,7 @@ async function markFailed(
     aiScoredAt: null,
     aiScoringStatus: "failed",
   });
+  announce(current.id);
   return true;
 }
 
@@ -119,6 +138,7 @@ export async function processApplicationFitScoreJobWithScorer(
       aiScoredAt: new Date(),
       aiScoringStatus: "completed",
     });
+    announce(current.id);
 
     return {
       status: "completed",

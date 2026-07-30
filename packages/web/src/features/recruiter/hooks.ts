@@ -13,8 +13,9 @@ export function useRecruiterDashboard() {
     queryKey: recruiterKeys.dashboard,
     queryFn: api.getRecruiterDashboard,
     staleTime: 0,
+    // Live: RealtimeProvider invalidates this key on every
+    // application.changed event, so the counts move without a 30s timer.
     refetchOnWindowFocus: "always",
-    refetchInterval: 30_000,
   });
 }
 
@@ -33,11 +34,7 @@ export function useRecruiterCandidate(id: string | undefined) {
     enabled: Boolean(id),
     retry: false,
     refetchOnWindowFocus: "always",
-    refetchInterval: (query) =>
-      query.state.data?.applicationInsights?.some(
-        (application) => application.aiScoringStatus === "pending",
-      )
-        ? 10_000
-        : false,
+    // A pending fit score used to be polled for here. The worker now
+    // publishes when it lands, and RealtimeProvider invalidates this key.
   });
 }
