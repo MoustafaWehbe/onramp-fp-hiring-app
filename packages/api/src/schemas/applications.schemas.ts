@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  RECRUITER_TARGET_STAGES,
+  type RecruiterTargetStage,
+} from "@starter-kit/shared/db";
 
 export const applicationIdParamSchema = z.object({
   id: z.string().uuid("id must be a valid UUID"),
@@ -47,13 +51,14 @@ const recruiterNotesSchema = z
   .max(10_000, "recruiterNotes must be 10000 characters or fewer");
 
 export const updateApplicationStageSchema = z.object({
-  stage: z.enum([
-    "REVIEWED",
-    "INTERVIEWING",
-    "OFFER",
-    "HIRED",
-    "REJECTED",
-  ]),
+  // Derived from the shared rule rather than restated, so the Kanban drop
+  // targets and this schema can never disagree about what is allowed.
+  stage: z.enum(
+    [...RECRUITER_TARGET_STAGES] as [
+      RecruiterTargetStage,
+      ...RecruiterTargetStage[],
+    ],
+  ),
   // Optional so a stage change never depends on a date being agreed. Present
   // only so "move to interviewing and schedule" is a single atomic request.
   interviewDate: interviewDateSchema.nullable().optional(),

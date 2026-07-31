@@ -88,6 +88,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         void queryClient.invalidateQueries({
           queryKey: recruiterKeys.dashboard,
         });
+        // Funnel counts, conversion, and the score histogram are all derived
+        // from the row that just changed.
+        void queryClient.invalidateQueries({
+          queryKey: recruiterKeys.analytics,
+        });
         // The candidate detail view renders the same application's fit score
         // and interview fields, and no longer polls for them.
         void queryClient.invalidateQueries({

@@ -1,4 +1,5 @@
 import { apiClient } from "../../lib/api-client";
+import type { RecruiterAnalyticsRecord } from "../../types/analytics";
 import type {
   RecruiterCandidateRecord,
   RecruiterDashboardRecord,
@@ -13,6 +14,13 @@ export async function getRecruiterDashboard(): Promise<RecruiterDashboardRecord>
     await apiClient.get<Envelope<RecruiterDashboardRecord>>(
       "/recruiter/dashboard",
     );
+  return data.data;
+}
+
+export async function getRecruiterAnalytics(): Promise<RecruiterAnalyticsRecord> {
+  const { data } = await apiClient.get<Envelope<RecruiterAnalyticsRecord>>(
+    "/recruiter/analytics",
+  );
   return data.data;
 }
 

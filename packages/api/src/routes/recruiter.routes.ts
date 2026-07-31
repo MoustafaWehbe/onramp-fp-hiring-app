@@ -11,5 +11,11 @@ router.get(
   authorize("RECRUITER", "ADMIN"),
   recruiterController.dashboard,
 );
+router.get(
+  "/analytics",
+  authenticate,
+  authorize("RECRUITER", "ADMIN"),
+  recruiterController.analytics,
+);
 
 export { router as recruiterRouter };

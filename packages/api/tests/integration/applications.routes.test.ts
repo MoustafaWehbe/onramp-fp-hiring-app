@@ -1136,6 +1136,102 @@ describe("recruiter application pipeline", () => {
     expect(pipelineDraftApplication.stage).toBe("DRAFT");
   });
 
+  it("refuses a move back into APPLIED, however it is requested", async () => {
+    const job = await createTrackedJob({
+      title: `Stage Rule ${randomUUID()}`,
+    });
+    const application = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: "INTERVIEWING",
+      submittedAt: new Date("2026-07-20T09:00:00.000Z"),
+    });
+
+    // The Kanban board declines to offer this drop, but the rule that makes
+    // it invalid lives on the server — a direct call is refused too.
+    const res = await request(app)
+      .patch(`/api/applications/${application.id}/stage`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ stage: "APPLIED" });
+
+    expect(res.status).toBe(422);
+
+    await application.reload();
+    expect(application.stage).toBe("INTERVIEWING");
+
+    const toDraft = await request(app)
+      .patch(`/api/applications/${application.id}/stage`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ stage: "DRAFT" });
+    expect(toDraft.status).toBe(422);
+
+    await application.reload();
+    expect(application.stage).toBe("INTERVIEWING");
+  });
+
+  it("allows a stage jump, because the product has no required order", async () => {
+    const job = await createTrackedJob({
+      title: `Stage Jump ${randomUUID()}`,
+    });
+    const application = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: "APPLIED",
+      submittedAt: new Date("2026-07-20T09:00:00.000Z"),
+    });
+
+    // Straight from APPLIED to OFFER, and back down again. The board must not
+    // invent an ordering the endpoint does not enforce.
+    const forward = await request(app)
+      .patch(`/api/applications/${application.id}/stage`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ stage: "OFFER" });
+    expect(forward.status).toBe(200);
+
+    const backward = await request(app)
+      .patch(`/api/applications/${application.id}/stage`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ stage: "REVIEWED" });
+    expect(backward.status).toBe(200);
+
+    await application.reload();
+    expect(application.stage).toBe("REVIEWED");
+  });
+
+  it("stamps hiredAt on entry to HIRED and leaves it alone afterwards", async () => {
+    const job = await createTrackedJob({
+      title: `Hired Stamp ${randomUUID()}`,
+    });
+    const application = await createApplication({
+      jobId: job.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: "OFFER",
+      submittedAt: new Date("2026-07-20T09:00:00.000Z"),
+    });
+    expect(application.hiredAt ?? null).toBeNull();
+
+    const beforeHire = Date.now();
+    await request(app)
+      .patch(`/api/applications/${application.id}/stage`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ stage: "HIRED" });
+
+    await application.reload();
+    expect(application.hiredAt).toBeInstanceOf(Date);
+    expect(application.hiredAt!.getTime()).toBeGreaterThanOrEqual(beforeHire);
+    const stampedAt = application.hiredAt!.getTime();
+
+    // Editing notes on a hired candidate must not move the measured hire
+    // date — the reason this is a column rather than updatedAt.
+    await request(app)
+      .patch(`/api/applications/${application.id}/interview`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ recruiterNotes: "Contract signed." });
+
+    await application.reload();
+    expect(application.hiredAt!.getTime()).toBe(stampedAt);
+  });
+
   it("does not expose a candidate whose only application is a DRAFT", async () => {
     const list = await request(app)
       .get("/api/candidate-profiles")

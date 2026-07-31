@@ -17,19 +17,16 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
-import { useRecruiterDashboard } from "../../features/recruiter/hooks";
+import { FunnelChart } from "../../features/recruiter/components/FunnelChart";
+import { ScoreDistributionChart } from "../../features/recruiter/components/ScoreDistributionChart";
+import { TimeToHireCard } from "../../features/recruiter/components/TimeToHireCard";
+import {
+  useRecruiterAnalytics,
+  useRecruiterDashboard,
+} from "../../features/recruiter/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
 import type { RecruiterApplicationStage } from "../../types/applications";
-
-const stageOrder: RecruiterApplicationStage[] = [
-  "APPLIED",
-  "REVIEWED",
-  "INTERVIEWING",
-  "OFFER",
-  "HIRED",
-  "REJECTED",
-];
 
 const stageLabels: Record<RecruiterApplicationStage, string> = {
   APPLIED: "Applied",
@@ -56,9 +53,37 @@ function DashboardSkeleton() {
   );
 }
 
+function AnalyticsUnavailable({
+  query,
+}: {
+  query: ReturnType<typeof useRecruiterAnalytics>;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-3" role="alert">
+      <p className="text-sm text-muted-foreground">
+        {getApiErrorMessage(
+          query.error,
+          "Couldn't load your company's hiring analytics.",
+        )}
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => void query.refetch()}
+        disabled={query.isFetching}
+      >
+        {query.isFetching ? "Refreshing…" : "Try again"}
+      </Button>
+    </div>
+  );
+}
+
 export function RecruiterDashboardPage() {
   const dashboardQuery = useRecruiterDashboard();
+  const analyticsQuery = useRecruiterAnalytics();
   const dashboard = dashboardQuery.data;
+  const analytics = analyticsQuery.data;
 
   const metrics: Array<[LucideIcon, number, string]> = dashboard
     ? [
@@ -152,45 +177,74 @@ export function RecruiterDashboardPage() {
               ))}
             </div>
 
-            <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="text-xl">Time to hire</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  From a candidate submitting to being marked hired.
+                </p>
+              </CardHeader>
+              <CardContent role="region" aria-label="Time to hire">
+                {analyticsQuery.isLoading ? (
+                  <Skeleton className="h-40 rounded-md" />
+                ) : analytics ? (
+                  <TimeToHireCard timeToHire={analytics.timeToHire} />
+                ) : (
+                  <AnalyticsUnavailable query={analyticsQuery} />
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="mt-6 grid gap-5 lg:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-xl">
-                    Hiring funnel summary
-                  </CardTitle>
+                  <CardTitle className="text-xl">Funnel conversion</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    How far applications get across every job you own.
+                  </p>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {stageOrder.map((stage) => {
-                    const count = dashboard.stageCounts[stage] ?? 0;
-                    const percentage =
-                      dashboard.metrics.totalApplications === 0
-                        ? 0
-                        : Math.round(
-                            (count /
-                              dashboard.metrics.totalApplications) *
-                              100,
-                          );
-
-                    return (
-                      <div key={stage}>
-                        <div className="mb-2 flex items-center justify-between text-sm">
-                          <span className="font-medium">
-                            {stageLabels[stage]}
-                          </span>
-                          <span className="text-muted-foreground">{count}</span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full bg-primary"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                <CardContent role="region" aria-label="Funnel conversion">
+                  {analyticsQuery.isLoading ? (
+                    <Skeleton className="h-64 rounded-md" />
+                  ) : analytics ? (
+                    <FunnelChart
+                      stages={analytics.funnel.stages}
+                      rejected={analytics.funnel.rejected}
+                      totalApplications={analytics.totalApplications}
+                    />
+                  ) : (
+                    <AnalyticsUnavailable query={analyticsQuery} />
+                  )}
                 </CardContent>
               </Card>
 
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">
+                    Fit score distribution
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    AI fit scores across your company's applications.
+                  </p>
+                </CardHeader>
+                <CardContent
+                  role="region"
+                  aria-label="Fit score distribution"
+                >
+                  {analyticsQuery.isLoading ? (
+                    <Skeleton className="h-64 rounded-md" />
+                  ) : analytics ? (
+                    <ScoreDistributionChart
+                      distribution={analytics.scoreDistribution}
+                    />
+                  ) : (
+                    <AnalyticsUnavailable query={analyticsQuery} />
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="mt-6 grid gap-5">
               <Card>
                 <CardHeader className="flex-row items-center justify-between space-y-0">
                   <CardTitle className="text-xl">Recent applicants</CardTitle>
