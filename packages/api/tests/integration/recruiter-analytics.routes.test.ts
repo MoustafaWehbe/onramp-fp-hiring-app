@@ -232,19 +232,31 @@ describe("GET /api/recruiter/analytics", () => {
       stages.map((stage) => [stage.stage, stage]),
     );
 
-    // Reach counts anyone at a stage or past it: 4 non-rejected applications
-    // reached APPLIED, 3 of those reached REVIEWED, and so on.
+    // Reach counts anyone who got at least this far. All 5 applications
+    // reached APPLIED — including the rejected one, which was submitted like
+    // any other. Only its later progress is unknown without stage history.
     expect(byStage.APPLIED).toMatchObject({
       count: 1,
-      reached: 4,
+      reached: 5,
       conversionFromPrevious: null,
     });
     expect(byStage.REVIEWED).toMatchObject({ count: 1, reached: 3 });
-    expect(byStage.REVIEWED.conversionFromPrevious).toBe(75);
+    expect(byStage.REVIEWED.conversionFromPrevious).toBe(60);
     expect(byStage.INTERVIEWING).toMatchObject({ count: 1, reached: 2 });
     expect(byStage.OFFER).toMatchObject({ count: 1, reached: 1 });
     expect(byStage.HIRED).toMatchObject({ count: 0, reached: 0 });
     expect(res.body.data.funnel.rejected).toBe(1);
+
+    // Seeded directly, so these rows have no recorded transitions: the
+    // rejection cannot be attributed to the stage it left from.
+    expect(res.body.data.funnel.unattributedRejections).toBe(1);
+
+    // Reach must never increase down the funnel, or a conversion above 100%
+    // becomes possible.
+    const reaches = stages.map((stage) => stage.reached);
+    for (let index = 1; index < reaches.length; index += 1) {
+      expect(reaches[index]).toBeLessThanOrEqual(reaches[index - 1]);
+    }
   });
 
   it("buckets fit scores and reports scored versus unscored", async () => {

@@ -9,6 +9,7 @@ import type {
   CandidateProfile,
 } from "@starter-kit/shared/db";
 import { applicationService } from "../services/applications.service";
+import { applicationTimelineService } from "../services/application-timeline.service";
 import { getCallerCompanyId } from "../lib/company-membership";
 import { createError } from "../middleware/error-handler";
 
@@ -142,6 +143,7 @@ export const applicationController = {
         res.locals.application as Application,
         req.body.stage,
         { interviewDate: req.body.interviewDate },
+        req.user!.userId,
       );
 
       res.status(200).json({
@@ -169,6 +171,23 @@ export const applicationController = {
       res.status(200).json({
         data: application,
       });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async timeline(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const timeline = await applicationTimelineService.getForCandidate(
+        req.params.id as string,
+        req.user!.userId,
+      );
+
+      res.status(200).json({ data: timeline });
     } catch (err) {
       next(err);
     }

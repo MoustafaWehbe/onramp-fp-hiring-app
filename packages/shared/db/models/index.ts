@@ -4,10 +4,13 @@ import { Session } from "./Session";
 import { RefreshToken } from "./RefreshToken";
 import { Company } from "./Company";
 import { CandidateProfile } from "./CandidateProfile";
+import { CandidateEducation } from "./CandidateEducation";
 import { WorkExperience } from "./WorkExperience";
 import { Skill } from "./Skill";
 import { Job } from "./Job";
 import { Application } from "./Application";
+import { ApplicationStageHistory } from "./ApplicationStageHistory";
+import { CandidateJobRecommendation } from "./CandidateJobRecommendation";
 import { ApplicationNote } from "./ApplicationNote";
 import { InterviewAssignment } from "./InterviewAssignment";
 import { AIScreening } from "./AIScreening";
@@ -22,10 +25,13 @@ export {
   RefreshToken,
   Company,
   CandidateProfile,
+  CandidateEducation,
+  CandidateJobRecommendation,
   WorkExperience,
   Skill,
   Job,
   Application,
+  ApplicationStageHistory,
   ApplicationNote,
   InterviewAssignment,
   AIScreening,
@@ -57,10 +63,13 @@ export function initModels(sequelize: Sequelize): void {
   RefreshToken.initModel(sequelize);
   Company.initModel(sequelize);
   CandidateProfile.initModel(sequelize);
+  CandidateEducation.initModel(sequelize);
+  CandidateJobRecommendation.initModel(sequelize);
   WorkExperience.initModel(sequelize);
   Skill.initModel(sequelize);
   Job.initModel(sequelize);
   Application.initModel(sequelize);
+  ApplicationStageHistory.initModel(sequelize);
   ApplicationNote.initModel(sequelize);
   InterviewAssignment.initModel(sequelize);
   AIScreening.initModel(sequelize);
@@ -146,6 +155,33 @@ export function initModels(sequelize: Sequelize): void {
     as: "candidateProfile",
   });
 
+  CandidateProfile.hasMany(CandidateEducation, {
+    foreignKey: "candidateProfileId",
+    as: "education",
+  });
+  CandidateEducation.belongsTo(CandidateProfile, {
+    foreignKey: "candidateProfileId",
+    as: "candidateProfile",
+  });
+
+  CandidateProfile.hasMany(CandidateJobRecommendation, {
+    foreignKey: "candidateProfileId",
+    as: "jobRecommendations",
+  });
+  CandidateJobRecommendation.belongsTo(CandidateProfile, {
+    foreignKey: "candidateProfileId",
+    as: "candidateProfile",
+  });
+
+  Job.hasMany(CandidateJobRecommendation, {
+    foreignKey: "jobId",
+    as: "candidateRecommendations",
+  });
+  CandidateJobRecommendation.belongsTo(Job, {
+    foreignKey: "jobId",
+    as: "job",
+  });
+
   CandidateProfile.hasMany(SavedJob, {
     foreignKey: "candidateProfileId",
     as: "savedJobs",
@@ -188,7 +224,25 @@ export function initModels(sequelize: Sequelize): void {
   Job.hasMany(SavedJob, { foreignKey: "jobId", as: "savedJobs" });
   SavedJob.belongsTo(Job, { foreignKey: "jobId", as: "job" });
 
-  // Application: notes, interview assignments, AI screenings
+  // Application: stage history, notes, interview assignments, AI screenings
+  Application.hasMany(ApplicationStageHistory, {
+    foreignKey: "applicationId",
+    as: "stageHistory",
+  });
+  ApplicationStageHistory.belongsTo(Application, {
+    foreignKey: "applicationId",
+    as: "application",
+  });
+
+  User.hasMany(ApplicationStageHistory, {
+    foreignKey: "changedBy",
+    as: "stageChanges",
+  });
+  ApplicationStageHistory.belongsTo(User, {
+    foreignKey: "changedBy",
+    as: "changedByUser",
+  });
+
   Application.hasMany(ApplicationNote, {
     foreignKey: "applicationId",
     as: "notes",

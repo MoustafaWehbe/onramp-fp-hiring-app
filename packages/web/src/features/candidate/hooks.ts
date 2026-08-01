@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "./api";
-import type { ExperienceInput, ExperienceUpdateInput } from "../../types/candidate";
+import type {
+  EducationInput,
+  EducationUpdateInput,
+  ExperienceInput,
+  ExperienceUpdateInput,
+} from "../../types/candidate";
 
 /**
  * Cache invalidation only — toasts and inline field errors are handled by
@@ -12,6 +17,11 @@ export const candidateKeys = {
   experience: ["candidate", "experience"] as const,
   skills: ["candidate", "skills"] as const,
   skillCatalog: ["candidate", "skillCatalog"] as const,
+  education: ["candidate", "education"] as const,
+  easyApplyReadiness: ["candidate", "easyApplyReadiness"] as const,
+  recommendations: ["candidate", "recommendations"] as const,
+  timeline: (applicationId: string | undefined) =>
+    ["candidate", "timeline", applicationId] as const,
 };
 
 export function useProfile() {
@@ -119,5 +129,133 @@ export function useUploadResume() {
     onSuccess: (profile) => {
       queryClient.setQueryData(candidateKeys.profile, profile);
     },
+  });
+}
+
+// ─── Education ───────────────────────────────────────────────────────────────
+
+export function useEducation(enabled = true) {
+  return useQuery({
+    queryKey: candidateKeys.education,
+    queryFn: api.listEducation,
+    enabled,
+    retry: false,
+  });
+}
+
+export function useCreateEducation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: EducationInput) => api.createEducation(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: candidateKeys.education });
+    },
+  });
+}
+
+export function useUpdateEducation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; data: EducationUpdateInput }) =>
+      api.updateEducation(input.id, input.data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: candidateKeys.education });
+    },
+  });
+}
+
+export function useDeleteEducation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteEducation(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: candidateKeys.education });
+    },
+  });
+}
+
+// ─── Profile extras ──────────────────────────────────────────────────────────
+
+export function useUpdateProfileExtras() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.updateProfileExtras,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: candidateKeys.profile });
+    },
+  });
+}
+
+/**
+ * Runs the one-time pre-fill, then refreshes profile and skills. Safe to call
+ * on every visit: the server no-ops once a profile has been seeded, which is
+ * what stops it from ever overwriting an edit.
+ */
+export function useSeedProfileFromResume() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.seedProfileFromResume,
+    onSuccess: (result) => {
+      if (result.seeded) {
+        void queryClient.invalidateQueries({ queryKey: candidateKeys.profile });
+        void queryClient.invalidateQueries({ queryKey: candidateKeys.skills });
+      }
+    },
+  });
+}
+
+// ─── Easy Apply ──────────────────────────────────────────────────────────────
+
+export function useEasyApplyReadiness(enabled = true) {
+  return useQuery({
+    queryKey: candidateKeys.easyApplyReadiness,
+    queryFn: api.getEasyApplyReadiness,
+    enabled,
+    // A candidate with no profile gets an expected 404 from the guard.
+    retry: false,
+  });
+}
+
+export function useEasyApply() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.easyApply,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["applications"] });
+      // A job just applied to must drop out of the recommendations.
+      void queryClient.invalidateQueries({
+        queryKey: candidateKeys.recommendations,
+      });
+    },
+  });
+}
+
+// ─── Recommendations ─────────────────────────────────────────────────────────
+
+export function useRecommendations(limit?: number, enabled = true) {
+  return useQuery({
+    queryKey: [...candidateKeys.recommendations, limit ?? null],
+    queryFn: () => api.getRecommendations(limit),
+    enabled,
+    retry: false,
+    // A first visit queues the scoring job, so poll briefly until it lands
+    // rather than leaving the candidate on an empty panel. Stops as soon as
+    // there is something to show.
+    refetchInterval: (query) =>
+      query.state.data?.status === "computing" ? 4_000 : false,
+  });
+}
+
+// ─── Application timeline ────────────────────────────────────────────────────
+
+export function useApplicationTimeline(
+  applicationId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: candidateKeys.timeline(applicationId),
+    queryFn: () => api.getApplicationTimeline(applicationId as string),
+    enabled: Boolean(applicationId) && enabled,
+    retry: false,
   });
 }

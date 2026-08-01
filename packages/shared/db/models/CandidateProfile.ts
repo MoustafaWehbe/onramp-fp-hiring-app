@@ -1,20 +1,40 @@
 import { Model, DataTypes, type Sequelize, type Optional } from "sequelize";
 
+/** Free-form external links; the key is the label the candidate chose. */
+export type CandidateProfileLinks = Record<string, string>;
+
 export interface CandidateProfileAttributes {
   id: string;
   userId: string;
   headline?: string;
+  /** Doubles as the profile summary — the field the profile page renders. */
   bio?: string;
   phone?: string;
   location?: string;
   resumeUrl?: string;
+  links?: CandidateProfileLinks | null;
+  profilePhotoUrl?: string | null;
+  /**
+   * When the one-time seed from parsed resume data ran. Seeding is gated on
+   * this being null, which is what keeps a later re-parse from overwriting
+   * anything the candidate has edited since.
+   */
+  profileSeededAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 export type CandidateProfileCreationAttributes = Optional<
   CandidateProfileAttributes,
-  "id" | "headline" | "bio" | "phone" | "location" | "resumeUrl"
+  | "id"
+  | "headline"
+  | "bio"
+  | "phone"
+  | "location"
+  | "resumeUrl"
+  | "links"
+  | "profilePhotoUrl"
+  | "profileSeededAt"
 >;
 
 export class CandidateProfile
@@ -28,6 +48,9 @@ export class CandidateProfile
   declare phone: string | undefined;
   declare location: string | undefined;
   declare resumeUrl: string | undefined;
+  declare links: CandidateProfileLinks | null | undefined;
+  declare profilePhotoUrl: string | null | undefined;
+  declare profileSeededAt: Date | null | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 
@@ -64,6 +87,18 @@ export class CandidateProfile
         },
         resumeUrl: {
           type: DataTypes.STRING(2048),
+          allowNull: true,
+        },
+        links: {
+          type: DataTypes.JSONB,
+          allowNull: true,
+        },
+        profilePhotoUrl: {
+          type: DataTypes.STRING(2048),
+          allowNull: true,
+        },
+        profileSeededAt: {
+          type: DataTypes.DATE,
           allowNull: true,
         },
       },

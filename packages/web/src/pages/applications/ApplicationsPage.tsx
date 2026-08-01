@@ -35,6 +35,7 @@ import {
 import { Skeleton } from "../../components/ui/skeleton";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { ApplicationTimeline } from "../../features/candidate/components/ApplicationTimeline";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
 
@@ -214,6 +215,19 @@ function ApplicationCard({
               </p>
             )}
           </div>
+
+          {/* Stage progression only. The timeline endpoint withholds fit
+              score, AI summary, and recruiter notes, and the component has no
+              way to render them. A DRAFT has not been submitted, so there is
+              nothing to show yet. */}
+          {application.stage !== "DRAFT" && (
+            <div className="rounded-md border bg-muted/20 p-4">
+              <p className="text-sm font-medium">Progress</p>
+              <div className="mt-3">
+                <ApplicationTimeline applicationId={application.id} />
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor={`replace-resume-${application.id}`}>

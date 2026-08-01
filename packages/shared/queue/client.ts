@@ -3,6 +3,7 @@ import IORedis from "ioredis";
 import {
   QUEUE_NAMES,
   type ApplicationFitScoreJobData,
+  type CandidateRecommendationsJobData,
   type EmailJobData,
   type EmbeddingsJobData,
 } from "./types";
@@ -46,4 +47,8 @@ export const embeddingsQueue = createQueue<EmbeddingsJobData>(
 export const applicationFitScoreQueue =
   createQueue<ApplicationFitScoreJobData>(
     QUEUE_NAMES.APPLICATION_FIT_SCORE,
+  );
+export const candidateRecommendationsQueue =
+  createQueue<CandidateRecommendationsJobData>(
+    QUEUE_NAMES.CANDIDATE_RECOMMENDATIONS,
   );

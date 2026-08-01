@@ -1,11 +1,29 @@
 import {
   Application,
+  ApplicationStageHistory,
   FUNNEL_STAGE_ORDER,
   HIRED_STAGE,
   Job,
+  type ApplicationStage,
   type FunnelStage,
 } from "@starter-kit/shared/db";
 import { Op } from "sequelize";
+
+interface ApplicationRow {
+  id: string;
+  stage: FunnelStage | "REJECTED";
+  fitScore: number | null;
+  submittedAt: Date | null;
+  createdAt: Date;
+  hiredAt: Date | null;
+}
+
+interface StageHistoryRow {
+  applicationId: string;
+  fromStage: ApplicationStage | null;
+  toStage: ApplicationStage;
+  changedAt: Date;
+}
 
 /**
  * Score buckets. Upper-bound inclusive and contiguous, so every 0-100 score
@@ -34,6 +52,8 @@ export interface FunnelStageStats {
   reachedPercentage: number;
   /** Share of the previous stage that reached this one; null for the first. */
   conversionFromPrevious: number | null;
+  /** Applications rejected while sitting in this stage, from real history. */
+  rejectedFrom: number;
 }
 
 function median(values: number[]): number | null {
@@ -52,6 +72,27 @@ function median(values: number[]): number | null {
 function roundTo(value: number, places = 1): number {
   const factor = 10 ** places;
   return Math.round(value * factor) / factor;
+}
+
+/**
+ * The furthest point along the funnel a set of visited stages represents.
+ *
+ * Off-progression stages (REJECTED) contribute nothing: being rejected is an
+ * exit, not a step forward. An application whose only recorded stages are
+ * APPLIED and REJECTED got as far as APPLIED.
+ */
+function furthestFunnelIndex(visited: Set<string>): number {
+  let furthest = -1;
+
+  for (const stage of visited) {
+    const index = FUNNEL_STAGE_ORDER.indexOf(stage as FunnelStage);
+
+    if (index > furthest) {
+      furthest = index;
+    }
+  }
+
+  return furthest;
 }
 
 function percentage(part: number, whole: number): number {
@@ -86,73 +127,170 @@ export class RecruiterAnalyticsService {
   }
 
   async getAnalytics(companyId: string) {
-    const rows = (await Application.findAll({
-      attributes: ["stage", "fitScore", "submittedAt", "createdAt", "hiredAt"],
-      ...this.companyScope(companyId),
-      raw: true,
-    })) as unknown as Array<{
-      stage: FunnelStage | "REJECTED";
-      fitScore: number | null;
-      submittedAt: Date | null;
-      createdAt: Date;
-      hiredAt: Date | null;
-    }>;
+    const [rows, history] = await Promise.all([
+      Application.findAll({
+        attributes: [
+          "id",
+          "stage",
+          "fitScore",
+          "submittedAt",
+          "createdAt",
+          "hiredAt",
+        ],
+        ...this.companyScope(companyId),
+        raw: true,
+      }) as unknown as Promise<ApplicationRow[]>,
+      // Scoped through the application's job the same way, so history never
+      // leaks across companies.
+      ApplicationStageHistory.findAll({
+        attributes: ["applicationId", "fromStage", "toStage", "changedAt"],
+        include: [
+          {
+            model: Application,
+            as: "application",
+            attributes: [],
+            required: true,
+            include: [
+              {
+                model: Job,
+                as: "job",
+                attributes: [],
+                where: { companyId },
+                required: true,
+              },
+            ],
+          },
+        ],
+        order: [["changedAt", "ASC"]],
+        raw: true,
+      }) as unknown as Promise<StageHistoryRow[]>,
+    ]);
 
     return {
       totalApplications: rows.length,
-      funnel: this.buildFunnel(rows),
+      funnel: this.buildFunnel(rows, history),
       timeToHire: this.buildTimeToHire(rows),
       scoreDistribution: this.buildScoreDistribution(rows),
     };
   }
 
   /**
-   * Conversion is derived from where applications sit now, assuming forward
-   * progression: an application in OFFER necessarily passed through REVIEWED.
+   * Reach is read from recorded history where it exists: an application that
+   * was rejected out of INTERVIEWING still counts as having reached REVIEWED
+   * and INTERVIEWING, which the previous current-stage-only version could not
+   * see. That was phase 5's documented gap, and stage history closes it.
    *
-   * The honest limitation: without a stage-history table a REJECTED
-   * application cannot be attributed to the stage it was rejected from, so
-   * rejections are reported as a separate exit rather than being folded into
-   * any one stage's conversion. Recording transitions would make this exact.
+   * Applications that predate the history table have only their submission
+   * entry, so they keep the old forward-progression inference from their
+   * current stage. `historyCoverage` reports how much of the funnel is
+   * measured rather than inferred, so a sparse period is visible instead of
+   * being quietly averaged in.
    */
-  private buildFunnel(
-    rows: Array<{ stage: FunnelStage | "REJECTED" }>,
-  ): {
-    stages: FunnelStageStats[];
-    rejected: number;
-    rejectedPercentage: number;
-  } {
+  private buildFunnel(rows: ApplicationRow[], history: StageHistoryRow[]) {
+    const reachedByApplication = new Map<string, Set<string>>();
+    const rejectionExits = new Map<string, string | null>();
+
+    for (const row of history) {
+      const reached =
+        reachedByApplication.get(row.applicationId) ?? new Set<string>();
+      reached.add(row.toStage);
+      reachedByApplication.set(row.applicationId, reached);
+
+      if (row.toStage === "REJECTED") {
+        // The stage they were in when rejected — the whole point of history.
+        rejectionExits.set(row.applicationId, row.fromStage ?? null);
+      }
+    }
+
     const counts = new Map<string, number>();
+    const reachedCounts = new Map<string, number>();
+    const rejectionsByStage = new Map<string, number>();
+    let measuredByHistory = 0;
+    let unattributedRejections = 0;
 
     for (const row of rows) {
       counts.set(row.stage, (counts.get(row.stage) ?? 0) + 1);
+
+      const recorded = reachedByApplication.get(row.id);
+      // A lone submission entry is the backfill, not observed progression.
+      const hasRealHistory = Boolean(recorded && recorded.size > 1);
+
+      if (hasRealHistory) {
+        measuredByHistory += 1;
+      }
+
+      // How far this application actually got, as an index into the
+      // progression. Read from history when there is any, inferred from the
+      // current stage otherwise.
+      const furthestIndex = hasRealHistory
+        ? furthestFunnelIndex(recorded!)
+        : // REJECTED is not on the progression and has no index of its own.
+          // Without history, all that is known is that they applied — the
+          // stage they were rejected from is exactly what went unrecorded.
+          row.stage === "REJECTED"
+          ? 0
+          : FUNNEL_STAGE_ORDER.indexOf(row.stage as FunnelStage);
+
+      for (const index of FUNNEL_STAGE_ORDER.keys()) {
+        // "Got at least this far", not "sat in this exact stage". Stage
+        // skipping is allowed by design, so testing membership would invent a
+        // drop-off at every stage a recruiter jumped over — and let a later
+        // stage out-count an earlier one, which is how a funnel ends up
+        // reporting a conversion above 100%.
+        if (furthestIndex >= index) {
+          const stage = FUNNEL_STAGE_ORDER[index];
+          reachedCounts.set(stage, (reachedCounts.get(stage) ?? 0) + 1);
+        }
+      }
+
+      if (row.stage === "REJECTED") {
+        const exit = rejectionExits.get(row.id);
+
+        if (exit && exit !== "REJECTED") {
+          rejectionsByStage.set(exit, (rejectionsByStage.get(exit) ?? 0) + 1);
+        } else {
+          unattributedRejections += 1;
+        }
+      }
     }
 
     const total = rows.length;
     const rejected = counts.get("REJECTED") ?? 0;
 
-    const stages = FUNNEL_STAGE_ORDER.map((stage, index) => {
-      const count = counts.get(stage) ?? 0;
-      // Everyone at this stage or any later one has reached it.
-      const reached = FUNNEL_STAGE_ORDER.slice(index).reduce(
-        (sum, laterStage) => sum + (counts.get(laterStage) ?? 0),
-        0,
-      );
-
-      return { stage, count, reached };
-    });
-
-    return {
-      stages: stages.map((entry, index) => ({
-        ...entry,
-        reachedPercentage: percentage(entry.reached, total),
-        conversionFromPrevious:
+    const stages: FunnelStageStats[] = FUNNEL_STAGE_ORDER.map(
+      (stage, index) => {
+        const reached = reachedCounts.get(stage) ?? 0;
+        const previousReached =
           index === 0
             ? null
-            : percentage(entry.reached, stages[index - 1].reached),
-      })),
+            : (reachedCounts.get(FUNNEL_STAGE_ORDER[index - 1]) ?? 0);
+
+        return {
+          stage,
+          count: counts.get(stage) ?? 0,
+          reached,
+          reachedPercentage: percentage(reached, total),
+          // Null rather than 0 when nobody reached the prior stage: there is
+          // no rate to report, and "0%" would read as a total drop-off.
+          conversionFromPrevious:
+            previousReached === null || previousReached === 0
+              ? null
+              : percentage(reached, previousReached),
+          rejectedFrom: rejectionsByStage.get(stage) ?? 0,
+        };
+      },
+    );
+
+    return {
+      stages,
       rejected,
       rejectedPercentage: percentage(rejected, total),
+      unattributedRejections,
+      historyCoverage: {
+        measured: measuredByHistory,
+        total,
+        percentage: percentage(measuredByHistory, total),
+      },
     };
   }
 
@@ -280,9 +418,12 @@ export class RecruiterAnalyticsService {
           reached: 0,
           reachedPercentage: 0,
           conversionFromPrevious: index === 0 ? null : 0,
+          rejectedFrom: 0,
         })),
         rejected: 0,
         rejectedPercentage: 0,
+        unattributedRejections: 0,
+        historyCoverage: { measured: 0, total: 0, percentage: 0 },
       },
       timeToHire: {
         hiredCount: 0,

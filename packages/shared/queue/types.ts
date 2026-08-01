@@ -3,6 +3,7 @@ export const QUEUE_NAMES = {
   EMAIL: "email",
   EMBEDDINGS: "embeddings",
   APPLICATION_FIT_SCORE: "application-fit-score",
+  CANDIDATE_RECOMMENDATIONS: "candidate-recommendations",
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -27,10 +28,17 @@ export interface ApplicationFitScoreJobData {
   resumeUploadedAt: string | null;
 }
 
+export interface CandidateRecommendationsJobData {
+  candidateProfileId: string;
+  /** Why the refresh was queued, for log triage. */
+  trigger: "profile-updated" | "resume-parsed" | "scheduled" | "first-visit";
+}
+
 export type JobData =
   | EmailJobData
   | EmbeddingsJobData
-  | ApplicationFitScoreJobData;
+  | ApplicationFitScoreJobData
+  | CandidateRecommendationsJobData;
 
 // ─── Job result shapes ─────────────────────────────────────────────────────────
 export interface EmailJobResult {
@@ -44,4 +52,9 @@ export interface EmbeddingsJobResult {
 export interface ApplicationFitScoreJobResult {
   status: "completed" | "failed" | "stale";
   fitScore?: number;
+}
+
+export interface CandidateRecommendationsJobResult {
+  status: "completed" | "insufficient-profile" | "no-open-jobs";
+  scored: number;
 }

@@ -108,6 +108,14 @@ router.get(
   validate(applicationIdParamSchema, "params"),
   applicationController.downloadResume,
 );
+// Candidate-scoped: the service checks the application belongs to the caller
+// and returns stage history only — never fit score, AI summary, or notes.
+router.get(
+  "/:id/timeline",
+  ...requireCandidate,
+  validate(applicationIdParamSchema, "params"),
+  applicationController.timeline,
+);
 router.patch(
   "/:id/stage",
   ...requireRecruiter,

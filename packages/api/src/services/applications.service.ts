@@ -9,6 +9,8 @@ import {
 import {
   canRecruiterMoveStage,
   describeInvalidStageMove,
+  recordApplicationSubmitted,
+  recordStageChange as recordApplicationStageChange,
   HIRED_STAGE,
 } from "@starter-kit/shared/db";
 import type { ApplicationStage } from "@starter-kit/shared/db";
@@ -160,6 +162,16 @@ export class ApplicationService {
       jobId: string;
       candidateProfileId: string;
       coverLetter?: string;
+      /**
+       * Easy Apply's snapshot of the profile as it stands right now. Written
+       * onto the application like a parsed upload would be, which is what
+       * makes a later profile edit unable to alter an existing application.
+       */
+      profileSnapshot?: {
+        resumeText: string;
+        parsedSkills: string[];
+        parsedYearsExperience: number | null;
+      };
     },
     file?: Express.Multer.File,
   ) {
@@ -206,6 +218,15 @@ export class ApplicationService {
             submittedAt: new Date(),
             resumeUrl: existing.resumeUrl ?? profile.resumeUrl,
             ...this.pendingScoringAttributes(),
+            ...(input.profileSnapshot
+              ? {
+                  resumeText: input.profileSnapshot.resumeText,
+                  parsedSkills: input.profileSnapshot.parsedSkills,
+                  parsedYearsExperience:
+                    input.profileSnapshot.parsedYearsExperience,
+                  resumeUploadedAt: new Date(),
+                }
+              : {}),
             ...(storedResume ? this.resumeAttributes(storedResume) : {}),
           },
           {
@@ -239,6 +260,13 @@ export class ApplicationService {
         await applicationResumeService.delete(previousStorageKey);
       }
 
+      // The timeline starts where the candidate submitted, not where the
+      // draft was first created.
+      await recordApplicationSubmitted({
+        applicationId: existing.id,
+        submittedAt: existing.submittedAt,
+      });
+
       scheduleApplicationFitScore(existing);
       emit(
         notificationService.recordNewApplication(existing.id),
@@ -262,14 +290,31 @@ export class ApplicationService {
       ? await applicationResumeService.storeAndParse(profile.userId, file)
       : undefined;
 
+    const { profileSnapshot, ...applicationInput } = input;
+
     try {
       const application = await Application.create({
-        ...input,
+        ...applicationInput,
         stage: "APPLIED",
         submittedAt: new Date(),
         resumeUrl: profile.resumeUrl,
         ...this.pendingScoringAttributes(),
+        // An uploaded file wins over the snapshot: the candidate explicitly
+        // chose to send that document for this application.
+        ...(profileSnapshot
+          ? {
+              resumeText: profileSnapshot.resumeText,
+              parsedSkills: profileSnapshot.parsedSkills,
+              parsedYearsExperience: profileSnapshot.parsedYearsExperience,
+              resumeUploadedAt: new Date(),
+            }
+          : {}),
         ...(storedResume ? this.resumeAttributes(storedResume) : {}),
+      });
+
+      await recordApplicationSubmitted({
+        applicationId: application.id,
+        submittedAt: application.submittedAt,
       });
 
       scheduleApplicationFitScore(application);
@@ -551,6 +596,7 @@ export class ApplicationService {
     application: Application,
     stage: ApplicationStage,
     interview: { interviewDate?: string | null } = {},
+    actorUserId?: string,
   ) {
     const previousStage = application.stage;
 
@@ -571,6 +617,17 @@ export class ApplicationService {
       ...(stage === HIRED_STAGE && previousStage !== HIRED_STAGE
         ? { hiredAt: new Date() }
         : {}),
+    });
+
+    // Written here rather than in the controller so the button, a Kanban
+    // drop, and any future caller all produce exactly one history row. Not
+    // fire-and-forget like the notification: the timeline and the funnel read
+    // this back as fact, so a lost row is missing history, not a missed ping.
+    await recordApplicationStageChange({
+      applicationId: application.id,
+      fromStage: previousStage,
+      toStage: stage,
+      changedBy: actorUserId ?? null,
     });
 
     // The ownership guard loads a minimal job association. Reload without it
