@@ -1,6 +1,18 @@
 import { Router } from "express";
-import { CandidateProfile, WorkExperience } from "@starter-kit/shared/db";
+import {
+  CandidateEducation,
+  CandidateProfile,
+  WorkExperience,
+} from "@starter-kit/shared/db";
 import { candidateController } from "../controllers/candidate.controller";
+import { candidateProfileController } from "../controllers/candidate-profile.controller";
+import {
+  createEducationSchema,
+  easyApplySchema,
+  recommendationsQuerySchema,
+  updateEducationSchema,
+  updateProfileExtrasSchema,
+} from "../schemas/candidate-profile.schemas";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { validate } from "../middleware/validate";
@@ -43,6 +55,24 @@ const ownExperienceGuard = ownershipGuard<ExperienceWithProfile>(
     getOwnerId: (experience) => experience.candidateProfile?.userId,
     resultKey: "experience",
     notFoundMessage: "Work experience not found",
+  },
+);
+
+type EducationWithProfile = CandidateEducation & {
+  candidateProfile?: CandidateProfile;
+};
+
+// Same shape as ownExperienceGuard: education has no userId of its own, so
+// ownership reaches through its parent profile.
+const ownEducationGuard = ownershipGuard<EducationWithProfile>(
+  (req) =>
+    CandidateEducation.findByPk(req.params.id as string, {
+      include: [{ model: CandidateProfile, as: "candidateProfile" }],
+    }) as Promise<EducationWithProfile | null>,
+  {
+    getOwnerId: (education) => education.candidateProfile?.userId,
+    resultKey: "education",
+    notFoundMessage: "Education entry not found",
   },
 );
 
@@ -95,6 +125,72 @@ router.delete(
   validate(idParamSchema, "params"),
   ownExperienceGuard,
   candidateController.deleteExperience,
+);
+
+router.patch(
+  "/profile/extras",
+  ...requireCandidate,
+  validate(updateProfileExtrasSchema),
+  ownProfileGuard,
+  candidateProfileController.updateExtras,
+);
+router.post(
+  "/profile/seed-from-resume",
+  ...requireCandidate,
+  ownProfileGuard,
+  candidateProfileController.seedFromResume,
+);
+
+// ─── Education ───────────────────────────────────────────────────────────────
+
+router.get(
+  "/education",
+  ...requireCandidate,
+  candidateProfileController.listEducation,
+);
+router.post(
+  "/education",
+  ...requireCandidate,
+  validate(createEducationSchema),
+  candidateProfileController.createEducation,
+);
+router.patch(
+  "/education/:id",
+  ...requireCandidate,
+  validate(idParamSchema, "params"),
+  validate(updateEducationSchema),
+  ownEducationGuard,
+  candidateProfileController.updateEducation,
+);
+router.delete(
+  "/education/:id",
+  ...requireCandidate,
+  validate(idParamSchema, "params"),
+  ownEducationGuard,
+  candidateProfileController.deleteEducation,
+);
+
+// ─── Easy Apply ──────────────────────────────────────────────────────────────
+
+router.get(
+  "/easy-apply/readiness",
+  ...requireCandidate,
+  candidateProfileController.easyApplyReadiness,
+);
+router.post(
+  "/easy-apply",
+  ...requireCandidate,
+  validate(easyApplySchema),
+  candidateProfileController.easyApply,
+);
+
+// ─── Recommendations ─────────────────────────────────────────────────────────
+
+router.get(
+  "/recommendations",
+  ...requireCandidate,
+  validate(recommendationsQuerySchema, "query"),
+  candidateProfileController.recommendations,
 );
 
 // ─── Skills ───────────────────────────────────────────────────────────────────

@@ -3,17 +3,24 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isAxiosError } from "axios";
 import { toast } from "sonner";
-import { Mail, MapPin, Pencil, Phone, Sparkles, UserRound } from "lucide-react";
+import { Mail, MapPin, Phone, Sparkles, UserRound } from "lucide-react";
 import { z } from "zod";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Card, CardContent } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { Textarea } from "../../../components/ui/textarea";
 import { useAuth } from "../../../hooks/useAuth";
 import { getApiErrorMessage } from "../../../lib/api-errors";
+import { cn } from "../../../lib/utils";
 import { useCreateProfile, useProfile, useUpdateProfile } from "../hooks";
+import { ProfileLinkIcons } from "./ProfileLinkIcons";
+import {
+  ProfileAvatar,
+  ProfileSection,
+  SectionAction,
+} from "./ProfileSection";
 import { ACCENT_GRADIENT, CARD_CLASS } from "../theme";
 import type { CandidateProfileRecord } from "../../../types/candidate";
 
@@ -33,13 +40,6 @@ function toFormValues(profile?: CandidateProfileRecord | null): ProfileFormValue
     phone: profile?.phone ?? "",
     location: profile?.location ?? "",
   };
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "";
-  return (first + last).toUpperCase() || "?";
 }
 
 export function IdentityCard() {
@@ -119,47 +119,82 @@ export function IdentityCard() {
 
   const isSaving = createProfile.isPending || updateProfile.isPending;
   const showForm = isEditing || profileMissing;
+  const profile = profileQuery.data;
 
   return (
-    <Card className={CARD_CLASS}>
-      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-        <div className="flex items-center gap-4">
-          <div
-            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold text-white ${ACCENT_GRADIENT}`}
-            aria-hidden="true"
-          >
-            {user ? initials(user.name) : <UserRound className="h-7 w-7" />}
+    <>
+      <Card className={cn(CARD_CLASS, "overflow-hidden")}>
+        {/* Cover band. Decorative only — no image upload in this pass. */}
+        <div
+          className={cn("h-28 w-full sm:h-36", ACCENT_GRADIENT)}
+          aria-hidden="true"
+        />
+
+        {/* Negative margin pulls the avatar up over the band; the padding-left
+            on larger screens keeps the name clear of it. */}
+        <div className="px-6 pb-6">
+          <div className="-mt-12 flex items-end justify-between gap-4 sm:-mt-14">
+            <ProfileAvatar
+              name={user?.name ?? "?"}
+              photoUrl={profile?.profilePhotoUrl}
+              className="h-24 w-24 border-4 border-white text-2xl shadow-sm sm:h-28 sm:w-28 sm:text-3xl"
+            />
+            {!showForm && (
+              <SectionAction
+                label="Edit profile details"
+                onClick={() => setIsEditing(true)}
+              />
+            )}
           </div>
-          <div className="min-w-0">
-            <CardTitle className="text-xl">{user?.name ?? "Your profile"}</CardTitle>
-            {user?.email && (
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span className="truncate">{user.email}</span>
+
+          <div className="mt-4">
+            <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
+              {user?.name ?? "Your profile"}
+            </h1>
+            {profile?.headline && (
+              <p className="mt-1 text-base text-stone-600">
+                {profile.headline}
               </p>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-stone-500">
+              {user?.email && (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <Mail className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{user.email}</span>
+                </span>
+              )}
+              {profile?.location && (
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {profile.location}
+                </span>
+              )}
+              {profile?.phone && (
+                <span className="flex items-center gap-1.5">
+                  <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {profile.phone}
+                </span>
+              )}
+            </div>
+
+            {!showForm && (
+              <div className="mt-4">
+                <ProfileLinkIcons links={profile?.links} />
+              </div>
             )}
           </div>
         </div>
-        {!showForm && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setIsEditing(true)}
-          >
-            <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            Edit
-          </Button>
-        )}
-      </CardHeader>
+      </Card>
 
-      <CardContent>
-        {showForm ? (
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            noValidate
-            className="space-y-4"
-          >
+      {showForm ? (
+        <Card className={CARD_CLASS}>
+          <CardContent className="p-6">
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              noValidate
+              className="space-y-4"
+            >
             {profileMissing && (
               <p className="flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-700">
                 <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -239,36 +274,32 @@ export function IdentityCard() {
                 </Button>
               )}
             </div>
-          </form>
-        ) : (
-          <div className="space-y-3">
-            {profileQuery.data?.headline && (
-              <p className="text-sm font-medium text-foreground">
-                {profileQuery.data.headline}
-              </p>
-            )}
-            {profileQuery.data?.bio && (
-              <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground">
-                {profileQuery.data.bio}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-              {profileQuery.data?.location && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                  {profileQuery.data.location}
-                </span>
-              )}
-              {profileQuery.data?.phone && (
-                <span className="flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5" aria-hidden="true" />
-                  {profileQuery.data.phone}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            </form>
+          </CardContent>
+        </Card>
+      ) : (
+        <ProfileSection
+          icon={UserRound}
+          title="About"
+          action={
+            <SectionAction
+              label="Edit about"
+              onClick={() => setIsEditing(true)}
+            />
+          }
+        >
+          {profile?.bio ? (
+            <p className="whitespace-pre-line text-sm leading-7 text-stone-600">
+              {profile.bio}
+            </p>
+          ) : (
+            <p className="text-sm text-stone-500">
+              Add a short summary of your experience and what you're looking
+              for.
+            </p>
+          )}
+        </ProfileSection>
+      )}
+    </>
   );
 }

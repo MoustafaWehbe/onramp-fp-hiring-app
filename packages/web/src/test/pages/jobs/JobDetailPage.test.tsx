@@ -37,6 +37,11 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => useAuth(),
 }));
 
+// Easy Apply has its own tests; these cases cover the upload-and-apply path.
+vi.mock("@/features/candidate/components/EasyApplyButton", () => ({
+  EasyApplyButton: () => null,
+}));
+
 vi.mock("sonner", () => ({
   toast: {
     success: toastSuccess,

@@ -7,6 +7,7 @@ import {
 import { processEmailJob } from "../jobs/email.job";
 import { processEmbeddingsJob } from "../jobs/embeddings.job";
 import { processApplicationFitScoreJob } from "../jobs/application-fit-score.job";
+import { processCandidateRecommendationsJob } from "../jobs/candidate-recommendations.job";
 
 export function createWorkers(): Worker[] {
   const connection = getRedisConnection();
@@ -38,10 +39,23 @@ export function createWorkers(): Worker[] {
     },
   );
 
+  // Low concurrency on purpose: one run fans out to a model call per open
+  // job, so several candidates refreshing at once is the expensive case.
+  const candidateRecommendationsWorker = new Worker(
+    QUEUE_NAMES.CANDIDATE_RECOMMENDATIONS,
+    processCandidateRecommendationsJob,
+    {
+      connection,
+      prefix,
+      concurrency: 2,
+    },
+  );
+
   const workers = [
     emailWorker,
     embeddingsWorker,
     applicationFitScoreWorker,
+    candidateRecommendationsWorker,
   ];
 
   workers.forEach((worker) => {

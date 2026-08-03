@@ -9,7 +9,9 @@ import {
   CardHeader,
 } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
+import { RecommendedJobs } from "../../features/candidate/components/RecommendedJobs";
 import { usePublicJobs } from "../../features/jobs/hooks";
+import { useAuth } from "../../hooks/useAuth";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { toJobSummary } from "../../lib/job-presentation";
 
@@ -39,6 +41,7 @@ function JobCardSkeleton() {
 
 export function JobsPage() {
   const [selectedStack, setSelectedStack] = useState<string>(ALL_STACKS);
+  const { currentRole } = useAuth();
   const jobsQuery = usePublicJobs();
 
   const jobs = useMemo(
@@ -89,6 +92,14 @@ export function JobsPage() {
           </div>
         </div>
       </section>
+
+      {/* Candidates only: recommendations are scored against their own
+          profile, and the endpoint is candidate-scoped. */}
+      {currentRole === "candidate" && (
+        <section className="mx-auto w-full max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+          <RecommendedJobs />
+        </section>
+      )}
 
       <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {jobsQuery.isLoading ? (

@@ -35,6 +35,7 @@ import {
 } from "../../features/applications/resume-files";
 import { usePublicJob } from "../../features/jobs/hooks";
 import { useAuth } from "../../hooks/useAuth";
+import { EasyApplyButton } from "../../features/candidate/components/EasyApplyButton";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import {
   employmentTypeLabels,
@@ -215,6 +216,24 @@ export function JobDetailPage() {
 
     return (
       <div className="w-full space-y-3 rounded-lg border bg-card p-4 sm:w-80">
+        {/* Applying from the standing profile is the default path; it renders
+            itself as a prompt to finish the profile when there is nothing to
+            send. Uploading a CV for this specific job stays available below. */}
+        <EasyApplyButton
+          jobId={job.id}
+          className="w-full"
+          disabled={isCheckingApplications || isApplyingToThisJob}
+          onApplied={() => void applicationsQuery.refetch()}
+        />
+
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          <span className="text-xs text-muted-foreground">
+            or attach a CV
+          </span>
+          <span className="h-px flex-1 bg-border" aria-hidden="true" />
+        </div>
+
         <div>
           <Label htmlFor="application-resume">CV for this application</Label>
           <p className="mt-1 text-xs text-muted-foreground">

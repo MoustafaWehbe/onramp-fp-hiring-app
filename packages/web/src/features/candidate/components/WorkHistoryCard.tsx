@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Briefcase, Pencil, Plus, Trash2 } from "lucide-react";
+import { Briefcase, Pencil, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { ProfileSection, SectionAction } from "./ProfileSection";
+import { Timeline, TimelineItem } from "./Timeline";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Skeleton } from "../../../components/ui/skeleton";
@@ -18,7 +19,6 @@ import {
   useExperience,
   useUpdateExperience,
 } from "../hooks";
-import { CARD_CLASS } from "../theme";
 import type { WorkExperienceRecord } from "../../../types/candidate";
 
 const experienceFormSchema = z.object({
@@ -200,23 +200,25 @@ export function WorkHistoryCard({ profileExists }: WorkHistoryCardProps) {
     }
   }
 
+  const experiences = experienceQuery.data ?? [];
+
   return (
-    <Card className={CARD_CLASS}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <Briefcase className="h-5 w-5 text-indigo-600" aria-hidden="true" />
-          Work history
-        </CardTitle>
-        {profileExists && !addingNew && (
-          <Button type="button" size="sm" onClick={() => setAddingNew(true)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            Add experience
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <ProfileSection
+      icon={Briefcase}
+      title="Experience"
+      action={
+        profileExists && !addingNew ? (
+          <SectionAction
+            label="Add experience"
+            variant="add"
+            onClick={() => setAddingNew(true)}
+          />
+        ) : undefined
+      }
+    >
+      <div className="space-y-4">
         {!profileExists && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-stone-500">
             Set up your profile above to start adding work experience.
           </p>
         )}
@@ -251,67 +253,75 @@ export function WorkHistoryCard({ profileExists }: WorkHistoryCardProps) {
           />
         )}
 
-        {profileExists &&
-          experienceQuery.data?.length === 0 &&
-          !addingNew && (
-            <p className="text-sm text-muted-foreground">
-              No work experience added yet.
-            </p>
-          )}
+        {profileExists && experiences.length === 0 && !addingNew && (
+          <p className="text-sm text-stone-500">
+            No work experience added yet.
+          </p>
+        )}
 
-        {profileExists &&
-          experienceQuery.data?.map((experience) =>
-            editingId === experience.id ? (
-              <ExperienceForm
-                key={experience.id}
-                initial={experience}
-                onCancel={() => setEditingId(null)}
-                onSaved={() => setEditingId(null)}
-              />
-            ) : (
-              <div
-                key={experience.id}
-                className="border-l-2 border-indigo-200 py-1 pl-4"
-              >
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h3 className="font-semibold">{experience.title}</h3>
-                    <p className="text-sm text-muted-foreground">{experience.company}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="whitespace-nowrap text-sm text-muted-foreground">
-                      {formatDateOnly(experience.startDate)} –{" "}
-                      {experience.endDate ? formatDateOnly(experience.endDate) : "Present"}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Edit ${experience.title} at ${experience.company}`}
-                      onClick={() => setEditingId(experience.id)}
-                    >
-                      <Pencil className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Remove ${experience.title} at ${experience.company}`}
-                      onClick={() => void handleDelete(experience)}
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </div>
-                </div>
-                {experience.description && (
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {experience.description}
-                  </p>
-                )}
-              </div>
-            ),
-          )}
-      </CardContent>
-    </Card>
+        {profileExists && experiences.length > 0 && (
+          <Timeline>
+            {experiences.map((experience, index) =>
+              editingId === experience.id ? (
+                <li key={experience.id} className="pb-6 last:pb-0">
+                  <ExperienceForm
+                    initial={experience}
+                    onCancel={() => setEditingId(null)}
+                    onSaved={() => setEditingId(null)}
+                  />
+                </li>
+              ) : (
+                <TimelineItem
+                  key={experience.id}
+                  isLast={index === experiences.length - 1}
+                  // No end date means this is the role still running.
+                  tone={experience.endDate ? "accent" : "current"}
+                  icon={
+                    <Briefcase className="h-3.5 w-3.5" aria-hidden="true" />
+                  }
+                  title={experience.title}
+                  subtitle={experience.company}
+                  meta={`${formatDateOnly(experience.startDate)} – ${
+                    experience.endDate
+                      ? formatDateOnly(experience.endDate)
+                      : "Present"
+                  }`}
+                  actions={
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-stone-400 hover:text-indigo-600"
+                        aria-label={`Edit ${experience.title} at ${experience.company}`}
+                        onClick={() => setEditingId(experience.id)}
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-stone-400 hover:text-destructive"
+                        aria-label={`Remove ${experience.title} at ${experience.company}`}
+                        onClick={() => void handleDelete(experience)}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </>
+                  }
+                >
+                  {experience.description && (
+                    <p className="whitespace-pre-line">
+                      {experience.description}
+                    </p>
+                  )}
+                </TimelineItem>
+              ),
+            )}
+          </Timeline>
+        )}
+      </div>
+    </ProfileSection>
   );
 }

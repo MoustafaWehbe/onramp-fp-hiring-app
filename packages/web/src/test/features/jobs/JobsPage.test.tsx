@@ -5,12 +5,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { JobsPage } from "@/pages/jobs/JobsPage";
 import type { PublicJobRecord } from "@/types/jobs";
 
-const { usePublicJobs } = vi.hoisted(() => ({
+const { usePublicJobs, useAuth } = vi.hoisted(() => ({
   usePublicJobs: vi.fn(),
+  useAuth: vi.fn(),
 }));
 
 vi.mock("@/features/jobs/hooks", () => ({
   usePublicJobs,
+}));
+
+vi.mock("@/hooks/useAuth", () => ({ useAuth }));
+
+// The recommendations panel is candidate-only and has its own tests; these
+// cases cover the public job list.
+vi.mock("@/features/candidate/components/RecommendedJobs", () => ({
+  RecommendedJobs: () => null,
 }));
 
 const reactJob: PublicJobRecord = {
@@ -72,6 +81,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useAuth.mockReturnValue({ user: null, currentRole: null });
 });
 
 describe("JobsPage", () => {

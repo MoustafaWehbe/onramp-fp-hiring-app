@@ -125,7 +125,11 @@ describe("IdentityCard", () => {
     expect(screen.getByText("Lagos, Nigeria")).toBeInTheDocument();
     expect(screen.queryByLabelText(/headline/i)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /edit/i }));
+    // The header and the About card each carry their own pencil, and both
+    // open this one form, so the selector names which is being clicked.
+    await user.click(
+      screen.getByRole("button", { name: "Edit profile details" }),
+    );
 
     expect(screen.getByLabelText(/headline/i)).toHaveValue("Senior Full-Stack Engineer");
   });

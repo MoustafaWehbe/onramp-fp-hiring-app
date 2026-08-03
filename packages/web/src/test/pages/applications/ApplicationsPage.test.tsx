@@ -23,6 +23,11 @@ vi.mock("@/features/applications/hooks", () => ({
   useReplaceApplicationResume: () => useReplaceApplicationResume(),
 }));
 
+// The timeline fetches per application and is covered by its own tests.
+vi.mock("@/features/candidate/components/ApplicationTimeline", () => ({
+  ApplicationTimeline: () => null,
+}));
+
 vi.mock("sonner", () => ({
   toast: {
     error: toastError,
