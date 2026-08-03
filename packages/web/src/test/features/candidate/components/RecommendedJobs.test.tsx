@@ -74,8 +74,10 @@ describe("RecommendedJobs", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("82% match")).toBeInTheDocument();
-    expect(screen.getByText("51% match")).toBeInTheDocument();
+    // The score renders as a ring, so the accessible name carries it rather
+    // than a text node.
+    expect(screen.getByRole("img", { name: "82% match" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "51% match" })).toBeInTheDocument();
     expect(
       screen.getByText("Matches 2 of 3 listed skills (React, TypeScript)."),
     ).toBeInTheDocument();
@@ -111,7 +113,7 @@ describe("RecommendedJobs", () => {
     expect(
       screen.getByRole("link", { name: "Complete your profile" }),
     ).toHaveAttribute("href", "/candidate/profile");
-    expect(screen.queryByText(/% match/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /% match/ })).not.toBeInTheDocument();
   });
 
   it("explains an empty result when everything open has been applied to", () => {

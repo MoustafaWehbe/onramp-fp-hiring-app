@@ -1,4 +1,4 @@
-import { Loader2, MapPin, Sparkles, UserRoundPen } from "lucide-react";
+import { Building2, Loader2, MapPin, UserRoundPen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "../../../components/ui/badge";
 import { buttonVariants } from "../../../components/ui/button";
@@ -21,12 +21,58 @@ import type { JobRecommendation } from "../../../types/candidate";
  * score honestly, and `ready`. None of them render a blank panel.
  */
 
-function scoreVariant(score: number) {
-  if (score >= 75) {
-    return "success" as const;
-  }
+/**
+ * The match score as a ring rather than a bare number: the arc conveys
+ * magnitude at a glance and the number stays readable inside it.
+ *
+ * Drawn with an SVG circle and stroke-dasharray so it needs no chart library
+ * and no layout shift while it renders.
+ */
+function MatchRing({ score }: { score: number }) {
+  const radius = 20;
+  const circumference = 2 * Math.PI * radius;
+  const stroke =
+    score >= 75
+      ? "stroke-emerald-500"
+      : score >= 50
+        ? "stroke-indigo-500"
+        : "stroke-stone-400";
 
-  return score >= 50 ? ("secondary" as const) : ("muted" as const);
+  return (
+    <div
+      className="relative h-12 w-12 shrink-0"
+      role="img"
+      aria-label={`${score}% match`}
+    >
+      <svg viewBox="0 0 48 48" className="h-12 w-12 -rotate-90">
+        <circle
+          cx="24"
+          cy="24"
+          r={radius}
+          fill="none"
+          strokeWidth="4"
+          className="stroke-stone-200"
+        />
+        <circle
+          cx="24"
+          cy="24"
+          r={radius}
+          fill="none"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - score / 100)}
+          className={cn("transition-[stroke-dashoffset] duration-500", stroke)}
+        />
+      </svg>
+      <span
+        className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-stone-700"
+        aria-hidden="true"
+      >
+        {score}
+      </span>
+    </div>
+  );
 }
 
 function RecommendationCard({
@@ -41,49 +87,54 @@ function RecommendationCard({
   }
 
   return (
-    <div className="rounded-md border bg-background p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Link
-            to={`/jobs/${job.id}`}
-            className="font-medium hover:underline"
-          >
-            {job.title}
-          </Link>
-          <p className="mt-0.5 truncate text-sm text-muted-foreground">
-            {job.company?.name ?? "Company"}
-          </p>
+    // Mirrors the JobCard pattern used elsewhere: bordered card, company
+    // above title, hover border shift.
+    <div className="rounded-xl border border-stone-200 bg-white p-4 transition-colors hover:border-indigo-300">
+      <div className="flex items-start gap-4">
+        <MatchRing score={recommendation.score} />
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-sm text-stone-500">
+            <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="truncate">{job.company?.name ?? "Company"}</span>
+          </div>
+          <h3 className="mt-1 text-base font-semibold leading-6 text-stone-900">
+            <Link
+              to={`/jobs/${job.id}`}
+              className="rounded-sm outline-none hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2"
+            >
+              {job.title}
+            </Link>
+          </h3>
+
+          {(job.location || job.isRemote) && (
+            <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-stone-500">
+              <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {job.isRemote ? "Remote" : job.location}
+            </p>
+          )}
+
+          {recommendation.reason && (
+            <p className="mt-2 text-sm leading-6 text-stone-600">
+              {recommendation.reason}
+            </p>
+          )}
+
+          {recommendation.matchedSkills.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {recommendation.matchedSkills.map((skill) => (
+                <Badge
+                  key={skill}
+                  variant="outline"
+                  className="rounded-full border-indigo-200 bg-indigo-50 text-indigo-700"
+                >
+                  {skill}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
-        <Badge variant={scoreVariant(recommendation.score)}>
-          <Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-          {recommendation.score}% match
-        </Badge>
       </div>
-
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        {(job.location || job.isRemote) && (
-          <span className="inline-flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-            {job.isRemote ? "Remote" : job.location}
-          </span>
-        )}
-      </div>
-
-      {recommendation.reason && (
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          {recommendation.reason}
-        </p>
-      )}
-
-      {recommendation.matchedSkills.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {recommendation.matchedSkills.map((skill) => (
-            <Badge key={skill} variant="outline">
-              {skill}
-            </Badge>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { Check, CircleDashed, Info, X } from "lucide-react";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { useApplicationTimeline } from "../hooks";
 import { getApiErrorMessage } from "../../../lib/api-errors";
-import { cn } from "../../../lib/utils";
+import { Timeline, TimelineItem, type TimelineTone } from "./Timeline";
 import type { ApplicationTimelineEntry } from "../../../types/candidate";
 
 /**
@@ -32,52 +32,19 @@ function formatMoment(value: string): string {
   }).format(new Date(value));
 }
 
-function EntryIcon({ stage }: { stage: string }) {
-  if (stage === "REJECTED") {
-    return <X className="h-3.5 w-3.5" aria-hidden="true" />;
+/**
+ * Reuses the profile's Timeline primitive rather than defining a second
+ * timeline design, so a stage change reads the same way as a job or a degree.
+ */
+function toneFor(
+  entry: ApplicationTimelineEntry,
+  isLatest: boolean,
+): TimelineTone {
+  if (entry.toStage === "REJECTED") {
+    return "muted";
   }
 
-  return <Check className="h-3.5 w-3.5" aria-hidden="true" />;
-}
-
-function TimelineEntry({
-  entry,
-  isLatest,
-}: {
-  entry: ApplicationTimelineEntry;
-  isLatest: boolean;
-}) {
-  const isRejection = entry.toStage === "REJECTED";
-
-  return (
-    <li className="relative flex gap-3 pb-5 last:pb-0">
-      {/* The rail is decorative; the ordered list carries the sequence. */}
-      <span
-        className="absolute left-[11px] top-6 h-[calc(100%-1.5rem)] w-px bg-border last:hidden"
-        aria-hidden="true"
-      />
-      <span
-        className={cn(
-          "z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-          isRejection
-            ? "bg-muted text-muted-foreground"
-            : isLatest
-              ? "bg-primary text-primary-foreground"
-              : "bg-primary/10 text-primary",
-        )}
-      >
-        <EntryIcon stage={entry.toStage} />
-      </span>
-      <div className="min-w-0 pt-0.5">
-        <p className="text-sm font-medium">
-          {stageLabels[entry.toStage] ?? entry.toStage}
-        </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {formatMoment(entry.changedAt)}
-        </p>
-      </div>
-    </li>
-  );
+  return isLatest ? "current" : "accent";
 }
 
 export function ApplicationTimeline({
@@ -125,15 +92,29 @@ export function ApplicationTimeline({
 
   return (
     <div className="space-y-3">
-      <ol className="relative">
-        {timeline.entries.map((entry, index) => (
-          <TimelineEntry
-            key={entry.id}
-            entry={entry}
-            isLatest={index === timeline.entries.length - 1}
-          />
-        ))}
-      </ol>
+      <Timeline>
+        {timeline.entries.map((entry, index) => {
+          const isLatest = index === timeline.entries.length - 1;
+
+          return (
+            <TimelineItem
+              key={entry.id}
+              compact
+              isLast={isLatest}
+              tone={toneFor(entry, isLatest)}
+              icon={
+                entry.toStage === "REJECTED" ? (
+                  <X className="h-3 w-3" aria-hidden="true" />
+                ) : (
+                  <Check className="h-3 w-3" aria-hidden="true" />
+                )
+              }
+              title={stageLabels[entry.toStage] ?? entry.toStage}
+              meta={formatMoment(entry.changedAt)}
+            />
+          );
+        })}
+      </Timeline>
 
       {/* An application that moved before history existed would otherwise look
           like it had never progressed. */}

@@ -1,18 +1,12 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { ExternalLink, LinkIcon, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, LinkIcon, Trash2 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { getApiErrorMessage } from "../../../lib/api-errors";
 import { useUpdateProfileExtras } from "../hooks";
-import { CARD_CLASS } from "../theme";
+import { ProfileSection, SectionAction } from "./ProfileSection";
 import type { ProfileLinks } from "../../../types/candidate";
 
 /**
@@ -73,26 +67,21 @@ export function ProfileLinksCard({
   }
 
   return (
-    <Card className={CARD_CLASS}>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <LinkIcon className="h-5 w-5 text-primary" aria-hidden="true" />
-          Links
-        </CardTitle>
-        {hasProfile && !isAdding && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
+    <ProfileSection
+      icon={LinkIcon}
+      title="Links"
+      description="Shown as icon buttons at the top of your profile."
+      action={
+        hasProfile && !isAdding ? (
+          <SectionAction
+            label="Add link"
+            variant="add"
             onClick={() => setIsAdding(true)}
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Add
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-4">
+          />
+        ) : undefined
+      }
+    >
+      <div className="space-y-4">
         {!hasProfile && (
           <p className="text-sm text-muted-foreground">
             Create your profile to add links.
@@ -178,7 +167,7 @@ export function ProfileLinksCard({
             </Button>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </ProfileSection>
   );
 }

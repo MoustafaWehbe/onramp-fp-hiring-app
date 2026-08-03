@@ -5,6 +5,7 @@ import { WorkHistoryCard } from "../../features/candidate/components/WorkHistory
 import { SkillsCard } from "../../features/candidate/components/SkillsCard";
 import { EducationCard } from "../../features/candidate/components/EducationCard";
 import { ProfileLinksCard } from "../../features/candidate/components/ProfileLinksCard";
+import { ProfileQuickLinks } from "../../features/candidate/components/ProfileQuickLinks";
 import { ResumeCard } from "../../features/candidate/components/ResumeCard";
 import {
   useProfile,
@@ -35,8 +36,15 @@ export function ProfilePage() {
   }, [profileExists, seedProfile]);
 
   return (
-    <div className="bg-stone-50">
-      <section className="mx-auto w-full max-w-3xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-stone-50">
+      {/* Fixed-position, so it navigates the sections below without taking
+          part in the page's layout or shifting the column. */}
+      <ProfileQuickLinks />
+
+      {/* Slightly wider than before to give the banner room, and more
+          vertical rhythm between cards — the cheapest way to stop a stack of
+          sections reading as one long form. */}
+      <section className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <IdentityCard />
         <WorkHistoryCard profileExists={profileExists} />
         <EducationCard hasProfile={profileExists} />

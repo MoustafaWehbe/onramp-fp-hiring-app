@@ -2,15 +2,11 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { GraduationCap, Pencil, Plus, Trash2 } from "lucide-react";
+import { GraduationCap, Pencil, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { Button } from "../../../components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../../../components/ui/card";
+import { ProfileSection, SectionAction } from "./ProfileSection";
+import { Timeline, TimelineItem } from "./Timeline";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Skeleton } from "../../../components/ui/skeleton";
@@ -22,7 +18,6 @@ import {
   useEducation,
   useUpdateEducation,
 } from "../hooks";
-import { CARD_CLASS } from "../theme";
 import type { EducationRecord } from "../../../types/candidate";
 
 const educationFormSchema = z
@@ -213,31 +208,25 @@ export function EducationCard({ hasProfile }: { hasProfile: boolean }) {
   }
 
   return (
-    <Card className={CARD_CLASS}>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <GraduationCap className="h-5 w-5 text-primary" aria-hidden="true" />
-          Education
-        </CardTitle>
-        {hasProfile && !isAdding && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
+    <ProfileSection
+      icon={GraduationCap}
+      title="Education"
+      action={
+        hasProfile && !isAdding ? (
+          <SectionAction
+            label="Add education"
+            variant="add"
             onClick={() => {
               setEditingId(null);
               setIsAdding(true);
             }}
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Add
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-4">
+          />
+        ) : undefined
+      }
+    >
+      <div className="space-y-4">
         {!hasProfile && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-stone-500">
             Create your profile to add education.
           </p>
         )}
@@ -260,63 +249,76 @@ export function EducationCard({ hasProfile }: { hasProfile: boolean }) {
           !educationQuery.isLoading &&
           entries.length === 0 &&
           !isAdding && (
-            <p className="text-sm text-muted-foreground">
-              No education added yet.
-            </p>
+            <p className="text-sm text-stone-500">No education added yet.</p>
           )}
 
-        {entries.map((entry) =>
-          editingId === entry.id ? (
-            <EducationForm
-              key={entry.id}
-              initial={entry}
-              onCancel={() => setEditingId(null)}
-              onSaved={() => setEditingId(null)}
-            />
-          ) : (
-            <div key={entry.id} className="rounded-md border p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium">{entry.institution}</p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {[entry.degree, entry.fieldOfStudy]
+        {entries.length > 0 && (
+          <Timeline>
+            {entries.map((entry, index) =>
+              editingId === entry.id ? (
+                <li key={entry.id} className="pb-6 last:pb-0">
+                  <EducationForm
+                    initial={entry}
+                    onCancel={() => setEditingId(null)}
+                    onSaved={() => setEditingId(null)}
+                  />
+                </li>
+              ) : (
+                <TimelineItem
+                  key={entry.id}
+                  isLast={index === entries.length - 1}
+                  // Still studying reads as the in-progress marker, matching
+                  // how a current role is shown in Experience.
+                  tone={entry.endDate ? "accent" : "current"}
+                  icon={
+                    <GraduationCap
+                      className="h-3.5 w-3.5"
+                      aria-hidden="true"
+                    />
+                  }
+                  title={entry.institution}
+                  subtitle={
+                    [entry.degree, entry.fieldOfStudy]
                       .filter(Boolean)
-                      .join(" · ") || "Studies"}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {formatDateOnly(entry.startDate)} –{" "}
-                    {entry.endDate ? formatDateOnly(entry.endDate) : "present"}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Edit ${entry.institution}`}
-                    onClick={() => {
-                      setIsAdding(false);
-                      setEditingId(entry.id);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`Remove ${entry.institution}`}
-                    onClick={() => remove(entry)}
-                    disabled={deleteEducation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ),
+                      .join(" · ") || "Studies"
+                  }
+                  meta={`${formatDateOnly(entry.startDate)} – ${
+                    entry.endDate ? formatDateOnly(entry.endDate) : "Present"
+                  }`}
+                  actions={
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-stone-400 hover:text-indigo-600"
+                        aria-label={`Edit ${entry.institution}`}
+                        onClick={() => {
+                          setIsAdding(false);
+                          setEditingId(entry.id);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-stone-400 hover:text-destructive"
+                        aria-label={`Remove ${entry.institution}`}
+                        onClick={() => remove(entry)}
+                        disabled={deleteEducation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </>
+                  }
+                />
+              ),
+            )}
+          </Timeline>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </ProfileSection>
   );
 }
