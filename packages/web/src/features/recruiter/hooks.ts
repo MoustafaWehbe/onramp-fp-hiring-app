@@ -3,6 +3,7 @@ import * as api from "./api";
 
 export const recruiterKeys = {
   dashboard: ["recruiter", "dashboard"] as const,
+  analytics: ["recruiter", "analytics"] as const,
   candidates: ["recruiter", "candidates"] as const,
   candidate: (id: string | undefined) =>
     [...recruiterKeys.candidates, id] as const,
@@ -15,6 +16,17 @@ export function useRecruiterDashboard() {
     staleTime: 0,
     // Live: RealtimeProvider invalidates this key on every
     // application.changed event, so the counts move without a 30s timer.
+    refetchOnWindowFocus: "always",
+  });
+}
+
+export function useRecruiterAnalytics() {
+  return useQuery({
+    queryKey: recruiterKeys.analytics,
+    queryFn: api.getRecruiterAnalytics,
+    // No refetchInterval: the realtime provider invalidates this on every
+    // application.changed event, which is what phase 4 replaced polling with.
+    staleTime: 0,
     refetchOnWindowFocus: "always",
   });
 }

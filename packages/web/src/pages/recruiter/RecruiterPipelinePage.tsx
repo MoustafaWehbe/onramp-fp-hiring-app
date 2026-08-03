@@ -1,15 +1,4 @@
-import {
-  CalendarCheck,
-  CalendarDays,
-  FileText,
-  Loader2,
-  Mail,
-  MapPin,
-  NotebookPen,
-  RefreshCw,
-  Sparkles,
-  UserRound,
-} from "lucide-react";
+import { RefreshCw, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -24,77 +13,32 @@ import {
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Skeleton } from "../../components/ui/skeleton";
-import { InterviewDetailsForm } from "../../features/applications/components/InterviewDetailsForm";
+import { PipelineBoard } from "../../features/applications/components/PipelineBoard";
+import { stageLabels } from "../../features/applications/components/pipeline-board";
 import {
   useApplicationsByJob,
   useRescoreApplication,
+  useUpdateApplicationInterview,
   useUpdateApplicationStage,
 } from "../../features/applications/hooks";
 import {
-  formatInterviewDate,
   fromInterviewDateInput,
   toInterviewDateInput,
 } from "../../features/applications/interview-date";
 import { useRecruiterJobs } from "../../features/jobs/hooks";
+import { useRealtime } from "../../providers/RealtimeProvider";
 import { getApiErrorMessage } from "../../lib/api-errors";
-import { cn, formatDate } from "../../lib/utils";
+import { cn } from "../../lib/utils";
 import type {
-  RecruiterApplicationStage,
+  RecruiterMutableApplicationStage,
   RecruiterPipelineApplication,
 } from "../../types/applications";
 
-const pipelineStages: RecruiterApplicationStage[] = [
-  "APPLIED",
-  "REVIEWED",
-  "INTERVIEWING",
-  "OFFER",
-  "HIRED",
-  "REJECTED",
-];
-
-const stageLabels: Record<RecruiterApplicationStage, string> = {
-  APPLIED: "Applied",
-  REVIEWED: "Reviewed",
-  INTERVIEWING: "Interviewing",
-  OFFER: "Offer",
-  HIRED: "Hired",
-  REJECTED: "Rejected",
-};
-
-function stageBadgeVariant(stage: RecruiterApplicationStage) {
-  if (stage === "OFFER" || stage === "HIRED") {
-    return "success" as const;
-  }
-
-  if (stage === "REJECTED") {
-    return "muted" as const;
-  }
-
-  return "secondary" as const;
-}
-
-function PipelineSkeleton() {
+function BoardSkeleton() {
   return (
-    <div className="space-y-6" aria-label="Loading pipeline">
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {pipelineStages.map((stage) => (
-          <Skeleton key={stage} className="h-24" />
-        ))}
-      </div>
-      {[0, 1, 2].map((item) => (
-        <Card key={item}>
-          <CardContent className="space-y-4 p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-44" />
-                <Skeleton className="h-4 w-56" />
-              </div>
-              <Skeleton className="h-6 w-24" />
-            </div>
-            <Skeleton className="h-4 w-72 max-w-full" />
-            <Skeleton className="h-9 w-44" />
-          </CardContent>
-        </Card>
+    <div className="flex gap-3 overflow-hidden" aria-label="Loading pipeline">
+      {[0, 1, 2, 3, 4, 5].map((column) => (
+        <Skeleton key={column} className="h-80 w-72 shrink-0 rounded-lg" />
       ))}
     </div>
   );
@@ -152,10 +96,7 @@ function PipelineJobSelector() {
               A job gives incoming applications a pipeline to appear in.
             </p>
           </div>
-          <Link
-            to="/recruiter/jobs/create"
-            className={cn(buttonVariants())}
-          >
+          <Link to="/recruiter/jobs/create" className={cn(buttonVariants())}>
             Create job
           </Link>
         </CardContent>
@@ -213,314 +154,76 @@ function PipelineJobSelector() {
   );
 }
 
-function PipelineSummary({
-  applications,
-}: {
-  applications: RecruiterPipelineApplication[];
-}) {
-  return (
-    <div
-      className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6"
-      aria-label="Pipeline stage counts"
-    >
-      {pipelineStages.map((stage) => (
-        <Card key={stage}>
-          <CardContent className="p-4">
-            <p className="text-sm font-medium">{stageLabels[stage]}</p>
-            <p className="mt-2 text-2xl font-semibold">
-              {
-                applications.filter(
-                  (application) => application.stage === stage,
-                ).length
-              }
-            </p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}
-
-function CandidateCard({
+/**
+ * Phase 3's "set a date when you move someone to interviewing" prompt, kept
+ * alive after the drag rather than before it — the move already succeeded, so
+ * scheduling stays genuinely optional.
+ */
+function SchedulePrompt({
   application,
-  onMoveToInterviewing,
-  onRescore,
-  isMoving,
-  isRescoring,
-  mutationPending,
+  jobId,
+  onDismiss,
 }: {
   application: RecruiterPipelineApplication;
-  onMoveToInterviewing: (
-    application: RecruiterPipelineApplication,
-    interviewDate: string | null,
-  ) => void;
-  onRescore: (application: RecruiterPipelineApplication) => void;
-  isMoving: boolean;
-  isRescoring: boolean;
-  mutationPending: boolean;
+  jobId: string;
+  onDismiss: () => void;
 }) {
-  const { candidateProfile } = application;
-  const { user } = candidateProfile;
-  const [schedulePromptOpen, setSchedulePromptOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [scheduleValue, setScheduleValue] = useState(() =>
+  const updateInterview = useUpdateApplicationInterview();
+  const [value, setValue] = useState(() =>
     toInterviewDateInput(application.interviewDate),
   );
-  const canMoveToInterviewing =
-    application.stage === "APPLIED" || application.stage === "REVIEWED";
-  const scoreBadge =
-    application.aiScoringStatus === "completed" &&
-    application.fitScore !== null ? (
-      <Badge
-        variant={
-          application.fitScore >= 75
-            ? "success"
-            : application.fitScore >= 50
-              ? "secondary"
-              : "muted"
-        }
-      >
-        <Sparkles className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-        {application.fitScore}% fit
-      </Badge>
-    ) : application.aiScoringStatus === "pending" ? (
-      <Badge variant="outline">
-        <Loader2
-          className="mr-1 h-3.5 w-3.5 animate-spin"
-          aria-hidden="true"
-        />
-        Scoring
-      </Badge>
-    ) : (
-      <Badge variant="muted">Not yet scored</Badge>
-    );
 
   return (
-    <Card>
-      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
-        <div className="flex min-w-0 gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <UserRound className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <CardTitle className="truncate text-lg">{user.name}</CardTitle>
-            <a
-              href={`mailto:${user.email}`}
-              className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <Mail className="h-3.5 w-3.5" aria-hidden="true" />
-              {user.email}
-            </a>
-          </div>
+    <Card className="border-primary/40 bg-primary/5">
+      <CardContent className="flex flex-wrap items-end gap-3 p-4">
+        <div className="min-w-[220px] flex-1 space-y-1.5">
+          <Label htmlFor="drag-interview-date">
+            {application.candidateProfile.user.name} moved to interviewing —
+            set a date?
+          </Label>
+          <Input
+            id="drag-interview-date"
+            type="datetime-local"
+            className="w-auto"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+          />
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {scoreBadge}
-          {/* Only candidates with a scheduled interview carry this badge. */}
-          {application.interviewDate && (
-            <Badge
-              variant="outline"
-              title={`Interview scheduled for ${formatInterviewDate(
-                application.interviewDate,
-              )}`}
-            >
-              <CalendarCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-              Interview {formatInterviewDate(application.interviewDate)}
-            </Badge>
-          )}
-          <Badge variant={stageBadgeVariant(application.stage)}>
-            {stageLabels[application.stage]}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-          {candidateProfile.headline && (
-            <span>{candidateProfile.headline}</span>
-          )}
-          {candidateProfile.location && (
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin className="h-4 w-4" aria-hidden="true" />
-              {candidateProfile.location}
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1.5">
-            <CalendarDays className="h-4 w-4" aria-hidden="true" />
-            Applied{" "}
-            {formatDate(application.submittedAt ?? application.createdAt)}
-          </span>
-        </div>
-
-        {candidateProfile.bio && (
-          <p className="text-sm leading-6 text-muted-foreground">
-            {candidateProfile.bio}
-          </p>
-        )}
-
-        {application.coverLetter && (
-          <div className="rounded-md border bg-muted/30 p-4">
-            <p className="text-sm font-medium">Cover letter</p>
-            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">
-              {application.coverLetter}
-            </p>
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to={`/recruiter/candidates/${candidateProfile.id}`}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            View profile
-          </Link>
-          {application.resumeDownloadUrl && (
-            <a
-              href={application.resumeDownloadUrl}
-              target="_blank"
-              rel="noreferrer"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
-              View CV
-            </a>
-          )}
-          {canMoveToInterviewing && (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                // Re-read the stored date on open so the prompt cannot
-                // confirm a value that was changed in the notes panel.
-                setScheduleValue(toInterviewDateInput(application.interviewDate));
-                setSchedulePromptOpen((open) => !open);
-              }}
-              disabled={mutationPending}
-            >
-              {isMoving ? "Moving…" : "Move to interviewing"}
-            </Button>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setDetailsOpen((open) => !open)}
-            aria-expanded={detailsOpen}
-          >
-            <NotebookPen className="mr-2 h-4 w-4" aria-hidden="true" />
-            {detailsOpen ? "Hide notes" : "Notes & interview date"}
-          </Button>
-          {application.aiScoringStatus === "failed" && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onRescore(application)}
-              disabled={mutationPending}
-            >
-              <RefreshCw
-                className={`mr-2 h-4 w-4 ${
-                  isRescoring ? "animate-spin" : ""
-                }`}
-                aria-hidden="true"
-              />
-              {isRescoring ? "Queuing…" : "Rescore"}
-            </Button>
-          )}
-        </div>
-
-        {schedulePromptOpen && canMoveToInterviewing && (
-          <div className="rounded-md border bg-muted/30 p-4">
-            <Label htmlFor={`schedule-${application.id}`}>
-              Interview date (optional)
-            </Label>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Leave it empty to move {user.name} now and schedule later.
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Input
-                id={`schedule-${application.id}`}
-                type="datetime-local"
-                className="w-auto"
-                value={scheduleValue}
-                onChange={(event) => setScheduleValue(event.target.value)}
-              />
-              <Button
-                type="button"
-                size="sm"
-                disabled={mutationPending}
-                onClick={() => {
-                  onMoveToInterviewing(
-                    application,
-                    fromInterviewDateInput(scheduleValue),
+        <Button
+          type="button"
+          size="sm"
+          disabled={!value || updateInterview.isPending}
+          onClick={() =>
+            updateInterview.mutate(
+              {
+                applicationId: application.id,
+                jobId,
+                candidateProfileId: application.candidateProfileId,
+                interviewDate: fromInterviewDateInput(value),
+              },
+              {
+                onSuccess: () => {
+                  toast.success("Interview date saved.");
+                  onDismiss();
+                },
+                onError: (error) => {
+                  toast.error(
+                    getApiErrorMessage(
+                      error,
+                      "Couldn't save the interview date.",
+                    ),
                   );
-                  setSchedulePromptOpen(false);
-                }}
-              >
-                {isMoving ? "Moving…" : "Confirm move"}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setScheduleValue(
-                    toInterviewDateInput(application.interviewDate),
-                  );
-                  setSchedulePromptOpen(false);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {detailsOpen && (
-          <div className="rounded-md border bg-muted/30 p-4">
-            <InterviewDetailsForm
-              applicationId={application.id}
-              jobId={application.jobId}
-              candidateProfileId={application.candidateProfileId}
-              interviewDate={application.interviewDate}
-              recruiterNotes={application.recruiterNotes}
-              interviewScheduledAt={application.interviewScheduledAt}
-            />
-          </div>
-        )}
-
-        {!detailsOpen && application.recruiterNotes && (
-          <div className="rounded-md border bg-muted/30 p-4">
-            <p className="text-sm font-medium">Recruiter notes</p>
-            <p className="mt-2 line-clamp-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">
-              {application.recruiterNotes}
-            </p>
-          </div>
-        )}
-
-        {application.resumeOriginalFilename && (
-          <div className="text-xs text-muted-foreground">
-            <p>
-              CV: {application.resumeOriginalFilename}
-              {application.resumeUploadedAt
-                ? ` · uploaded ${formatDate(application.resumeUploadedAt)}`
-                : ""}
-            </p>
-            {application.resumeParseSucceeded === false && (
-              <p className="mt-1 text-amber-700">
-                The file is available, but text extraction was unsuccessful.
-              </p>
-            )}
-            {application.parsedYearsExperience != null && (
-              <p className="mt-1">
-                Parsed experience: {application.parsedYearsExperience} years
-              </p>
-            )}
-            {(application.parsedSkills?.length ?? 0) > 0 && (
-              <p className="mt-1">
-                Parsed skills: {application.parsedSkills?.join(", ")}
-              </p>
-            )}
-          </div>
-        )}
+                },
+              },
+            )
+          }
+        >
+          {updateInterview.isPending ? "Saving…" : "Save date"}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
+          <X className="mr-1 h-4 w-4" aria-hidden="true" />
+          Later
+        </Button>
       </CardContent>
     </Card>
   );
@@ -529,60 +232,63 @@ function CandidateCard({
 export function RecruiterPipelinePage() {
   const { jobId } = useParams<{ jobId: string }>();
   const [minimumFitScore, setMinimumFitScore] = useState(0);
+  const [scheduleFor, setScheduleFor] = useState<string | null>(null);
   const applicationsQuery = useApplicationsByJob(jobId);
   const updateStage = useUpdateApplicationStage();
   const rescoreApplication = useRescoreApplication();
-  const applications = applicationsQuery.data ?? [];
+  const { isDegraded } = useRealtime();
+  const applications = useMemo(
+    () => applicationsQuery.data ?? [],
+    [applicationsQuery.data],
+  );
+
   const visibleApplications = useMemo(
     () =>
-      [...applications]
-        .sort((left, right) => {
-          const leftScore = left.fitScore ?? -1;
-          const rightScore = right.fitScore ?? -1;
-          return rightScore - leftScore;
-        })
-        .filter(
-          (application) =>
-            minimumFitScore === 0 ||
-            (application.aiScoringStatus === "completed" &&
-              application.fitScore !== null &&
-              application.fitScore >= minimumFitScore),
-        ),
+      applications.filter(
+        (application) =>
+          minimumFitScore === 0 ||
+          (application.aiScoringStatus === "completed" &&
+            application.fitScore !== null &&
+            application.fitScore >= minimumFitScore),
+      ),
     [applications, minimumFitScore],
   );
 
-  function moveToInterviewing(
+  const unscored = applications.filter(
+    (application) => application.aiScoringStatus === "failed",
+  );
+  const scheduleApplication = scheduleFor
+    ? applications.find((application) => application.id === scheduleFor)
+    : undefined;
+
+  function moveToStage(
     application: RecruiterPipelineApplication,
-    interviewDate: string | null,
+    stage: RecruiterMutableApplicationStage,
   ) {
     if (!jobId) {
       return;
     }
 
+    const name = application.candidateProfile.user.name;
+
     updateStage.mutate(
-      {
-        applicationId: application.id,
-        jobId,
-        stage: "INTERVIEWING",
-        // A skipped prompt leaves the date untouched rather than clearing it,
-        // so the transition never depends on one being chosen.
-        ...(interviewDate === (application.interviewDate ?? null)
-          ? {}
-          : { interviewDate }),
-      },
+      { applicationId: application.id, jobId, stage },
       {
         onSuccess: () => {
-          toast.success(
-            interviewDate
-              ? `${application.candidateProfile.user.name} moved to interviewing for ${formatInterviewDate(interviewDate)}.`
-              : `${application.candidateProfile.user.name} moved to interviewing.`,
-          );
+          toast.success(`${name} moved to ${stageLabels[stage].toLowerCase()}.`);
+
+          // Only offer scheduling when there is nothing scheduled yet.
+          if (stage === "INTERVIEWING" && !application.interviewDate) {
+            setScheduleFor(application.id);
+          }
         },
         onError: (error) => {
+          // The optimistic card has already been rolled back by the mutation;
+          // this explains why it snapped back.
           toast.error(
             getApiErrorMessage(
               error,
-              "Couldn't update the application stage.",
+              "Couldn't move this candidate. The board has been restored.",
             ),
           );
         },
@@ -596,10 +302,7 @@ export function RecruiterPipelinePage() {
     }
 
     rescoreApplication.mutate(
-      {
-        applicationId: application.id,
-        jobId,
-      },
+      { applicationId: application.id, jobId },
       {
         onSuccess: () => {
           toast.success(
@@ -622,21 +325,19 @@ export function RecruiterPipelinePage() {
     <div className="bg-muted/30">
       <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <p className="text-sm font-medium text-primary">
-            Recruiter pipeline
-          </p>
+          <p className="text-sm font-medium text-primary">Recruiter pipeline</p>
           <h1 className="mt-2 text-4xl font-bold">
-            Review candidates without noise.
+            Move candidates, not spreadsheets.
           </h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            See each candidate’s stage, profile context, and next review action
-            at a glance.
+            Drag a candidate between stages. Changes save immediately and
+            appear for everyone else on the job.
           </p>
         </div>
 
         {!jobId && <PipelineJobSelector />}
 
-        {jobId && applicationsQuery.isLoading && <PipelineSkeleton />}
+        {jobId && applicationsQuery.isLoading && <BoardSkeleton />}
 
         {jobId && applicationsQuery.isError && (
           <Card role="alert">
@@ -663,20 +364,37 @@ export function RecruiterPipelinePage() {
         )}
 
         {jobId && applicationsQuery.isSuccess && (
-          <div className="space-y-6">
-            <PipelineSummary applications={applications} />
+          <div className="space-y-4">
+            {isDegraded && (
+              <Card className="border-amber-500/40 bg-amber-50" role="status">
+                <CardContent className="p-4 text-sm text-amber-900">
+                  Live updates are reconnecting. Moves you make still save, but
+                  changes from other sessions may not appear until the
+                  connection is back.
+                </CardContent>
+              </Card>
+            )}
 
             {applications.length === 0 ? (
               <Card>
                 <CardContent className="p-6">
                   <h2 className="font-semibold">No applications yet</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Submitted applications for this job will appear here.
+                    Submitted applications for this job will appear on the
+                    board.
                   </p>
                 </CardContent>
               </Card>
             ) : (
               <>
+                {scheduleApplication && jobId && (
+                  <SchedulePrompt
+                    application={scheduleApplication}
+                    jobId={jobId}
+                    onDismiss={() => setScheduleFor(null)}
+                  />
+                )}
+
                 <Card>
                   <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
                     <div className="w-full max-w-xs space-y-2">
@@ -699,10 +417,30 @@ export function RecruiterPipelinePage() {
                         }}
                       />
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Showing {visibleApplications.length} of{" "}
-                      {applications.length} candidates, highest fit first.
-                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-sm text-muted-foreground">
+                        Showing {visibleApplications.length} of{" "}
+                        {applications.length} candidates.
+                      </p>
+                      {unscored.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={rescoreApplication.isPending}
+                          onClick={() => unscored.forEach(rescore)}
+                        >
+                          <RefreshCw
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              rescoreApplication.isPending && "animate-spin",
+                            )}
+                            aria-hidden="true"
+                          />
+                          Rescore {unscored.length} unscored
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -718,30 +456,16 @@ export function RecruiterPipelinePage() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <div className="grid gap-4">
-                    {visibleApplications.map((application) => (
-                      <CandidateCard
-                        key={application.id}
-                        application={application}
-                        onMoveToInterviewing={moveToInterviewing}
-                        onRescore={rescore}
-                        mutationPending={
-                          updateStage.isPending ||
-                          rescoreApplication.isPending
-                        }
-                        isMoving={
-                          updateStage.isPending &&
-                          updateStage.variables?.applicationId ===
-                            application.id
-                        }
-                        isRescoring={
-                          rescoreApplication.isPending &&
-                          rescoreApplication.variables?.applicationId ===
-                            application.id
-                        }
-                      />
-                    ))}
-                  </div>
+                  <PipelineBoard
+                    applications={visibleApplications}
+                    movingApplicationId={
+                      updateStage.isPending
+                        ? updateStage.variables?.applicationId
+                        : undefined
+                    }
+                    onMove={moveToStage}
+                    onRefuse={(message) => toast.error(message)}
+                  />
                 )}
               </>
             )}

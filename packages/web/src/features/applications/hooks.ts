@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   ApplicationSubmission,
+  RecruiterPipelineApplication,
   ReplaceApplicationResumeInput,
   RescoreApplicationInput,
   UpdateApplicationInterviewInput,
@@ -77,13 +78,52 @@ export function useRescoreApplication() {
   });
 }
 
+/**
+ * Optimistic because a Kanban card must land in its new column on drop —
+ * waiting for a round trip reads as the drag having failed. The cached list
+ * is snapshotted first so a server rejection can put the card back exactly
+ * where it was.
+ *
+ * The same hook still backs the button-based transition, so both paths share
+ * one mutation and one rollback.
+ */
 export function useUpdateApplicationStage() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (input: UpdateApplicationStageInput) =>
       api.updateApplicationStage(input),
-    onSuccess: (_application, input) => {
+    onMutate: async (input) => {
+      const queryKey = applicationKeys.byJob(input.jobId);
+
+      // Stop a refetch in flight from landing on top of the optimistic edit.
+      await queryClient.cancelQueries({ queryKey });
+      const previous =
+        queryClient.getQueryData<RecruiterPipelineApplication[]>(queryKey);
+
+      if (previous) {
+        queryClient.setQueryData<RecruiterPipelineApplication[]>(
+          queryKey,
+          previous.map((application) =>
+            application.id === input.applicationId
+              ? { ...application, stage: input.stage }
+              : application,
+          ),
+        );
+      }
+
+      return { previous, queryKey };
+    },
+    onError: (_error, _input, context) => {
+      // Restore the whole list rather than flipping the one card back: the
+      // snapshot is the last state the server actually confirmed.
+      if (context?.previous) {
+        queryClient.setQueryData(context.queryKey, context.previous);
+      }
+    },
+    onSettled: (_application, _error, input) => {
+      // Success or failure, the server is the authority on ordering and on
+      // fields the optimistic edit did not touch.
       void queryClient.invalidateQueries({
         queryKey: applicationKeys.byJob(input.jobId),
       });

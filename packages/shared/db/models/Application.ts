@@ -49,6 +49,8 @@ export interface ApplicationAttributes {
   recruiterNotes?: string | null;
   /** Audit stamp of when interviewDate was first set; survives a later clear. */
   interviewScheduledAt?: Date | null;
+  /** Set on entry to HIRED. The measured endpoint for time-to-hire. */
+  hiredAt?: Date | null;
   /** Null while the application is a DRAFT; set when the candidate submits. */
   submittedAt?: Date;
   createdAt?: Date;
@@ -76,6 +78,7 @@ export type ApplicationCreationAttributes = Optional<
   | "interviewDate"
   | "recruiterNotes"
   | "interviewScheduledAt"
+  | "hiredAt"
   | "submittedAt"
 >;
 
@@ -104,6 +107,7 @@ export class Application
   declare interviewDate: Date | null | undefined;
   declare recruiterNotes: string | null | undefined;
   declare interviewScheduledAt: Date | null | undefined;
+  declare hiredAt: Date | null | undefined;
   declare submittedAt: Date | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
@@ -216,6 +220,10 @@ export class Application
           allowNull: true,
         },
         interviewScheduledAt: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
+        hiredAt: {
           type: DataTypes.DATE,
           allowNull: true,
         },

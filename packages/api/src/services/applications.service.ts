@@ -6,6 +6,11 @@ import {
   Job,
   User,
 } from "@starter-kit/shared/db";
+import {
+  canRecruiterMoveStage,
+  describeInvalidStageMove,
+  HIRED_STAGE,
+} from "@starter-kit/shared/db";
 import type { ApplicationStage } from "@starter-kit/shared/db";
 import { Op, UniqueConstraintError } from "sequelize";
 import { createError } from "../middleware/error-handler";
@@ -549,11 +554,23 @@ export class ApplicationService {
   ) {
     const previousStage = application.stage;
 
+    // Enforced here, not only in the request schema, so every caller of this
+    // service — the stage button, a Kanban drop, anything later — is held to
+    // the same rule rather than trusting its own request shape.
+    if (!canRecruiterMoveStage(previousStage, stage)) {
+      throw createError(describeInvalidStageMove(previousStage, stage), 422);
+    }
+
     // A date is never required to move stage — omitting it leaves
     // interviewDate untouched so the transition itself cannot be blocked.
     await application.update({
       stage,
       ...this.interviewAttributes(application, interview),
+      // Stamped on entry so time-to-hire measures the hire itself. updatedAt
+      // could not: editing a note on a hired candidate would move it.
+      ...(stage === HIRED_STAGE && previousStage !== HIRED_STAGE
+        ? { hiredAt: new Date() }
+        : {}),
     });
 
     // The ownership guard loads a minimal job association. Reload without it
