@@ -7,6 +7,7 @@ import { jobSkillRouter } from "./job-skills.routes";
 import { candidateProfileRouter } from "./candidate-profiles.routes";
 import { applicationRouter } from "./applications.routes";
 import { candidateRouter } from "./candidate.routes";
+import { publicRouter } from "./public.routes";
 
 const router = Router();
 router.use("/companies", companyRouter);
@@ -17,5 +18,6 @@ router.use("/jobs", jobSkillRouter);
 router.use("/candidate-profiles", candidateProfileRouter);
 router.use("/applications", applicationRouter);
 router.use("/candidate", candidateRouter);
+router.use("/public", publicRouter);
 
 export default router;

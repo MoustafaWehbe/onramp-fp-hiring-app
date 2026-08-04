@@ -1,4 +1,4 @@
-import { getSequelize, Company, User } from "@starter-kit/shared/db";
+import { getSequelize, Company, User, Job } from "@starter-kit/shared/db";
 import { createError } from "../middleware/error-handler";
 
 interface CompanyInput {
@@ -35,6 +35,32 @@ export class CompanyService {
 
     return this.serialize(company);
   }
+  async getPublicCareerPage(companyId: string) {
+  const company = await Company.findByPk(companyId);
+
+  if (!company) {
+    throw createError("Company not found", 404);
+  }
+
+  const jobs = await Job.findAll({
+    where: {
+      companyId,
+      status: "OPEN",
+    },
+    order: [["createdAt", "DESC"]],
+  });
+
+  return {
+    company: this.serialize(company),
+    jobs: jobs.map((job) => ({
+      id: job.id,
+      title: job.title,
+      description: job.description,
+      location: job.location,
+      status: job.status,
+    })),
+  };
+}
 
   async getForCaller(companyId: string | null | undefined) {
     if (!companyId) {
