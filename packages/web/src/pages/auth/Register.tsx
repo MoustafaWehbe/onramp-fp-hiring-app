@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { isAxiosError } from "axios";
 import { z } from "zod";
 import { useAuth } from "../../hooks/useAuth";
-import { GoogleAuthButton } from "../../components/auth/GoogleAuthButton";
 import { RolePicker, roleIcons } from "../../components/auth/RolePicker";
 import { isPlatformRole, roleConfig } from "../../lib/roles";
 import { Button } from "../../components/ui/button";
@@ -76,16 +75,14 @@ export function Register() {
     try {
       setError(null);
       setIntendedRole(role);
-      // TODO(backend-roles): the API register endpoint has no role field yet.
-      // The chosen role stays in frontend storage and is applied after login.
-      await registerUser(data.email, data.password,data.name,role,);
+      await registerUser(data.email, data.password, data.name, role);
       navigate(`/login?role=${role}`, {
         state: { registered: true, email: data.email },
       });
     } catch (err) {
       if (isAxiosError(err) && !err.response) {
         setError(
-          "We can't reach the HireFlow API right now. If the backend isn't running yet, you can explore with a demo account from the sign-in page.",
+          "We can't reach the HireFlow API right now. Check that the backend is running and try again.",
         );
       } else if (isAxiosError(err) && err.response?.status === 409) {
         setError("An account with that email already exists. Try signing in.");
@@ -157,16 +154,6 @@ export function Register() {
               <RolePicker value={role} onChange={chooseRole} />
             </div>
           )}
-
-          <GoogleAuthButton action="signup" intendedRole={role} />
-
-          <div className="flex items-center gap-3" aria-hidden="true">
-            <span className="h-px flex-1 bg-border" />
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              or with email
-            </span>
-            <span className="h-px flex-1 bg-border" />
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="name">Full name</Label>

@@ -10,8 +10,7 @@ interface ProtectedRouteProps {
 }
 
 /**
- * Guards routes using the frontend auth state (backend session or demo
- * session — role enforcement stays frontend-only until backend roles ship).
+ * Guards routes using the authenticated backend session.
  *
  * - Logged out: redirect to /login with returnTo so login can come back here.
  * - Wrong role: redirect to that user's own workspace home.

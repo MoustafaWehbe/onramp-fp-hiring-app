@@ -1,27 +1,22 @@
 import { Router } from "express";
+import { Op } from "sequelize";
 
-import { validate }
-  from "../middleware/validate";
 import {
+  applicationIdParamSchema,
+  assignInterviewerSchema,
+  createApplicationSchema,
+  updateApplicationInterviewSchema,
   updateApplicationStageSchema,
 } from "../schemas/applications.schemas";
-
-import {
-  applicationController,
-} from "../controllers/applications.controllers";
-
-import {
-  createApplicationSchema,
-} from "../schemas/applications.schemas";
-import {
-  assignInterviewerSchema,
-} from "../schemas/applications.schemas";
-
 import { Application, CandidateProfile, Job } from "@starter-kit/shared/db";
+import { applicationController } from "../controllers/applications.controllers";
+import { validate } from "../middleware/validate";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
 import { ownershipGuard } from "../lib/ownership";
 import { getCallerCompanyId } from "../lib/company-membership";
+import { resumeUpload } from "../lib/resume-upload";
+import { handleUploadError } from "../middleware/upload-error";
 
 const router = Router();
 
@@ -56,8 +51,18 @@ type ApplicationWithJob = Application & { job?: Job };
 // WorkExperience ownership runs through its parent CandidateProfile.
 const ownApplicationGuard = ownershipGuard<ApplicationWithJob>(
   (req) =>
-    Application.findByPk(req.params.id as string, {
-      include: [{ model: Job, as: "job" }],
+    Application.findOne({
+      where: {
+        id: req.params.id as string,
+        stage: { [Op.ne]: "DRAFT" },
+      },
+      include: [
+        {
+          model: Job,
+          as: "job",
+          attributes: ["companyId"],
+        },
+      ],
     }) as Promise<ApplicationWithJob | null>,
   {
     getOwnerId: (application) => application.job?.companyId,
@@ -70,9 +75,17 @@ const ownApplicationGuard = ownershipGuard<ApplicationWithJob>(
 router.post(
   "/",
   ...requireCandidate,
+  resumeUpload.single("resume"),
+  handleUploadError,
   validate(createApplicationSchema),
   ownCandidateProfileGuard,
   applicationController.create,
+);
+router.get(
+  "/me",
+  ...requireCandidate,
+  ownCandidateProfileGuard,
+  applicationController.getMine,
 );
 router.get(
   "/job/:jobId",
@@ -80,12 +93,53 @@ router.get(
   ownJobForApplicationsGuard,
   applicationController.getByJob,
 );
+router.put(
+  "/:id/resume",
+  ...requireCandidate,
+  validate(applicationIdParamSchema, "params"),
+  resumeUpload.single("resume"),
+  handleUploadError,
+  applicationController.replaceResume,
+);
+router.get(
+  "/:id/resume",
+  authenticate,
+  authorize("CANDIDATE", "RECRUITER", "ADMIN"),
+  validate(applicationIdParamSchema, "params"),
+  applicationController.downloadResume,
+);
+// Candidate-scoped: the service checks the application belongs to the caller
+// and returns stage history only — never fit score, AI summary, or notes.
+router.get(
+  "/:id/timeline",
+  ...requireCandidate,
+  validate(applicationIdParamSchema, "params"),
+  applicationController.timeline,
+);
 router.patch(
   "/:id/stage",
   ...requireRecruiter,
+  validate(applicationIdParamSchema, "params"),
   validate(updateApplicationStageSchema),
   ownApplicationGuard,
   applicationController.updateStage,
+);
+// Separate from /stage so scheduling and note-taking are never coupled to a
+// stage change — the same guard scopes both to the job's company.
+router.patch(
+  "/:id/interview",
+  ...requireRecruiter,
+  validate(applicationIdParamSchema, "params"),
+  validate(updateApplicationInterviewSchema),
+  ownApplicationGuard,
+  applicationController.updateInterview,
+);
+router.post(
+  "/:id/rescore",
+  ...requireRecruiter,
+  validate(applicationIdParamSchema, "params"),
+  ownApplicationGuard,
+  applicationController.rescore,
 );
 router.post(
   "/:id/assign-interviewer",

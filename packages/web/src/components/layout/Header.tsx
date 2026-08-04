@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { buttonVariants } from "../ui/button";
 import { cn } from "../../lib/utils";
+import { NotificationBell } from "./NotificationBell";
 import {
   getRoleHomePath,
   getRoleLabel,
@@ -20,7 +21,7 @@ const publicNavItems: RoleNavItem[] = [
 const exactMatchPaths = new Set(["/", "/candidate", "/interviewer"]);
 
 export function Header() {
-  const { user, currentRole, isDemoSession, logout } = useAuth();
+  const { user, currentRole, logout } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const navItems = currentRole ? getRoleNavItems(currentRole) : publicNavItems;
@@ -74,11 +75,11 @@ export function Header() {
         <div className="hidden items-center gap-3 md:flex">
           {user && currentRole ? (
             <>
+              <NotificationBell />
               <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 {user.name}
                 <span className="rounded-full border bg-muted px-2 py-0.5 text-xs font-medium">
                   {getRoleLabel(currentRole)}
-                  {isDemoSession && " · demo"}
                 </span>
               </span>
               <button
@@ -108,19 +109,22 @@ export function Header() {
           )}
         </div>
 
-        <button
-          type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:hidden"
-          aria-label={isOpen ? "Close menu" : "Open menu"}
-          aria-expanded={isOpen}
-          onClick={() => setIsOpen((current) => !current)}
-        >
-          {isOpen ? (
-            <X className="h-5 w-5" aria-hidden="true" />
-          ) : (
-            <Menu className="h-5 w-5" aria-hidden="true" />
-          )}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          {user && currentRole && <NotificationBell />}
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label={isOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen((current) => !current)}
+          >
+            {isOpen ? (
+              <X className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Menu className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
       </div>
 
       {isOpen && (
@@ -132,7 +136,6 @@ export function Header() {
             {user && currentRole && (
               <p className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {user.name} · {getRoleLabel(currentRole)}
-                {isDemoSession && " (demo)"}
               </p>
             )}
             {navItems.map((item) => (

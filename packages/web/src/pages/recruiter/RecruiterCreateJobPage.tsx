@@ -1,85 +1,152 @@
-import { useState } from "react";
+import { isAxiosError } from "axios";
+import { Building2, FilePlus2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { Button, buttonVariants } from "../../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { Skeleton } from "../../components/ui/skeleton";
+import { useCompanyProfile } from "../../features/company/hooks";
+import { RecruiterJobForm } from "../../features/jobs/components/RecruiterJobForm";
+import { useCreateRecruiterJob } from "../../features/jobs/hooks";
+import { getApiErrorMessage } from "../../lib/api-errors";
+import { cn } from "../../lib/utils";
+import type { RecruiterJobCreateInput } from "../../types/jobs";
+
+function CreateJobSkeleton() {
+  return (
+    <Card aria-label="Loading job form">
+      <CardHeader className="space-y-3">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-4 w-3/4" />
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {Array.from({ length: 5 }, (_, index) => (
+          <div key={index} className="space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function RecruiterCreateJobPage() {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
+  const navigate = useNavigate();
+  const companyQuery = useCompanyProfile();
+  const createJob = useCreateRecruiterJob();
+  const companyMissing =
+    isAxiosError(companyQuery.error) &&
+    companyQuery.error.response?.status === 404;
 
-  async function handleSubmit(
-    e: React.FormEvent<HTMLFormElement>,
-  ) {
-    e.preventDefault();
-
+  async function submit(input: RecruiterJobCreateInput) {
     try {
-      const response = await fetch(
-        "http://localhost:3000/api/jobs",
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            title,
-            description,
-            location: location || undefined,
-          }),
-        },
+      await createJob.mutateAsync(input);
+      toast.success(
+        input.status === "OPEN" ? "Job published" : "Draft saved",
       );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        alert(errorText);
-        return;
-      }
-
-      alert("Job created!");
+      navigate("/recruiter/jobs");
     } catch (error) {
-      console.error(error);
-      alert(String(error));
+      toast.error(getApiErrorMessage(error, "Couldn't create this job."));
     }
   }
 
+  const setupRequired =
+    companyMissing ||
+    (companyQuery.data != null && !companyQuery.data.profileComplete);
+
   return (
-    <div className="p-8 max-w-xl">
-      <h1 className="mb-6 text-3xl font-bold">
-        Create Job
-      </h1>
+    <div className="bg-muted/30">
+      <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <FilePlus2 className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <p className="text-sm font-medium text-primary">Recruiter jobs</p>
+          <h1 className="mt-2 text-4xl font-bold">Create a job</h1>
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            Build a clear, structured posting and save it privately or open it
+            to candidates.
+          </p>
+        </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4"
-      >
-        <input
-          className="w-full rounded border p-2"
-          placeholder="Job Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+        {companyQuery.isLoading ? (
+          <CreateJobSkeleton />
+        ) : companyQuery.isError && !companyMissing ? (
+          <Card>
+            <CardContent className="space-y-4 p-6">
+              <p className="text-sm text-destructive" role="alert">
+                {getApiErrorMessage(
+                  companyQuery.error,
+                  "Couldn't confirm your company profile.",
+                )}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void companyQuery.refetch()}
+              >
+                Try again
+              </Button>
+            </CardContent>
+          </Card>
+        ) : setupRequired ? (
+          <Card>
+            <CardHeader>
+              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                <Building2 className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <CardTitle>Complete your company profile first</CardTitle>
+              <CardDescription>
+                Add your company name, industry, size, location, and hiring
+                contact before creating a posting.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link
+                to="/recruiter/company/create"
+                className={buttonVariants({ variant: "default" })}
+              >
+                Set up company profile
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Job details</CardTitle>
+              <CardDescription>
+                Posting for {companyQuery.data?.name}. Required fields are
+                validated before saving.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecruiterJobForm
+                mode="create"
+                isSubmitting={createJob.isPending}
+                submitLabel="Create job"
+                onSubmit={submit}
+              />
+            </CardContent>
+          </Card>
+        )}
 
-        <textarea
-          className="w-full rounded border p-2"
-          placeholder="Job Description"
-          value={description}
-          onChange={(e) =>
-            setDescription(e.target.value)
-          }
-        />
-
-        <input
-          className="w-full rounded border p-2"
-          placeholder="Location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-
-        <button
-          type="submit"
-          className="rounded bg-blue-600 px-4 py-2 text-white"
+        <Link
+          to="/recruiter/jobs"
+          className={cn(
+            buttonVariants({ variant: "ghost" }),
+            "mt-5 px-0 hover:bg-transparent",
+          )}
         >
-          Create Job
-        </button>
-      </form>
+          Back to jobs
+        </Link>
+      </section>
     </div>
   );
 }

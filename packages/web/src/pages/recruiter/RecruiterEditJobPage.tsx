@@ -1,93 +1,143 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { isAxiosError } from "axios";
+import { PencilLine } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { Button, buttonVariants } from "../../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { Skeleton } from "../../components/ui/skeleton";
+import { RecruiterJobForm } from "../../features/jobs/components/RecruiterJobForm";
+import {
+  useRecruiterJob,
+  useUpdateRecruiterJob,
+} from "../../features/jobs/hooks";
+import { getApiErrorMessage } from "../../lib/api-errors";
+import type { RecruiterJobInput } from "../../types/jobs";
+
+function EditJobSkeleton() {
+  return (
+    <Card aria-label="Loading job">
+      <CardHeader className="space-y-3">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-4 w-3/4" />
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {Array.from({ length: 5 }, (_, index) => (
+          <div key={index} className="space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function RecruiterEditJobPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const jobQuery = useRecruiterJob(id);
+  const updateJob = useUpdateRecruiterJob();
+  const jobNotFound =
+    isAxiosError(jobQuery.error) &&
+    jobQuery.error.response?.status === 404;
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-
-  useEffect(() => {
-    async function fetchJob() {
-      const response = await fetch(
-        `http://localhost:3000/api/jobs/${id}`,
-        {
-          credentials: "include",
-        },
-      );
-
-      const data = await response.json();
-
-      setTitle(data.data.title);
-      setDescription(data.data.description);
-      setLocation(data.data.location ?? "");
+  async function submit(input: RecruiterJobInput) {
+    if (!id) {
+      return;
     }
 
-    fetchJob();
-  }, [id]);
-
-  async function handleSubmit(
-    e: React.FormEvent,
-  ) {
-    e.preventDefault();
-
-    await fetch(
-      `http://localhost:3000/api/jobs/${id}`,
-      {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          description,
-          location,
-        }),
-      },
-    );
-
-    navigate("/recruiter/jobs");
+    try {
+      await updateJob.mutateAsync({ id, input });
+      toast.success(
+        input.status === "OPEN"
+          ? "Job updated and published"
+          : input.status === "CLOSED"
+            ? "Job closed"
+            : "Draft updated",
+      );
+      navigate("/recruiter/jobs");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Couldn't update this job."));
+    }
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mx-auto max-w-xl space-y-4 p-8"
-    >
-      <input
-        value={title}
-        onChange={(e) =>
-          setTitle(e.target.value)
-        }
-        className="w-full rounded border p-2"
-      />
+    <div className="bg-muted/30">
+      <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <PencilLine className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <p className="text-sm font-medium text-primary">Recruiter jobs</p>
+          <h1 className="mt-2 text-4xl font-bold">Edit job</h1>
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            Keep the role details accurate and choose whether it stays private
+            or is open to candidates.
+          </p>
+        </div>
 
-      <textarea
-        value={description}
-        onChange={(e) =>
-          setDescription(e.target.value)
-        }
-        className="w-full rounded border p-2"
-      />
-
-      <input
-        value={location}
-        onChange={(e) =>
-          setLocation(e.target.value)
-        }
-        className="w-full rounded border p-2"
-      />
-
-      <button
-        type="submit"
-        className="rounded bg-blue-600 px-4 py-2 text-white"
-      >
-        Save Changes
-      </button>
-    </form>
+        {jobQuery.isLoading ? (
+          <EditJobSkeleton />
+        ) : jobNotFound ? (
+          <Card>
+            <CardContent className="space-y-4 p-6 text-center">
+              <CardTitle>Job not found</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                This job may not exist or may belong to another company.
+              </p>
+              <Link
+                to="/recruiter/jobs"
+                className={buttonVariants({ variant: "outline" })}
+              >
+                Back to jobs
+              </Link>
+            </CardContent>
+          </Card>
+        ) : jobQuery.isError || !jobQuery.data ? (
+          <Card>
+            <CardContent className="space-y-4 p-6">
+              <p className="text-sm text-destructive" role="alert">
+                {getApiErrorMessage(
+                  jobQuery.error,
+                  "Couldn't load this job.",
+                )}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void jobQuery.refetch()}
+              >
+                Try again
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>{jobQuery.data.title}</CardTitle>
+              <CardDescription>
+                Changes appear in the public listing when this job is open.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecruiterJobForm
+                key={jobQuery.data.id}
+                mode="edit"
+                initialJob={jobQuery.data}
+                isSubmitting={updateJob.isPending}
+                submitLabel="Save changes"
+                onSubmit={submit}
+              />
+            </CardContent>
+          </Card>
+        )}
+      </section>
+    </div>
   );
 }

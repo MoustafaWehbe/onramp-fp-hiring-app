@@ -4,13 +4,17 @@ import { Session } from "./Session";
 import { RefreshToken } from "./RefreshToken";
 import { Company } from "./Company";
 import { CandidateProfile } from "./CandidateProfile";
+import { CandidateEducation } from "./CandidateEducation";
 import { WorkExperience } from "./WorkExperience";
 import { Skill } from "./Skill";
 import { Job } from "./Job";
 import { Application } from "./Application";
+import { ApplicationStageHistory } from "./ApplicationStageHistory";
+import { CandidateJobRecommendation } from "./CandidateJobRecommendation";
 import { ApplicationNote } from "./ApplicationNote";
 import { InterviewAssignment } from "./InterviewAssignment";
 import { AIScreening } from "./AIScreening";
+import { Notification } from "./Notification";
 import { SavedJob } from "./SavedJob";
 import { CandidateSkill } from "./CandidateSkill";
 import { JobSkill } from "./JobSkill";
@@ -21,19 +25,37 @@ export {
   RefreshToken,
   Company,
   CandidateProfile,
+  CandidateEducation,
+  CandidateJobRecommendation,
   WorkExperience,
   Skill,
   Job,
   Application,
+  ApplicationStageHistory,
   ApplicationNote,
   InterviewAssignment,
   AIScreening,
+  Notification,
   SavedJob,
   CandidateSkill,
   JobSkill,
 };
-export { JOB_STATUSES, type JobStatus } from "./Job";
-export { APPLICATION_STAGES, type ApplicationStage } from "./Application";
+export {
+  EMPLOYMENT_TYPES,
+  JOB_STATUSES,
+  type EmploymentType,
+  type JobStatus,
+} from "./Job";
+export {
+  AI_SCORING_STATUSES,
+  APPLICATION_STAGES,
+  type AIScoringStatus,
+  type ApplicationStage,
+} from "./Application";
+export {
+  NOTIFICATION_TYPES,
+  type NotificationType,
+} from "./Notification";
 
 export function initModels(sequelize: Sequelize): void {
   User.initModel(sequelize);
@@ -41,13 +63,17 @@ export function initModels(sequelize: Sequelize): void {
   RefreshToken.initModel(sequelize);
   Company.initModel(sequelize);
   CandidateProfile.initModel(sequelize);
+  CandidateEducation.initModel(sequelize);
+  CandidateJobRecommendation.initModel(sequelize);
   WorkExperience.initModel(sequelize);
   Skill.initModel(sequelize);
   Job.initModel(sequelize);
   Application.initModel(sequelize);
+  ApplicationStageHistory.initModel(sequelize);
   ApplicationNote.initModel(sequelize);
   InterviewAssignment.initModel(sequelize);
   AIScreening.initModel(sequelize);
+  Notification.initModel(sequelize);
   SavedJob.initModel(sequelize);
   CandidateSkill.initModel(sequelize);
   JobSkill.initModel(sequelize);
@@ -98,6 +124,9 @@ export function initModels(sequelize: Sequelize): void {
   User.hasMany(Job, { foreignKey: "createdById", as: "createdJobs" });
   Job.belongsTo(User, { foreignKey: "createdById", as: "createdBy" });
 
+  User.hasMany(Notification, { foreignKey: "userId", as: "notifications" });
+  Notification.belongsTo(User, { foreignKey: "userId", as: "user" });
+
   User.hasMany(AIScreening, {
     foreignKey: "generatedById",
     as: "aiScreenings",
@@ -124,6 +153,33 @@ export function initModels(sequelize: Sequelize): void {
   Application.belongsTo(CandidateProfile, {
     foreignKey: "candidateProfileId",
     as: "candidateProfile",
+  });
+
+  CandidateProfile.hasMany(CandidateEducation, {
+    foreignKey: "candidateProfileId",
+    as: "education",
+  });
+  CandidateEducation.belongsTo(CandidateProfile, {
+    foreignKey: "candidateProfileId",
+    as: "candidateProfile",
+  });
+
+  CandidateProfile.hasMany(CandidateJobRecommendation, {
+    foreignKey: "candidateProfileId",
+    as: "jobRecommendations",
+  });
+  CandidateJobRecommendation.belongsTo(CandidateProfile, {
+    foreignKey: "candidateProfileId",
+    as: "candidateProfile",
+  });
+
+  Job.hasMany(CandidateJobRecommendation, {
+    foreignKey: "jobId",
+    as: "candidateRecommendations",
+  });
+  CandidateJobRecommendation.belongsTo(Job, {
+    foreignKey: "jobId",
+    as: "job",
   });
 
   CandidateProfile.hasMany(SavedJob, {
@@ -168,7 +224,25 @@ export function initModels(sequelize: Sequelize): void {
   Job.hasMany(SavedJob, { foreignKey: "jobId", as: "savedJobs" });
   SavedJob.belongsTo(Job, { foreignKey: "jobId", as: "job" });
 
-  // Application: notes, interview assignments, AI screenings
+  // Application: stage history, notes, interview assignments, AI screenings
+  Application.hasMany(ApplicationStageHistory, {
+    foreignKey: "applicationId",
+    as: "stageHistory",
+  });
+  ApplicationStageHistory.belongsTo(Application, {
+    foreignKey: "applicationId",
+    as: "application",
+  });
+
+  User.hasMany(ApplicationStageHistory, {
+    foreignKey: "changedBy",
+    as: "stageChanges",
+  });
+  ApplicationStageHistory.belongsTo(User, {
+    foreignKey: "changedBy",
+    as: "changedByUser",
+  });
+
   Application.hasMany(ApplicationNote, {
     foreignKey: "applicationId",
     as: "notes",
@@ -194,5 +268,14 @@ export function initModels(sequelize: Sequelize): void {
   AIScreening.belongsTo(Application, {
     foreignKey: "applicationId",
     as: "application",
+  });
+
+  Application.hasMany(Notification, {
+    foreignKey: "relatedApplicationId",
+    as: "notifications",
+  });
+  Notification.belongsTo(Application, {
+    foreignKey: "relatedApplicationId",
+    as: "relatedApplication",
   });
 }

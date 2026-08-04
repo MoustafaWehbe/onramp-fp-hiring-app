@@ -7,6 +7,7 @@ import {
 } from "@starter-kit/shared/db";
 import { createError } from "../middleware/error-handler";
 import type { UploadResult } from "../lib/storage";
+import { scheduleCandidateRecommendations } from "./recommendations-queue.service";
 
 interface ProfileInput {
   headline?: string;
@@ -59,7 +60,11 @@ export class CandidateService {
     profile: CandidateProfile,
     input: ProfileInput,
   ): Promise<CandidateProfile> {
-    return profile.update(input);
+    const updated = await profile.update(input);
+    // Headline and summary feed the recommendation scorer, so a change here
+    // can move scores. Best-effort and debounced by the queue's jobId.
+    scheduleCandidateRecommendations(profile.id, "profile-updated");
+    return updated;
   }
 
   async listExperience(userId: string): Promise<WorkExperience[]> {
@@ -136,6 +141,10 @@ export class CandidateService {
         );
       }
     });
+
+    // Skills are the heaviest input to the match score, so a change here
+    // matters most of all.
+    scheduleCandidateRecommendations(profile.id, "profile-updated");
 
     return this.loadSkills(profile.id);
   }

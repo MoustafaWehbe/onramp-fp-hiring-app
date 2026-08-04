@@ -10,7 +10,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { isAxiosError } from "axios";
 import { z } from "zod";
 import { useAuth } from "../../hooks/useAuth";
-import { GoogleAuthButton } from "../../components/auth/GoogleAuthButton";
 import { RolePicker, roleIcons } from "../../components/auth/RolePicker";
 import {
   getRoleHomePath,
@@ -18,7 +17,6 @@ import {
   resolveRole,
   roleConfig,
 } from "../../lib/roles";
-import { demoCredentials } from "../../data/users";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -62,7 +60,6 @@ export function Login() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -76,16 +73,6 @@ export function Login() {
     setSearchParams({ role: nextRole }, { replace: true });
   }
 
-  function fillDemoAccount(demoRole: PlatformRole): void {
-    setValue("email", demoCredentials[demoRole].email, {
-      shouldValidate: true,
-    });
-    setValue("password", demoCredentials[demoRole].password, {
-      shouldValidate: true,
-    });
-    chooseRole(demoRole);
-  }
-
   const onSubmit = async (data: LoginFormData) => {
     try {
       setError(null);
@@ -93,8 +80,6 @@ export function Login() {
         setIntendedRole(role);
       }
       const user = await login(data.email, data.password);
-      // Backend users carry canonical roles now; the intendedRole fallback
-      // only kicks in for the temporary demo session.
       const resolvedRole = resolveRole(user.role, role ?? intendedRole);
       navigate(state.returnTo ?? getRoleHomePath(resolvedRole), {
         replace: true,
@@ -102,7 +87,7 @@ export function Login() {
     } catch (err) {
       if (isAxiosError(err) && !err.response) {
         setError(
-          "We can't reach the HireFlow API right now. If the backend isn't running, use a demo account below to preview the app.",
+          "We can't reach the HireFlow API right now. Check that the backend is running and try again.",
         );
       } else {
         setError("Invalid email or password.");
@@ -179,16 +164,6 @@ export function Login() {
             )
           )}
 
-          <GoogleAuthButton action="signin" intendedRole={role} />
-
-          <div className="flex items-center gap-3" aria-hidden="true">
-            <span className="h-px flex-1 bg-border" />
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              or with email
-            </span>
-            <span className="h-px flex-1 bg-border" />
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -232,32 +207,6 @@ export function Login() {
             </Link>
           </p>
 
-          {/* TEMPORARY: frontend-only demo accounts for UX testing until
-              backend candidate/recruiter/interviewer roles exist. */}
-          <div className="w-full rounded-md border border-dashed bg-muted/30 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Demo accounts — frontend preview only
-            </p>
-            <div className="mt-2 grid gap-1.5">
-              {(Object.keys(demoCredentials) as PlatformRole[]).map(
-                (demoRole) => (
-                  <button
-                    key={demoRole}
-                    type="button"
-                    onClick={() => fillDemoAccount(demoRole)}
-                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <span className="truncate">
-                      {demoCredentials[demoRole].email}
-                    </span>
-                    <span className="shrink-0 font-medium text-primary">
-                      Fill as {roleConfig[demoRole].label.toLowerCase()}
-                    </span>
-                  </button>
-                ),
-              )}
-            </div>
-          </div>
         </CardFooter>
       </form>
     </Card>

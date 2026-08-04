@@ -86,7 +86,7 @@ export function AppRoutes() {
   element={<RecruiterEditJobPage />}
 />
 <Route
-  path="/recruiter/pipeline/:id"
+  path="/recruiter/pipeline/:jobId"
   element={<RecruiterPipelinePage />}
 />
         </Route>

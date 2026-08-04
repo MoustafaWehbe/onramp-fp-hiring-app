@@ -1,7 +1,14 @@
 import { Model, DataTypes, type Sequelize, type Optional } from "sequelize";
 
-export const JOB_STATUSES = ["OPEN", "CLOSED"] as const;
+export const JOB_STATUSES = ["DRAFT", "OPEN", "CLOSED"] as const;
 export type JobStatus = (typeof JOB_STATUSES)[number];
+
+export const EMPLOYMENT_TYPES = [
+  "FULL_TIME",
+  "PART_TIME",
+  "CONTRACT",
+] as const;
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
 
 export interface JobAttributes {
   id: string;
@@ -9,7 +16,14 @@ export interface JobAttributes {
   createdById: string;
   title: string;
   description: string;
+  employmentType: EmploymentType;
+  experienceMin: number;
+  experienceMax: number;
   location?: string;
+  isRemote: boolean;
+  salaryMin: number;
+  salaryMax: number;
+  salaryCurrency: string;
   status: JobStatus;
   createdAt?: Date;
   updatedAt?: Date;
@@ -17,7 +31,16 @@ export interface JobAttributes {
 
 export type JobCreationAttributes = Optional<
   JobAttributes,
-  "id" | "location" | "status"
+  | "id"
+  | "employmentType"
+  | "experienceMin"
+  | "experienceMax"
+  | "location"
+  | "isRemote"
+  | "salaryMin"
+  | "salaryMax"
+  | "salaryCurrency"
+  | "status"
 >;
 
 export class Job
@@ -29,7 +52,14 @@ export class Job
   declare createdById: string;
   declare title: string;
   declare description: string;
+  declare employmentType: EmploymentType;
+  declare experienceMin: number;
+  declare experienceMax: number;
   declare location: string | undefined;
+  declare isRemote: boolean;
+  declare salaryMin: number;
+  declare salaryMax: number;
+  declare salaryCurrency: string;
   declare status: JobStatus;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
@@ -61,14 +91,65 @@ export class Job
           type: DataTypes.TEXT,
           allowNull: false,
         },
+        employmentType: {
+          type: DataTypes.STRING(20),
+          allowNull: false,
+          defaultValue: "FULL_TIME",
+          validate: {
+            isIn: {
+              args: [[...EMPLOYMENT_TYPES]],
+              msg: `employmentType must be one of: ${EMPLOYMENT_TYPES.join(", ")}`,
+            },
+          },
+        },
+        experienceMin: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+          validate: { min: 0 },
+        },
+        experienceMax: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+          validate: { min: 0 },
+        },
         location: {
           type: DataTypes.STRING(255),
           allowNull: true,
         },
+        isRemote: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+          defaultValue: false,
+        },
+        salaryMin: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+          validate: { min: 0 },
+        },
+        salaryMax: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+          validate: { min: 0 },
+        },
+        salaryCurrency: {
+          type: DataTypes.STRING(3),
+          allowNull: false,
+          defaultValue: "USD",
+          validate: {
+            is: {
+              args: /^[A-Z]{3}$/,
+              msg: "salaryCurrency must be a 3-letter uppercase code",
+            },
+          },
+        },
         status: {
           type: DataTypes.STRING(10),
           allowNull: false,
-          defaultValue: "OPEN",
+          defaultValue: "DRAFT",
           validate: {
             isIn: {
               args: [[...JOB_STATUSES]],

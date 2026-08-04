@@ -3,6 +3,7 @@ import type {
   Response,
   NextFunction,
 } from "express";
+import type { Job } from "@starter-kit/shared/db";
 
 import { jobService } from "../services/jobs.service";
 import { getCallerCompanyId } from "../lib/company-membership";
@@ -37,69 +38,110 @@ export const jobController = {
       next(err);
     }
   },
+
   async list(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const jobs = await jobService.getAll();
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const companyId = await getCallerCompanyId(req);
 
-    res.json({
-      data: jobs,
-    });
-  } catch (err) {
-    next(err);
-  }
-},
-async getById(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-   const job = await jobService.getById(
-  req.params.id as string,
-    );
+      if (!companyId) {
+        res.status(200).json({ data: [] });
+        return;
+      }
 
-    res.json({
-      data: job,
-    });
-  } catch (err) {
-    next(err);
-  }
-},
-async update(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const job = await jobService.update(
-  req.params.id as string,
-  req.body,
-);
+      const jobs = await jobService.getAll(companyId);
 
-    res.json({
-      data: job,
-    });
-  } catch (err) {
-    next(err);
-  }
-},
-async delete(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    await jobService.delete(
-      req.params.id as string,
-    );
+      res.json({
+        data: jobs,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
 
-    res.status(204).send();
-  } catch (err) {
-    next(err);
-  }
-}
+  async listPublic(
+    _req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const jobs = await jobService.getPublic();
+
+      res.json({
+        data: jobs,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getPublicById(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const job = await jobService.getPublicById(req.params.id as string);
+
+      res.json({
+        data: job,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getById(
+    _req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const job = await jobService.getRecruiterById(
+        (res.locals.job as Job).id,
+      );
+
+      res.json({
+        data: job,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async update(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const job = await jobService.update(
+        res.locals.job as Job,
+        req.body,
+      );
+
+      res.json({
+        data: job,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async delete(
+    _req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      await jobService.delete(res.locals.job as Job);
+
+      res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  },
 };

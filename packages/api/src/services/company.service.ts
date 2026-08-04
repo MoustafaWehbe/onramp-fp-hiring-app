@@ -3,6 +3,10 @@ import { createError } from "../middleware/error-handler";
 
 interface CompanyInput {
   name: string;
+  industry: string;
+  size: string;
+  location: string;
+  contact: string;
   website?: string;
   description?: string;
   logoUrl?: string;
@@ -10,9 +14,23 @@ interface CompanyInput {
 
 interface CompanyUpdateInput {
   name?: string;
+  industry?: string;
+  size?: string;
+  location?: string;
+  contact?: string;
   website?: string;
   description?: string;
   logoUrl?: string;
+}
+
+export function isCompanyProfileComplete(company: Company): boolean {
+  return [
+    company.name,
+    company.industry,
+    company.size,
+    company.location,
+    company.contact,
+  ].every((value) => typeof value === "string" && value.trim().length > 0);
 }
 
 export class CompanyService {
@@ -20,9 +38,14 @@ export class CompanyService {
     return {
       id: company.id,
       name: company.name,
-      website: company.website,
-      description: company.description,
-      logoUrl: company.logoUrl,
+      industry: company.industry ?? null,
+      size: company.size ?? null,
+      location: company.location ?? null,
+      contact: company.contact ?? null,
+      website: company.website ?? null,
+      description: company.description ?? null,
+      logoUrl: company.logoUrl ?? null,
+      profileComplete: isCompanyProfileComplete(company),
     };
   }
 

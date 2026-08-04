@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check, Pencil, Sparkles, X } from "lucide-react";
+import { Check, Sparkles, X } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { ProfileSection, SectionAction } from "./ProfileSection";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { cn } from "../../../lib/utils";
 import { getApiErrorMessage } from "../../../lib/api-errors";
 import { useSetSkills, useSkillCatalog, useSkills } from "../hooks";
-import { CARD_CLASS } from "../theme";
 
 interface SkillsCardProps {
   profileExists: boolean;
@@ -66,22 +65,18 @@ export function SkillsCard({ profileExists }: SkillsCardProps) {
   }, [catalogQuery.data, filter]);
 
   return (
-    <Card className={CARD_CLASS}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <Sparkles className="h-5 w-5 text-indigo-600" aria-hidden="true" />
-          Skills
-        </CardTitle>
-        {profileExists && !isEditing && (
-          <Button type="button" variant="outline" size="sm" onClick={startEditing}>
-            <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-            Edit skills
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <ProfileSection
+      icon={Sparkles}
+      title="Skills"
+      action={
+        profileExists && !isEditing ? (
+          <SectionAction label="Edit skills" onClick={startEditing} />
+        ) : undefined
+      }
+    >
+      <div className="space-y-4">
         {!profileExists && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-stone-500">
             Set up your profile above to start adding skills.
           </p>
         )}
@@ -113,10 +108,15 @@ export function SkillsCard({ profileExists }: SkillsCardProps) {
         {profileExists && !isEditing && skillsQuery.data && (
           <div className="flex flex-wrap gap-2">
             {skillsQuery.data.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No skills added yet.</p>
+              <p className="text-sm text-stone-500">No skills added yet.</p>
             ) : (
+              // Pills that wrap, sized for scanning rather than reading.
               skillsQuery.data.map((skill) => (
-                <Badge key={skill.id} variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">
+                <Badge
+                  key={skill.id}
+                  variant="outline"
+                  className="rounded-full border-indigo-200 bg-indigo-50 px-3 py-1 text-sm text-indigo-700"
+                >
                   {skill.name}
                 </Badge>
               ))
@@ -217,7 +217,7 @@ export function SkillsCard({ profileExists }: SkillsCardProps) {
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </ProfileSection>
   );
 }

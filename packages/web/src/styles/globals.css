@@ -22,6 +22,24 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+
+    /*
+     * Chart ink and an ordinal blue ramp for the analytics dashboard.
+     * Ordinal, not categorical: funnel stages and score buckets are ordered,
+     * so magnitude belongs on one hue running light to dark. Validated
+     * against the card surface these render on (#ffffff light, #020817 dark)
+     * for monotone lightness, adjacent step separation, and light-end
+     * contrast.
+     */
+    --chart-series: #2a78d6;
+    --chart-ordinal-1: #86b6ef;
+    --chart-ordinal-2: #5598e7;
+    --chart-ordinal-3: #2a78d6;
+    --chart-ordinal-4: #1c5cab;
+    --chart-ordinal-5: #104281;
+    --chart-grid: #e1e0d9;
+    --chart-axis: #c3c2b7;
+    --chart-label: #898781;
   }
 
   .dark {
@@ -42,6 +60,17 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
+
+    /* The same hue re-stepped for the dark surface, not an inverted flip. */
+    --chart-series: #3987e5;
+    --chart-ordinal-1: #b7d3f6;
+    --chart-ordinal-2: #86b6ef;
+    --chart-ordinal-3: #3987e5;
+    --chart-ordinal-4: #256abf;
+    --chart-ordinal-5: #184f95;
+    --chart-grid: #2c2c2a;
+    --chart-axis: #383835;
+    --chart-label: #898781;
   }
 }
 
