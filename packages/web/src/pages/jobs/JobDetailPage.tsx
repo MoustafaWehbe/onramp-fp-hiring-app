@@ -319,10 +319,13 @@ export function JobDetailPage() {
           <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                <span className="inline-flex items-center gap-2">
+                <Link
+                  to={`/careers/${job.company.id}`}
+                  className="inline-flex items-center gap-2 rounded-sm outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
                   <Building2 className="h-4 w-4" aria-hidden="true" />
                   {job.company.name}
-                </span>
+                </Link>
                 <Badge variant="success">Open</Badge>
               </div>
               <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
@@ -389,6 +392,16 @@ export function JobDetailPage() {
                 <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <span>Posted {formatDate(job.createdAt)}</span>
               </div>
+              {/* The careers page is the other way into this company's funnel;
+                  the header company name links there too, but a candidate
+                  reading the snapshot shouldn't have to scroll back up. */}
+              <Link
+                to={`/careers/${job.company.id}`}
+                className="flex items-start gap-3 font-medium text-primary hover:underline"
+              >
+                <Building2 className="mt-0.5 h-4 w-4 shrink-0" />
+                View all open roles at {job.company.name}
+              </Link>
               {job.company.website && (
                 <a
                   href={job.company.website}

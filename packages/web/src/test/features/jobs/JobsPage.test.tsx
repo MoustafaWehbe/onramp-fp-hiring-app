@@ -156,6 +156,24 @@ describe("JobsPage", () => {
     expect(screen.getByText("Matching the React stack.")).toBeInTheDocument();
   });
 
+  it("routes each card's company name to that company's careers page", () => {
+    usePublicJobs.mockReturnValue({
+      data: [reactJob],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(
+      screen.getByRole("link", {
+        name: "View all open roles at Northstar Labs",
+      }),
+    ).toHaveAttribute("href", "/careers/company-northstar");
+  });
+
   it("shows the empty state when the API has no open jobs", () => {
     usePublicJobs.mockReturnValue({
       data: [],

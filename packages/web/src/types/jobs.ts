@@ -85,6 +85,8 @@ export type RecruiterJobCreateInput = Omit<
 export interface JobSummary {
   id: string;
   company: string | null;
+  /** Drives the link from a card to that company's careers page. */
+  companyId: string | null;
   title: string;
   status: "open";
   location: string | null;

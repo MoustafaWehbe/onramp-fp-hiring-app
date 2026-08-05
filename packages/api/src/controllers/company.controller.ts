@@ -57,23 +57,25 @@ export const companyController = {
       next(err);
     }
   },
-async getPublicCareerPage(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const data = await companyService.getPublicCareerPage(
-      req.params.companyId as string,
-    );
 
-    res.status(200).json({
-      data,
-    });
-  } catch (err) {
-    next(err);
-  }
-},
+  async getPublicCareerPage(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const data = await companyService.getPublicCareerPage(
+        req.params.companyId as string,
+      );
+
+      res.status(200).json({
+        data,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async update(
     req: Request,
     res: Response,

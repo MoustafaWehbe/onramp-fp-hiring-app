@@ -1,11 +1,22 @@
 import { apiClient } from "../../lib/api-client";
 import type {
+  CompanyCareersPage,
   CompanyProfile,
   CompanyProfileInput,
 } from "../../types/company";
 
 interface Envelope<T> {
   data: T;
+}
+
+/** Public — no session required, unlike everything else in this module. */
+export async function getCompanyCareersPage(
+  companyId: string,
+): Promise<CompanyCareersPage> {
+  const { data } = await apiClient.get<Envelope<CompanyCareersPage>>(
+    `/public/companies/${companyId}/careers`,
+  );
+  return data.data;
 }
 
 export async function getCompanyProfile(): Promise<CompanyProfile> {

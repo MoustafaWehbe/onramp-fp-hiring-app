@@ -5,12 +5,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecruiterJobsPage } from "@/pages/recruiter/RecruiterJobsPage";
 import type { RecruiterJobRecord } from "@/types/jobs";
 
-const { useRecruiterJobs } = vi.hoisted(() => ({
+const { useRecruiterJobs, useCompanyProfile } = vi.hoisted(() => ({
   useRecruiterJobs: vi.fn(),
+  useCompanyProfile: vi.fn(),
 }));
 
 vi.mock("@/features/jobs/hooks", () => ({
   useRecruiterJobs,
+}));
+
+// The page now carries CareersPageLink, which reads the company profile to
+// build the public URL.
+vi.mock("@/features/company/hooks", () => ({
+  useCompanyProfile,
 }));
 
 const recruiterJob: RecruiterJobRecord = {
@@ -58,6 +65,9 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   useRecruiterJobs.mockReturnValue(queryState());
+  useCompanyProfile.mockReturnValue({
+    data: { id: "22222222-2222-4222-8222-222222222222", name: "Northwind" },
+  });
 });
 
 describe("RecruiterJobsPage", () => {
@@ -155,6 +165,30 @@ describe("RecruiterJobsPage", () => {
     expect(screen.getByText("applicants")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Delete" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("surfaces the public careers page, which nothing used to link to", () => {
+    renderPage();
+
+    expect(
+      screen.getByRole("link", { name: "View" }),
+    ).toHaveAttribute(
+      "href",
+      "/careers/22222222-2222-4222-8222-222222222222",
+    );
+    expect(
+      screen.getByText(/\/careers\/22222222-2222-4222-8222-222222222222$/),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the careers link until a company exists to point at", () => {
+    useCompanyProfile.mockReturnValue({ data: undefined });
+
+    renderPage();
+
+    expect(
+      screen.queryByText("Your public careers page"),
     ).not.toBeInTheDocument();
   });
 });

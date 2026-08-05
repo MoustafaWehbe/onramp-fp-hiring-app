@@ -1,5 +1,9 @@
-import { getSequelize, Company, User, Job } from "@starter-kit/shared/db";
+import { getSequelize, Company, User } from "@starter-kit/shared/db";
 import { createError } from "../middleware/error-handler";
+// jobs.service imports isCompanyProfileComplete back from here, so these two
+// form an import cycle. It is safe because both references are inside method
+// bodies rather than at module scope — keep it that way.
+import { jobService } from "./jobs.service";
 
 interface CompanyInput {
   name: string;
@@ -58,32 +62,39 @@ export class CompanyService {
 
     return this.serialize(company);
   }
-  async getPublicCareerPage(companyId: string) {
-  const company = await Company.findByPk(companyId);
-
-  if (!company) {
-    throw createError("Company not found", 404);
+  /**
+   * What an anonymous visitor may see of a company.
+   *
+   * Deliberately narrower than serialize(): the hiring contact, industry, size,
+   * location and the internal profileComplete flag are for the authenticated,
+   * ownership-guarded endpoints only. This is the same allow-list the public
+   * jobs feed already embeds, so the two agree on what "public company" means.
+   */
+  serializePublic(company: Company) {
+    return {
+      id: company.id,
+      name: company.name,
+      website: company.website ?? null,
+      logoUrl: company.logoUrl ?? null,
+      description: company.description ?? null,
+    };
   }
 
-  const jobs = await Job.findAll({
-    where: {
-      companyId,
-      status: "OPEN",
-    },
-    order: [["createdAt", "DESC"]],
-  });
+  async getPublicCareerPage(companyId: string) {
+    const company = await Company.findByPk(companyId);
 
-  return {
-    company: this.serialize(company),
-    jobs: jobs.map((job) => ({
-      id: job.id,
-      title: job.title,
-      description: job.description,
-      location: job.location,
-      status: job.status,
-    })),
-  };
-}
+    if (!company) {
+      throw createError("Company not found", 404);
+    }
+
+    return {
+      company: this.serializePublic(company),
+      // Delegated rather than queried here, so a careers page and the jobs
+      // browse page can never disagree about which jobs are public or which
+      // fields a public job has.
+      jobs: await jobService.getPublic({ companyId }),
+    };
+  }
 
   async getForCaller(companyId: string | null | undefined) {
     if (!companyId) {

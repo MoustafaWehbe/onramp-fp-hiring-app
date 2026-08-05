@@ -37,7 +37,7 @@ export function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/jobs" element={<JobsPage />} />
         <Route path="/jobs/:jobId" element={<JobDetailPage />} />
-        <Route path="/careers/:companyId"element={<PublicCareerPage />} />
+        <Route path="/careers/:companyId" element={<PublicCareerPage />} />
 
         {/* Candidate workspace */}
         <Route element={<ProtectedRoute allowedRoles={["candidate"]} />}>
