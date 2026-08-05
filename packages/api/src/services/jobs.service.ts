@@ -287,7 +287,12 @@ export class JobService {
     return this.serializeRecruiter(job, counts.get(id) ?? 0);
   }
 
-  async getPublic() {
+  /**
+   * Every publicly-visible job listing goes through here — the browse page and
+   * a company's careers page alike — so there is one definition of "a job the
+   * public may see" and one public field allow-list to keep correct.
+   */
+  async getPublic(filter: { companyId?: string } = {}) {
     const jobs = await Job.findAll({
       attributes: [
         "id",
@@ -305,7 +310,10 @@ export class JobService {
         "createdAt",
         "updatedAt",
       ],
-      where: { status: "OPEN" },
+      where: {
+        status: "OPEN",
+        ...(filter.companyId ? { companyId: filter.companyId } : {}),
+      },
       include: [
         {
           model: Company,

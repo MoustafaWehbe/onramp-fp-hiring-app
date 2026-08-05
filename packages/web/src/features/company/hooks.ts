@@ -8,7 +8,20 @@ import * as api from "./api";
 
 export const companyKeys = {
   profile: ["company", "profile"] as const,
+  careers: (companyId: string | undefined) =>
+    ["company", "careers", companyId] as const,
 };
+
+export function useCompanyCareersPage(companyId: string | undefined) {
+  return useQuery({
+    queryKey: companyKeys.careers(companyId),
+    queryFn: () => api.getCompanyCareersPage(companyId as string),
+    enabled: Boolean(companyId),
+    // A bad or unknown company id is an expected public 404 — retrying only
+    // delays the not-found state. Same reasoning as usePublicJob.
+    retry: false,
+  });
+}
 
 export function useCompanyProfile() {
   return useQuery({

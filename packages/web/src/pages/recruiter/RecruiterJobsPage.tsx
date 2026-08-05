@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
+import { CareersPageLink } from "../../features/company/components/CareersPageLink";
 import { useRecruiterJobs } from "../../features/jobs/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { employmentTypeLabels } from "../../lib/job-presentation";
@@ -75,6 +76,10 @@ export function RecruiterJobsPage() {
           >
             Create job
           </Link>
+        </div>
+
+        <div className="mb-6">
+          <CareersPageLink />
         </div>
 
         {jobsQuery.isLoading ? (

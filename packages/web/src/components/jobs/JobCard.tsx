@@ -26,9 +26,14 @@ import type { JobSummary } from "../../types/jobs";
 
 interface JobCardProps {
   job: JobSummary;
+  /**
+   * The careers page renders these cards too, where linking the company name
+   * would just point at the page you are already on.
+   */
+  linkCompany?: boolean;
 }
 
-export function JobCard({ job }: JobCardProps) {
+export function JobCard({ job, linkCompany = true }: JobCardProps) {
   return (
     <Card className="flex h-full flex-col transition-colors hover:border-slate-300">
       <CardHeader className="space-y-4 p-5">
@@ -37,7 +42,17 @@ export function JobCard({ job }: JobCardProps) {
             {job.company && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">{job.company}</span>
+                {linkCompany && job.companyId ? (
+                  <Link
+                    to={`/careers/${job.companyId}`}
+                    className="truncate rounded-sm outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    aria-label={`View all open roles at ${job.company}`}
+                  >
+                    {job.company}
+                  </Link>
+                ) : (
+                  <span className="truncate">{job.company}</span>
+                )}
               </div>
             )}
             <CardTitle className="text-xl leading-7">

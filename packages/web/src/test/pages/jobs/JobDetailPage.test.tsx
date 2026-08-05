@@ -137,6 +137,23 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+describe("JobDetailPage company cross-navigation", () => {
+  it("links to the company's careers page from the header and the snapshot", () => {
+    arrangeCandidate();
+
+    renderPage();
+
+    expect(
+      screen.getByRole("link", {
+        name: "View all open roles at Northstar Labs",
+      }),
+    ).toHaveAttribute("href", "/careers/company-1");
+    expect(
+      screen.getByRole("link", { name: "Northstar Labs" }),
+    ).toHaveAttribute("href", "/careers/company-1");
+  });
+});
+
 describe("JobDetailPage candidate application action", () => {
   it("disables the application action while submission is pending", () => {
     arrangeCandidate();

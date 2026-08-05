@@ -19,3 +19,7 @@ export const createCompanySchema = z.object({
 });
 
 export const updateCompanySchema = createCompanySchema.partial();
+
+export const companyIdParamSchema = z.object({
+  companyId: z.string().uuid("companyId must be a valid UUID"),
+});

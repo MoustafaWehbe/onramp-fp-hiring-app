@@ -20,8 +20,6 @@ router.use("/jobs", jobSkillRouter);
 router.use("/candidate-profiles", candidateProfileRouter);
 router.use("/applications", applicationRouter);
 router.use("/candidate", candidateRouter);
-router.use("/candidate", candidateRouter);
-
 router.use("/public", publicRouter);
 router.use("/interviewer", interviewerRouter);
 router.use("/notifications", notificationRouter);

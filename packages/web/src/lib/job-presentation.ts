@@ -35,6 +35,7 @@ export function toJobSummary(job: PublicJobRecord): JobSummary {
   return {
     id: job.id,
     company: job.company.name,
+    companyId: job.company.id,
     title: job.title,
     status: "open",
     location: job.location,
