@@ -23,6 +23,7 @@ import { RecruiterCreateCompanyPage } from "../pages/recruiter/RecruiterCreateCo
 import { RecruiterCreateJobPage } from "../pages/recruiter/RecruiterCreateJobPage";
 import { RecruiterJobDetailsPage } from "../pages/recruiter/RecruiterJobDetailsPage";
 import { RecruiterEditJobPage } from "../pages/recruiter/RecruiterEditJobPage";
+import { PublicCareerPage } from "../pages/PublicCareerPage";
 export function AppRoutes() {
   return (
     <Routes>
@@ -36,6 +37,7 @@ export function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/jobs" element={<JobsPage />} />
         <Route path="/jobs/:jobId" element={<JobDetailPage />} />
+        <Route path="/careers/:companyId"element={<PublicCareerPage />} />
 
         {/* Candidate workspace */}
         <Route element={<ProtectedRoute allowedRoles={["candidate"]} />}>
@@ -79,7 +81,6 @@ export function AppRoutes() {
   path="/recruiter/jobs/:id"
   element={<RecruiterJobDetailsPage />}
 />
-
 <Route
   path="/recruiter/jobs/:id/edit"
   element={<RecruiterEditJobPage />}
