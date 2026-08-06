@@ -5,12 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecruiterCandidatesPage } from "@/pages/recruiter/RecruiterCandidatesPage";
 import type { RecruiterCandidateRecord } from "@/types/recruiter";
 
-const { useRecruiterCandidates } = vi.hoisted(() => ({
+const { useRecruiterCandidates, useRecruiterTags } = vi.hoisted(() => ({
   useRecruiterCandidates: vi.fn(),
+  useRecruiterTags: vi.fn(),
 }));
 
 vi.mock("@/features/recruiter/hooks", () => ({
   useRecruiterCandidates: () => useRecruiterCandidates(),
+  useRecruiterTags: () => useRecruiterTags(),
 }));
 
 const amara: RecruiterCandidateRecord = {
@@ -40,6 +42,7 @@ beforeEach(() => {
     isSuccess: true,
     refetch: vi.fn(),
   });
+  useRecruiterTags.mockReturnValue({ data: [], isLoading: false });
 });
 
 describe("RecruiterCandidatesPage", () => {
@@ -77,7 +80,7 @@ describe("RecruiterCandidatesPage", () => {
     expect(screen.queryByText("Amara Okafor")).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "No candidates match your search",
+        name: "No candidates match your filters",
       }),
     ).toBeInTheDocument();
   });
