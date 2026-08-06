@@ -1,3 +1,5 @@
+import type { ScorecardSummary } from "./scorecards";
+
 export type ApplicationStage =
   | "DRAFT"
   | "APPLIED"
@@ -104,6 +106,11 @@ export interface RecruiterApplicationRecord extends SubmittedApplication {
 export interface RecruiterPipelineApplication
   extends RecruiterApplicationRecord {
   stage: RecruiterApplicationStage;
+  /**
+   * Aggregate of the interview scorecards submitted for this application,
+   * computed server-side so the board does not fetch per card.
+   */
+  scorecardSummary?: ScorecardSummary;
   candidateProfile: {
     id: string;
     userId: string;

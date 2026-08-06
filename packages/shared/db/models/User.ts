@@ -8,6 +8,14 @@ export interface UserAttributes {
   name: string;
   role: UserRole;
   emailVerified: boolean;
+  /**
+   * True while an account still owes us the one-time "hiring or looking for
+   * work?" answer. Only OAuth signups start pending: a provider hands us an
+   * identity, never a role, so `role` holds its CANDIDATE default until the
+   * user actually picks. Password signups choose in the form and are never
+   * pending.
+   */
+  roleSelectionPending: boolean;
   /** Internal users (ADMIN/RECRUITER/INTERVIEWER) only; candidates leave it null. */
   companyId?: string;
   createdAt?: Date;
@@ -16,7 +24,7 @@ export interface UserAttributes {
 
 export type UserCreationAttributes = Optional<
   UserAttributes,
-  "id" | "role" | "emailVerified" | "companyId"
+  "id" | "role" | "emailVerified" | "roleSelectionPending" | "companyId"
 >;
 
 export class User
@@ -29,6 +37,7 @@ export class User
   declare name: string;
   declare role: UserRole;
   declare emailVerified: boolean;
+  declare roleSelectionPending: boolean;
   declare companyId: string | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
@@ -67,6 +76,11 @@ export class User
           },
         },
         emailVerified: {
+          type: DataTypes.BOOLEAN,
+          defaultValue: false,
+          allowNull: false,
+        },
+        roleSelectionPending: {
           type: DataTypes.BOOLEAN,
           defaultValue: false,
           allowNull: false,

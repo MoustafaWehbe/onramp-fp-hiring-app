@@ -6,6 +6,7 @@ import { isAxiosError } from "axios";
 import { z } from "zod";
 import { useAuth } from "../../hooks/useAuth";
 import { RolePicker, roleIcons } from "../../components/auth/RolePicker";
+import { OAuthButtons } from "../../components/auth/OAuthButtons";
 import { isPlatformRole, roleConfig } from "../../lib/roles";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -112,6 +113,13 @@ export function Register() {
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <CardContent className="space-y-4">
+          {/*
+            Signing up through a provider skips this form's role field, so a
+            visitor who has not picked yet gets asked once on the way back
+            instead — see SelectRolePage.
+          */}
+          <OAuthButtons role={role} disabled={isSubmitting} />
+
           {error && (
             <p
               role="alert"
