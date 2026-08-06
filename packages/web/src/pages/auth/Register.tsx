@@ -6,6 +6,7 @@ import { isAxiosError } from "axios";
 import { z } from "zod";
 import { useAuth } from "../../hooks/useAuth";
 import { RolePicker, roleIcons } from "../../components/auth/RolePicker";
+import { OAuthButtons } from "../../components/auth/OAuthButtons";
 import { isPlatformRole, roleConfig } from "../../lib/roles";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -215,6 +216,12 @@ export function Register() {
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Creating account..." : "Create account"}
           </Button>
+          {/*
+            Signing up through a provider skips this form's role field, so a
+            visitor who has not picked yet gets asked once on the way back
+            instead — see SelectRolePage.
+          */}
+          <OAuthButtons role={role} disabled={isSubmitting} />
           <p className="text-center text-xs leading-5 text-muted-foreground">
             By creating an account, you agree to HireFlow's{" "}
             <span className="font-medium text-foreground">

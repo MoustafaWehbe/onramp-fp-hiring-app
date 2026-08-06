@@ -14,6 +14,8 @@ jest.mock("../../src/services/auth.service", () => ({
     refresh: jest.fn(),
     logout: jest.fn(),
     getProfile: jest.fn(),
+    selectRole: jest.fn(),
+    issueSession: jest.fn(),
   },
 }));
 
@@ -214,5 +216,93 @@ describe("POST /api/auth/logout", () => {
     expect(res.status).toBe(401);
     expect(res.body.error).toBe("Authentication required");
     expect(mockAuthService.logout).not.toHaveBeenCalled();
+  });
+});
+
+// --- POST /api/auth/role ------------------------------------------------------
+
+describe("POST /api/auth/role", () => {
+  function authCookie(role: "CANDIDATE" | "RECRUITER" = "CANDIDATE") {
+    return [
+      `accessToken=${signAccessToken({
+        userId: "uuid-1",
+        email: "alice@example.com",
+        role,
+        sessionId: "session-1",
+      })}`,
+    ];
+  }
+
+  it("returns a clean 401 when unauthenticated", async () => {
+    const res = await request(app)
+      .post("/api/auth/role")
+      .send({ role: "RECRUITER" });
+
+    expect(res.status).toBe(401);
+    expect(mockAuthService.selectRole).not.toHaveBeenCalled();
+  });
+
+  it("rejects ADMIN, which is never self-assignable", async () => {
+    const res = await request(app)
+      .post("/api/auth/role")
+      .set("Cookie", authCookie())
+      .send({ role: "ADMIN" });
+
+    expect(res.status).toBe(422);
+    expect(res.body.errors[0].field).toBe("role");
+    expect(mockAuthService.selectRole).not.toHaveBeenCalled();
+  });
+
+  it("saves the choice and re-issues the session so the JWT carries it", async () => {
+    const user = {
+      id: "uuid-1",
+      email: "alice@example.com",
+      name: "Alice",
+      role: "RECRUITER",
+      roleSelectionPending: false,
+    };
+    mockAuthService.selectRole.mockResolvedValue(user as never);
+    mockAuthService.issueSession.mockResolvedValue({
+      user,
+      accessToken: "fresh-access-token",
+      refreshToken: "fresh-refresh-token",
+    } as never);
+
+    const res = await request(app)
+      .post("/api/auth/role")
+      .set("Cookie", authCookie())
+      .send({ role: "RECRUITER" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.role).toBe("RECRUITER");
+    expect(res.body.data.roleSelectionPending).toBe(false);
+    expect(mockAuthService.selectRole).toHaveBeenCalledWith(
+      "uuid-1",
+      "RECRUITER",
+    );
+
+    // Without fresh cookies the user would keep presenting a CANDIDATE token
+    // and be turned away from every recruiter route they just earned.
+    const jar = res.headers["set-cookie"] as unknown as string[];
+    expect(jar.find((c) => c.startsWith("accessToken="))).toContain(
+      "fresh-access-token",
+    );
+  });
+
+  it("refuses a second answer so the prompt cannot be replayed", async () => {
+    mockAuthService.selectRole.mockRejectedValue(
+      Object.assign(new Error("Role has already been selected"), {
+        statusCode: 409,
+        isOperational: true,
+      }),
+    );
+
+    const res = await request(app)
+      .post("/api/auth/role")
+      .set("Cookie", authCookie())
+      .send({ role: "RECRUITER" });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe("Role has already been selected");
   });
 });

@@ -28,6 +28,17 @@ interface LoginInput {
   ipAddress?: string;
 }
 
+export interface SessionRequestContext {
+  userAgent?: string | string[];
+  ipAddress?: string;
+}
+
+export interface IssuedSession {
+  user: { id: string; email: string; name: string; role: string };
+  accessToken: string;
+  refreshToken: string;
+}
+
 const DEFAULT_REFRESH_EXPIRES_IN = "7d";
 
 function hashToken(token: string): string {
@@ -82,26 +93,25 @@ export class AuthService {
     };
   }
 
-  async login(input: LoginInput) {
-    const user = await User.findOne({ where: { email: input.email } });
-
-    if (!user) {
-      throw createError("Invalid credentials", 401);
-    }
-
-    const isValid = await verifyPassword(input.password, user.passwordHash);
-
-    if (!isValid) {
-      throw createError("Invalid credentials", 401);
-    }
-
+  /**
+   * Open a session for an already-authenticated user and mint its token pair.
+   *
+   * Split out of login() so that every way of proving identity — password
+   * today, an OAuth provider callback next door — converges on one session
+   * shape. Callers are responsible for the proving; by the time a user
+   * reaches this method the question of "is this really them?" is settled.
+   */
+  async issueSession(
+    user: User,
+    context: SessionRequestContext = {},
+  ): Promise<IssuedSession> {
     const expiresAt = refreshExpiryDate();
     const session = await Session.create({
       userId: user.id,
-      userAgent: Array.isArray(input.userAgent)
-        ? input.userAgent.join(" ")
-        : input.userAgent,
-      ipAddress: input.ipAddress,
+      userAgent: Array.isArray(context.userAgent)
+        ? context.userAgent.join(" ")
+        : context.userAgent,
+      ipAddress: context.ipAddress,
       expiresAt,
     });
 
@@ -131,6 +141,25 @@ export class AuthService {
     };
   }
 
+  async login(input: LoginInput) {
+    const user = await User.findOne({ where: { email: input.email } });
+
+    if (!user) {
+      throw createError("Invalid credentials", 401);
+    }
+
+    const isValid = await verifyPassword(input.password, user.passwordHash);
+
+    if (!isValid) {
+      throw createError("Invalid credentials", 401);
+    }
+
+    return this.issueSession(user, {
+      userAgent: input.userAgent,
+      ipAddress: input.ipAddress,
+    });
+  }
+
   async getProfile(userId: string) {
     const user = await User.findByPk(userId);
 
@@ -143,7 +172,34 @@ export class AuthService {
       email: user.email,
       name: user.name,
       role: user.role,
+      roleSelectionPending: user.roleSelectionPending,
     };
+  }
+
+  /**
+   * Answer the one-time "hiring or looking for work?" prompt.
+   *
+   * Only reachable by accounts still flagged pending — that is, OAuth
+   * signups that have never picked. It is not a general role-change endpoint:
+   * a second call finds the flag already cleared and is refused, so the
+   * prompt cannot be replayed to escalate a candidate into a recruiter later.
+   * The role set is SELF_ASSIGNABLE_ROLES, the same list the registration
+   * schema admits, so ADMIN stays unreachable here too.
+   */
+  async selectRole(userId: string, role: SelfAssignableRole): Promise<User> {
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      throw createError("User not found", 404);
+    }
+
+    if (!user.roleSelectionPending) {
+      throw createError("Role has already been selected", 409);
+    }
+
+    await user.update({ role, roleSelectionPending: false });
+
+    return user;
   }
 
   async refresh(refreshToken: string) {
