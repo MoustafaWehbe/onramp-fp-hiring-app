@@ -10,6 +10,7 @@ import type {
 } from "@starter-kit/shared/db";
 import { applicationService } from "../services/applications.service";
 import { applicationTimelineService } from "../services/application-timeline.service";
+import { scorecardsService } from "../services/scorecards.service";
 import { getCallerCompanyId } from "../lib/company-membership";
 import { createError } from "../middleware/error-handler";
 
@@ -230,6 +231,58 @@ export const applicationController = {
       res.status(200).json({
         data: assignment,
       });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * PUT /applications/:id/scorecard — upsert the caller's own scorecard.
+   *
+   * PUT rather than POST because the caller can only ever address one
+   * resource here: their scorecard for this application. Sending it twice
+   * leaves the same single row, which is the semantics the unique index
+   * enforces underneath.
+   */
+  async submitScorecard(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const companyId = await getCallerCompanyId(req);
+
+      if (!companyId) {
+        throw createError("Application not found", 404);
+      }
+
+      const application = res.locals.application as Application;
+      const scorecard = await scorecardsService.submit(
+        application.id,
+        req.user!.userId,
+        companyId,
+        req.body,
+      );
+
+      res.status(200).json({ data: scorecard });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getScorecards(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const application = res.locals.application as Application;
+      const aggregate = await scorecardsService.getAggregate(
+        application.id,
+        req.user!.userId,
+      );
+
+      res.status(200).json({ data: aggregate });
     } catch (err) {
       next(err);
     }

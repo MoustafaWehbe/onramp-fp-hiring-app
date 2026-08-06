@@ -3,6 +3,8 @@ import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
+import { OAuthCallback } from "../pages/auth/OAuthCallback";
+import { SelectRolePage } from "../pages/auth/SelectRolePage";
 import { ApplicationsPage } from "../pages/applications/ApplicationsPage";
 import { CandidateHomePage } from "../pages/candidate/CandidateHomePage";
 import { HomePage } from "../pages/HomePage";
@@ -21,6 +23,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import { RecruiterCandidateDetailsPage } from "../pages/recruiter/RecruiterCandidateDetailsPage";
 import { RecruiterCreateCompanyPage } from "../pages/recruiter/RecruiterCreateCompanyPage";
 import { RecruiterCreateJobPage } from "../pages/recruiter/RecruiterCreateJobPage";
+import { RecruiterScorecardTemplatesPage } from "../pages/recruiter/RecruiterScorecardTemplatesPage";
 import { RecruiterJobDetailsPage } from "../pages/recruiter/RecruiterJobDetailsPage";
 import { RecruiterEditJobPage } from "../pages/recruiter/RecruiterEditJobPage";
 import { PublicCareerPage } from "../pages/PublicCareerPage";
@@ -30,6 +33,9 @@ export function AppRoutes() {
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        {/* Provider round-trip: the API redirects the browser back here. */}
+        <Route path="/auth/callback" element={<OAuthCallback />} />
+        <Route path="/auth/select-role" element={<SelectRolePage />} />
       </Route>
 
       <Route element={<AppLayout />}>
@@ -88,6 +94,10 @@ export function AppRoutes() {
 <Route
   path="/recruiter/pipeline/:jobId"
   element={<RecruiterPipelinePage />}
+/>
+<Route
+  path="/recruiter/scorecard-templates"
+  element={<RecruiterScorecardTemplatesPage />}
 />
         </Route>
           

@@ -52,7 +52,7 @@ describe("Footer", () => {
       "href",
       "/recruiter/jobs",
     );
-    expect(screen.getByRole("link", { name: "Candidates" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Talent pool" })).toHaveAttribute(
       "href",
       "/recruiter/candidates",
     );

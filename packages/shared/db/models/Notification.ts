@@ -3,6 +3,7 @@ import { Model, DataTypes, type Sequelize, type Optional } from "sequelize";
 export const NOTIFICATION_TYPES = [
   "new_application",
   "stage_change",
+  "invite_to_apply",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -15,6 +16,8 @@ export interface NotificationAttributes {
   body?: string | null;
   /** Nulled when the application goes away; click-through then 404s. */
   relatedApplicationId?: string | null;
+  /** Direct job link for invitations, which deliberately have no application. */
+  relatedJobId?: string | null;
   /** Null means unread. */
   readAt?: Date | null;
   createdAt?: Date;
@@ -23,7 +26,7 @@ export interface NotificationAttributes {
 
 export type NotificationCreationAttributes = Optional<
   NotificationAttributes,
-  "id" | "body" | "relatedApplicationId" | "readAt"
+  "id" | "body" | "relatedApplicationId" | "relatedJobId" | "readAt"
 >;
 
 export class Notification
@@ -36,6 +39,7 @@ export class Notification
   declare title: string;
   declare body: string | null | undefined;
   declare relatedApplicationId: string | null | undefined;
+  declare relatedJobId: string | null | undefined;
   declare readAt: Date | null | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
@@ -76,6 +80,12 @@ export class Notification
           type: DataTypes.UUID,
           allowNull: true,
           references: { model: "applications", key: "id" },
+          onDelete: "SET NULL",
+        },
+        relatedJobId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: { model: "jobs", key: "id" },
           onDelete: "SET NULL",
         },
         readAt: {

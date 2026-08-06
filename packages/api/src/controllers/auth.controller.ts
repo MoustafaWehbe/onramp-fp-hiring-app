@@ -1,39 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
 import { authService } from "../services/auth.service";
-
-const isProduction = process.env.NODE_ENV === "production";
-
-const ACCESS_COOKIE = "accessToken";
-const REFRESH_COOKIE = "refreshToken";
-
-const ACCESS_MAX_AGE = 15 * 60 * 1000; // 15 minutes
-const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-function setAuthCookies(
-  res: Response,
-  accessToken: string,
-  refreshToken: string,
-): void {
-  res.cookie(ACCESS_COOKIE, accessToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    path: "/api",
-    maxAge: ACCESS_MAX_AGE,
-  });
-  res.cookie(REFRESH_COOKIE, refreshToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    path: "/api/auth/refresh",
-    maxAge: REFRESH_MAX_AGE,
-  });
-}
-
-function clearAuthCookies(res: Response): void {
-  res.clearCookie(ACCESS_COOKIE, { path: "/api" });
-  res.clearCookie(REFRESH_COOKIE, { path: "/api/auth/refresh" });
-}
+import {
+  clearAuthCookies,
+  setAuthCookies,
+  REFRESH_COOKIE,
+} from "../lib/auth-cookies";
 
 function requireAuthenticatedUser(req: Request, res: Response) {
   if (!req.user) {
@@ -115,6 +86,50 @@ export const authController = {
 
       const user = await authService.getProfile(authenticatedUser.userId);
       res.json({ data: user });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Answer the one-time role prompt shown after a first OAuth login.
+   *
+   * The session is re-issued rather than left alone: authorize() reads the
+   * role off the JWT, so a user who picked "recruiter" while holding a
+   * candidate token would keep being refused at recruiter routes until the
+   * token happened to expire.
+   */
+  async selectRole(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const authenticatedUser = requireAuthenticatedUser(req, res);
+      if (!authenticatedUser) {
+        return;
+      }
+
+      const user = await authService.selectRole(
+        authenticatedUser.userId,
+        req.body.role,
+      );
+
+      const session = await authService.issueSession(user, {
+        userAgent: req.headers["user-agent"],
+        ipAddress: req.ip,
+      });
+
+      setAuthCookies(res, session.accessToken, session.refreshToken);
+      res.json({
+        data: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          roleSelectionPending: user.roleSelectionPending,
+        },
+      });
     } catch (err) {
       next(err);
     }

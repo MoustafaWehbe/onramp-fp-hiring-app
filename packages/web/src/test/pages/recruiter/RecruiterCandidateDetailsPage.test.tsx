@@ -24,6 +24,37 @@ vi.mock("@/features/applications/hooks", () => ({
   useUpdateApplicationInterview: () => useUpdateApplicationInterview(),
 }));
 
+vi.mock("@/features/recruiter/components/TalentPoolSection", () => ({
+  TalentPoolSection: () => <div>Talent pool controls</div>,
+}));
+
+// The page now renders a scorecard panel per application. This file mounts
+// the page without a QueryClientProvider, so the panel's queries are stubbed
+// the same way every other feature hook here is. Scorecard behaviour itself is
+// covered in the scorecards tests, not this one.
+vi.mock("@/features/scorecards/hooks", () => ({
+  scorecardKeys: {
+    templates: ["scorecards", "templates"],
+    application: (id: string | undefined) => ["scorecards", "application", id],
+  },
+  useScorecardTemplates: () => ({
+    data: { templates: [], starterCriteria: [] },
+    isLoading: false,
+    isError: false,
+  }),
+  useApplicationScorecards: () => ({
+    data: {
+      scorecardCount: 0,
+      overallAverage: null,
+      criteriaAverages: [],
+      scorecards: [],
+    },
+    isLoading: false,
+    isError: false,
+  }),
+  useSubmitScorecard: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
@@ -119,9 +150,11 @@ describe("RecruiterCandidateDetailsPage", () => {
     expect(useRecruiterCandidate).toHaveBeenCalledWith(
       "candidate-profile-amara",
     );
+    // Once per per-application section: history, interviews and notes,
+    // scorecards, AI fit insights, and the CV list.
     expect(
       screen.getAllByText("Senior Platform Engineer"),
-    ).toHaveLength(3);
+    ).toHaveLength(5);
     expect(screen.getByText(/amara-platform.pdf/)).toBeInTheDocument();
     expect(
       screen.getByText("Parsed skills: TypeScript, Docker"),
@@ -132,7 +165,7 @@ describe("RecruiterCandidateDetailsPage", () => {
       "href",
       "/api/applications/application-1/resume",
     );
-    expect(screen.getByText("91% fit")).toBeInTheDocument();
+    expect(screen.getAllByText("91% fit")).toHaveLength(2);
     expect(
       screen.getByText(
         "Amara's platform background strongly aligns with the role's reliability requirements.",

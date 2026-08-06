@@ -65,6 +65,17 @@ const stageChange: NotificationRecord = {
   createdAt: "2026-07-31T08:00:00.000Z",
 };
 
+const invite: NotificationRecord = {
+  id: "notification-3",
+  type: "invite_to_apply",
+  title: "You're invited to apply for Staff Engineer",
+  body: "Review the role and apply if you're interested.",
+  relatedApplicationId: null,
+  relatedJobId: "job-invite",
+  readAt: null,
+  createdAt: "2026-08-06T08:00:00.000Z",
+};
+
 function queryState(
   notifications: NotificationRecord[],
   overrides: Record<string, unknown> = {},
@@ -181,6 +192,19 @@ describe("NotificationBell", () => {
     );
 
     expect(navigate).toHaveBeenCalledWith("/applications");
+  });
+
+  it("links an invite directly to the open job", async () => {
+    useNotifications.mockReturnValue(queryState([invite]));
+    const user = userEvent.setup();
+
+    renderBell();
+    await user.click(
+      screen.getByRole("button", { name: "Notifications, 1 unread" }),
+    );
+    await user.click(screen.getByRole("button", { name: /invited to apply/i }));
+
+    expect(navigate).toHaveBeenCalledWith("/jobs/job-invite");
   });
 
   it("does not re-mark an already read notification", async () => {
