@@ -52,6 +52,7 @@ export const roleConfig: Record<PlatformRole, RoleConfig> = {
       { to: "/recruiter/pipeline", label: "Pipeline" },
       { to: "/recruiter/jobs", label: "Jobs" },
       { to: "/recruiter/candidates", label: "Candidates" },
+      { to: "/recruiter/scorecard-templates", label: "Scorecards" },
       { to: "/recruiter/company/create", label: "Company" },
     ],
   },

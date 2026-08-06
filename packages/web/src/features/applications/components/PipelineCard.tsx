@@ -1,6 +1,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import {
   CalendarCheck,
+  ClipboardList,
   GripVertical,
   Loader2,
   NotebookPen,
@@ -47,6 +48,41 @@ function FitScoreBadge({
   }
 
   return <Badge variant="muted">Not scored</Badge>;
+}
+
+/**
+ * The human counterpart to the AI fit score sitting next to it.
+ *
+ * Shows the count as well as the average so a 4.5 from one interviewer is not
+ * mistaken for a 4.5 the whole panel agreed on — and stays visible with "No
+ * scorecards" when there are none, since silence about an unevaluated
+ * candidate is what lets them sit in a column unnoticed.
+ */
+function ScorecardBadge({
+  summary,
+}: {
+  summary: RecruiterPipelineApplication["scorecardSummary"];
+}) {
+  if (!summary || summary.scorecardCount === 0 || summary.averageRating === null) {
+    return (
+      <Badge variant="muted">
+        <ClipboardList className="mr-1 h-3 w-3" aria-hidden="true" />
+        No scorecards
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge
+      variant={summary.averageRating >= 4 ? "success" : "secondary"}
+      title={`Average of ${summary.scorecardCount} scorecard${
+        summary.scorecardCount === 1 ? "" : "s"
+      }`}
+    >
+      <ClipboardList className="mr-1 h-3 w-3" aria-hidden="true" />
+      {summary.averageRating.toFixed(1)}/5 · {summary.scorecardCount}
+    </Badge>
+  );
 }
 
 export function PipelineCard({
@@ -109,6 +145,7 @@ export function PipelineCard({
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <FitScoreBadge application={application} />
+        <ScorecardBadge summary={application.scorecardSummary} />
         {application.interviewDate && (
           <Badge
             variant="outline"
