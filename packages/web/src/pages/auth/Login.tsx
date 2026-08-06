@@ -120,6 +120,12 @@ export function Login() {
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <CardContent className="space-y-4">
+          <OAuthButtons
+            role={role ?? intendedRole}
+            returnTo={state.returnTo}
+            disabled={isSubmitting}
+          />
+
           {oauthError && !error && (
             <p
               role="alert"
@@ -214,11 +220,6 @@ export function Login() {
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? "Signing in..." : "Sign in"}
           </Button>
-          <OAuthButtons
-            role={role ?? intendedRole}
-            returnTo={state.returnTo}
-            disabled={isSubmitting}
-          />
           <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
             <Link
@@ -228,7 +229,6 @@ export function Login() {
               Create one
             </Link>
           </p>
-
         </CardFooter>
       </form>
     </Card>

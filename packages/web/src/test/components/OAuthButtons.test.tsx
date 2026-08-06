@@ -86,6 +86,60 @@ describe("OAuthButtons", () => {
     ).toBeInTheDocument();
   });
 
+  it("puts a brand mark inside each button without changing its accessible name", async () => {
+    apiGet.mockResolvedValue({
+      data: { data: { providers: ["google", "github"] } },
+    });
+
+    renderButtons();
+
+    // Queried by name: the marks are decorative and aria-hidden, so the
+    // accessible name must still be the label alone.
+    const google = await screen.findByRole("button", {
+      name: "Continue with Google",
+    });
+    const github = screen.getByRole("button", {
+      name: "Continue with GitHub",
+    });
+
+    expect(google.querySelector("svg")).toBeInTheDocument();
+    expect(github.querySelector("svg")).toBeInTheDocument();
+    expect(google.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("keeps Google's G in its four brand colours", async () => {
+    renderButtons();
+
+    const button = await screen.findByRole("button", {
+      name: /continue with google/i,
+    });
+    const fills = Array.from(button.querySelectorAll("path")).map((path) =>
+      path.getAttribute("fill"),
+    );
+
+    // Google's guidelines do not permit recolouring the G, so this must not be
+    // flattened to currentColor when the dark theme lands.
+    expect(fills).toEqual(
+      expect.arrayContaining(["#EA4335", "#4285F4", "#FBBC05", "#34A853"]),
+    );
+  });
+
+  it("lets GitHub's mark follow the button's text colour", async () => {
+    apiGet.mockResolvedValue({
+      data: { data: { providers: ["github"] } },
+    });
+
+    renderButtons();
+
+    const button = await screen.findByRole("button", {
+      name: /continue with github/i,
+    });
+
+    // Monochrome by design: inheriting currentColor is what makes it flip
+    // for dark mode without extra work.
+    expect(button.querySelector("svg")).toHaveAttribute("fill", "currentColor");
+  });
+
   it("starts the flow with the role and destination the visitor came in with", async () => {
     const user = userEvent.setup();
     renderButtons("recruiter", "/recruiter/jobs");

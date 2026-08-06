@@ -39,13 +39,20 @@ beforeEach(() => {
 });
 
 describe("Login page — provider sign-in", () => {
-  it("offers provider sign-in alongside the password form", async () => {
+  it("offers provider sign-in before the password form", async () => {
     renderLogin();
 
+    const providerButton = await screen.findByRole("button", {
+      name: /continue with google/i,
+    });
+    const passwordInput = screen.getByLabelText(/password/i);
+
+    expect(providerButton).toBeInTheDocument();
+    expect(passwordInput).toBeInTheDocument();
     expect(
-      await screen.findByRole("button", { name: /continue with google/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+      providerButton.compareDocumentPosition(passwordInput) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("explains an email collision and leaves the password form right there", async () => {

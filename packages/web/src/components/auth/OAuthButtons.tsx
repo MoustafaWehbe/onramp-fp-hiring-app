@@ -5,6 +5,7 @@ import {
   oauthProviderLabels,
   startOAuth,
 } from "../../lib/oauth";
+import { providerMarks } from "./ProviderMarks";
 import type { OAuthProvider, PlatformRole } from "../../types/users";
 
 /**
@@ -56,23 +57,30 @@ export function OAuthButtons({ role, returnTo, disabled }: OAuthButtonsProps) {
 
   return (
     <div className="space-y-2">
+      {providers.map((provider) => {
+        const Mark = providerMarks[provider];
+
+        return (
+          <button
+            key={provider}
+            type="button"
+            disabled={disabled}
+            onClick={() => startOAuth(provider, { role, returnTo })}
+            className="flex w-full items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
+          >
+            <Mark />
+            Continue with {oauthProviderLabels[provider]}
+          </button>
+        );
+      })}
+
       <div className="flex items-center gap-3" aria-hidden="true">
         <span className="h-px flex-1 bg-border" />
-        <span className="text-xs text-muted-foreground">or</span>
+        <span className="text-xs text-muted-foreground">
+          or continue with email
+        </span>
         <span className="h-px flex-1 bg-border" />
       </div>
-
-      {providers.map((provider) => (
-        <button
-          key={provider}
-          type="button"
-          disabled={disabled}
-          onClick={() => startOAuth(provider, { role, returnTo })}
-          className="flex w-full items-center justify-center rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
-        >
-          Continue with {oauthProviderLabels[provider]}
-        </button>
-      ))}
     </div>
   );
 }

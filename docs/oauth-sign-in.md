@@ -22,6 +22,11 @@ appears — `GET /api/auth/providers` reports which ones have credentials, and
 the sign-in forms render from that list, so an unconfigured provider never
 shows a button that can only fail.
 
+> **If you already have a `.env`**, copying `.env.example` again is not how you
+> get these — add the four keys to your existing file. Until you do, **no
+> sign-in buttons appear at all.** That is working as intended, not a bug; see
+> [Troubleshooting](#troubleshooting-no-buttons-appear).
+
 **Why port 5173 in the callback URL:** Vite proxies `/api` to the API on 3000,
 so routing the round-trip through the frontend origin keeps everything
 same-origin. The session cookies the callback sets are then exactly the ones
@@ -106,6 +111,42 @@ is logged server-side and deliberately kept out of the URL.
 | `provider_error` | Token exchange rejected, provider unreachable, or anything unexpected |
 
 Wording lives in `packages/web/src/lib/oauth.ts`.
+
+## Troubleshooting: no buttons appear
+
+Almost always missing credentials, not a rendering bug. The API says which on
+startup:
+
+```
+OAuth sign-in: no providers configured — the "Continue with…" buttons are hidden.
+```
+
+```
+OAuth sign-in enabled for: google, github
+```
+
+If it says none are configured, add the keys to `.env` and restart the API.
+Check in this order before suspecting the frontend:
+
+1. **`curl http://localhost:3000/api/auth/providers`**
+   `{"data":{"providers":[]}}` means the backend has no credentials — the
+   frontend is behaving correctly by rendering nothing. `{"data":{"providers":
+   ["google"]}}` means the backend is fine and the problem is downstream.
+2. **`curl http://localhost:5173/api/auth/providers`** — same answer proves the
+   Vite proxy is wired up. A connection error means the API is not running or
+   is on a different port.
+3. Only if both return providers and the buttons are still missing is it a
+   frontend problem.
+
+**Do not put placeholder values in `GOOGLE_CLIENT_ID` to make the buttons
+appear.** They will render and then fail at the consent screen, which is a
+worse failure than a hidden button — you need real credentials from the
+consoles linked above. Creating a Google OAuth client for local development
+takes a few minutes: create a project, configure the consent screen as
+**External** with your own account as a test user, then create an **OAuth
+client ID** of type **Web application** with the callback URL from the table
+above. GitHub is quicker — **New OAuth App**, fill in the callback URL, and
+generate a client secret.
 
 ## Testing
 
