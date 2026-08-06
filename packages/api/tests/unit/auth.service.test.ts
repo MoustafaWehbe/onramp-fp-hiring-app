@@ -1,5 +1,10 @@
 import { hashPassword, verifyPassword } from "../../../shared/auth/password";
-import { signAccessToken, verifyAccessToken } from "../../../shared/auth/jwt";
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyAccessToken,
+  verifyRefreshToken,
+} from "../../../shared/auth/jwt";
 import { AuthService } from "../../src/services/auth.service";
 
 // ─── Password utilities ───────────────────────────────────────────────────────
@@ -52,6 +57,26 @@ describe("signAccessToken / verifyAccessToken", () => {
     const token = signAccessToken(payload);
     const tampered = token.slice(0, -5) + "XXXXX";
     expect(() => verifyAccessToken(tampered)).toThrow();
+  });
+});
+
+describe("signRefreshToken", () => {
+  it("mints a distinct token every time, even within the same second", () => {
+    // refresh_tokens.token_hash is UNIQUE, so two identical tokens mean the
+    // second session cannot be stored at all. Opening two sessions back to
+    // back — a password login right after an OAuth callback, say — used to
+    // produce byte-identical tokens because the payload was only {userId}.
+    const tokens = new Set(
+      Array.from({ length: 5 }, () => signRefreshToken({ userId: "user-1" })),
+    );
+
+    expect(tokens.size).toBe(5);
+  });
+
+  it("still verifies and still carries the user it was issued for", () => {
+    const token = signRefreshToken({ userId: "user-1" });
+
+    expect(verifyRefreshToken(token).userId).toBe("user-1");
   });
 });
 

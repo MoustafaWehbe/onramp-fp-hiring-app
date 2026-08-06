@@ -2,6 +2,7 @@ import type { Sequelize } from "sequelize";
 import { User } from "./User";
 import { Session } from "./Session";
 import { RefreshToken } from "./RefreshToken";
+import { OAuthIdentity } from "./OAuthIdentity";
 import { Company } from "./Company";
 import { CandidateProfile } from "./CandidateProfile";
 import { CandidateEducation } from "./CandidateEducation";
@@ -23,6 +24,7 @@ export {
   User,
   Session,
   RefreshToken,
+  OAuthIdentity,
   Company,
   CandidateProfile,
   CandidateEducation,
@@ -40,6 +42,11 @@ export {
   CandidateSkill,
   JobSkill,
 };
+export {
+  OAUTH_PROVIDERS,
+  isOAuthProvider,
+  type OAuthProvider,
+} from "./OAuthIdentity";
 export {
   EMPLOYMENT_TYPES,
   JOB_STATUSES,
@@ -61,6 +68,7 @@ export function initModels(sequelize: Sequelize): void {
   User.initModel(sequelize);
   Session.initModel(sequelize);
   RefreshToken.initModel(sequelize);
+  OAuthIdentity.initModel(sequelize);
   Company.initModel(sequelize);
   CandidateProfile.initModel(sequelize);
   CandidateEducation.initModel(sequelize);
@@ -84,6 +92,9 @@ export function initModels(sequelize: Sequelize): void {
 
   User.hasMany(RefreshToken, { foreignKey: "userId", as: "refreshTokens" });
   RefreshToken.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+  User.hasMany(OAuthIdentity, { foreignKey: "userId", as: "oauthIdentities" });
+  OAuthIdentity.belongsTo(User, { foreignKey: "userId", as: "user" });
 
   Session.hasMany(RefreshToken, {
     foreignKey: "sessionId",

@@ -3,7 +3,12 @@ import { authController } from "../controllers/auth.controller";
 import { authenticate } from "../middleware/authenticate";
 import { validate } from "../middleware/validate";
 import { authRateLimiter } from "../middleware/rate-limiter";
-import { registerSchema, loginSchema } from "../schemas/auth.schemas";
+import {
+  registerSchema,
+  loginSchema,
+  roleSelectionSchema,
+} from "../schemas/auth.schemas";
+import { oauthRouter } from "./oauth.routes";
 
 const router = Router();
 
@@ -25,5 +30,18 @@ router.post(
 router.post("/refresh", authController.refresh);
 router.post("/logout", authenticate, authController.logout);
 router.get("/me", authenticate, authController.me);
+
+// One-time role prompt for accounts created through a provider, which arrive
+// with an identity but no answer to "hiring or looking for work?".
+router.post(
+  "/role",
+  authenticate,
+  validate(roleSelectionSchema),
+  authController.selectRole,
+);
+
+// Provider sign-in shares this mount so the routes read /api/auth/google,
+// /api/auth/github, and so on.
+router.use("/", oauthRouter);
 
 export { router as authRouter };
