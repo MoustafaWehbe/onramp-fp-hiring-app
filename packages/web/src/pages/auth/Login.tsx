@@ -11,12 +11,14 @@ import { isAxiosError } from "axios";
 import { z } from "zod";
 import { useAuth } from "../../hooks/useAuth";
 import { RolePicker, roleIcons } from "../../components/auth/RolePicker";
+import { OAuthButtons } from "../../components/auth/OAuthButtons";
 import {
   getRoleHomePath,
   isPlatformRole,
   resolveRole,
   roleConfig,
 } from "../../lib/roles";
+import { getOAuthErrorMessage } from "../../lib/oauth";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -56,6 +58,13 @@ export function Login() {
   );
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // A failed provider round-trip comes back as a code on the URL — the
+  // callback runs in a redirect, so a query param is the only channel it has.
+  const oauthError = getOAuthErrorMessage(
+    searchParams.get("oauth_error"),
+    searchParams.get("provider"),
+  );
 
   const {
     register,
@@ -111,6 +120,20 @@ export function Login() {
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <CardContent className="space-y-4">
+          <OAuthButtons
+            role={role ?? intendedRole}
+            returnTo={state.returnTo}
+            disabled={isSubmitting}
+          />
+
+          {oauthError && !error && (
+            <p
+              role="alert"
+              className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-800"
+            >
+              {oauthError}
+            </p>
+          )}
           {state.registered && !error && (
             <p
               role="status"
@@ -206,7 +229,6 @@ export function Login() {
               Create one
             </Link>
           </p>
-
         </CardFooter>
       </form>
     </Card>

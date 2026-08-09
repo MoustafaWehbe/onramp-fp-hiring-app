@@ -23,6 +23,11 @@ interface AuthContextValue {
   /** Role the visitor picked before auth; preserved through the flow. */
   intendedRole: PlatformRole | null;
   isLoading: boolean;
+  /**
+   * True when the signed-in account still owes the one-time role answer.
+   * Only OAuth signups do; see AuthUser.roleSelectionPending.
+   */
+  needsRoleSelection: boolean;
   setIntendedRole: (role: PlatformRole | null) => void;
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (
@@ -31,6 +36,8 @@ interface AuthContextValue {
     name: string,
     role: PlatformRole,
   ) => Promise<void>;
+  /** Answer the post-OAuth role prompt. */
+  selectRole: (role: PlatformRole) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -62,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => (user ? resolveRole(user.role, intendedRole) : null),
     [user, intendedRole],
   );
+
+  const needsRoleSelection = user?.roleSelectionPending === true;
 
   const setIntendedRole = useCallback((role: PlatformRole | null): void => {
     storeIntendedRole(role);
@@ -97,6 +106,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  /**
+   * Answer the one-time role prompt an OAuth signup lands on.
+   *
+   * The backend re-issues the session cookies here, because the role it just
+   * wrote also lives on the access token — without a fresh token a new
+   * recruiter would keep being turned away from recruiter routes.
+   */
+  const selectRole = useCallback(
+    async (role: PlatformRole): Promise<AuthUser> => {
+      const { data } = await apiClient.post<{ data: AuthUser }>("/auth/role", {
+        role: role.toUpperCase(),
+      });
+      const nextUser = { ...data.data };
+      storeIntendedRole(role);
+      setIntendedRoleState(role);
+      setUser(nextUser);
+      return nextUser;
+    },
+    [],
+  );
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       await apiClient.post("/auth/logout");
@@ -116,9 +146,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentRole,
       intendedRole,
       isLoading,
+      needsRoleSelection,
       setIntendedRole,
       login,
       register,
+      selectRole,
       logout,
     }),
     [
@@ -126,9 +158,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentRole,
       intendedRole,
       isLoading,
+      needsRoleSelection,
       setIntendedRole,
       login,
       register,
+      selectRole,
       logout,
     ],
   );

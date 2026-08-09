@@ -12,4 +12,13 @@ export interface AuthUser {
   email: string;
   name: string;
   role: UserRole;
+  /**
+   * True while an account still owes the one-time "hiring or looking for
+   * work?" answer. Only accounts created through a provider start this way —
+   * OAuth hands us an identity, never a role — so `role` is still holding its
+   * CANDIDATE default and must not be trusted until this clears.
+   */
+  roleSelectionPending?: boolean;
 }
+
+export type OAuthProvider = "google" | "github";

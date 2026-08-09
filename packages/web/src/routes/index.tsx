@@ -3,6 +3,8 @@ import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
+import { OAuthCallback } from "../pages/auth/OAuthCallback";
+import { SelectRolePage } from "../pages/auth/SelectRolePage";
 import { ApplicationsPage } from "../pages/applications/ApplicationsPage";
 import { CandidateHomePage } from "../pages/candidate/CandidateHomePage";
 import { HomePage } from "../pages/HomePage";
@@ -30,6 +32,9 @@ export function AppRoutes() {
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        {/* Provider round-trip: the API redirects the browser back here. */}
+        <Route path="/auth/callback" element={<OAuthCallback />} />
+        <Route path="/auth/select-role" element={<SelectRolePage />} />
       </Route>
 
       <Route element={<AppLayout />}>
