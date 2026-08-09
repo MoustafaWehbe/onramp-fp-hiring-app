@@ -33,7 +33,8 @@ import type {
   RecruiterMutableApplicationStage,
   RecruiterPipelineApplication,
 } from "../../types/applications";
-
+// add to imports
+import { TEXT_WARNING, WARNING_BANNER } from "../../features/candidate/theme";
 function BoardSkeleton() {
   return (
     <div className="flex gap-3 overflow-hidden" aria-label="Loading pipeline">
@@ -366,8 +367,8 @@ export function RecruiterPipelinePage() {
         {jobId && applicationsQuery.isSuccess && (
           <div className="space-y-4">
             {isDegraded && (
-              <Card className="border-amber-500/40 bg-amber-50" role="status">
-                <CardContent className="p-4 text-sm text-amber-900">
+  <Card className={WARNING_BANNER} role="status">
+    <CardContent className={cn("p-4 text-sm", TEXT_WARNING)}>
                   Live updates are reconnecting. Moves you make still save, but
                   changes from other sessions may not appear until the
                   connection is back.

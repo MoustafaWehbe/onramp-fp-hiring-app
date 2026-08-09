@@ -21,9 +21,15 @@ import {
   ProfileSection,
   SectionAction,
 } from "./ProfileSection";
-import { ACCENT_GRADIENT, CARD_CLASS } from "../theme";
+import {
+  ACCENT_GRADIENT,
+  ACCENT_CHIP,
+  CARD_CLASS,
+  TEXT_HEADING,
+  TEXT_BODY,
+  TEXT_META,
+} from "../theme";
 import type { CandidateProfileRecord } from "../../../types/candidate";
-
 const profileFormSchema = z.object({
   headline: z.string().max(255, "Keep it under 255 characters"),
   bio: z.string(),
@@ -137,7 +143,7 @@ export function IdentityCard() {
             <ProfileAvatar
               name={user?.name ?? "?"}
               photoUrl={profile?.profilePhotoUrl}
-              className="h-24 w-24 border-4 border-white text-2xl shadow-sm sm:h-28 sm:w-28 sm:text-3xl"
+              className="h-24 w-24 border-4 border-white text-2xl shadow-sm sm:h-28 sm:w-28 sm:text-3xl dark:border-stone-900"
             />
             {!showForm && (
               <SectionAction
@@ -148,16 +154,21 @@ export function IdentityCard() {
           </div>
 
           <div className="mt-4">
-            <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
+           <h1
+            className={cn(
+              "text-2xl font-bold tracking-tight sm:text-3xl",
+              TEXT_HEADING,
+              )}
+            >
               {user?.name ?? "Your profile"}
             </h1>
             {profile?.headline && (
-              <p className="mt-1 text-base text-stone-600">
+              <p className={cn("mt-1 text-base", TEXT_BODY)}>
                 {profile.headline}
               </p>
             )}
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-stone-500">
+            <div className={cn("mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm", TEXT_META)}>
               {user?.email && (
                 <span className="flex min-w-0 items-center gap-1.5">
                   <Mail className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -196,7 +207,7 @@ export function IdentityCard() {
               className="space-y-4"
             >
             {profileMissing && (
-              <p className="flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-700">
+              <p className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm", ACCENT_CHIP)}>
                 <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
                 Set up your candidate profile to start applying.
               </p>
@@ -289,11 +300,11 @@ export function IdentityCard() {
           }
         >
           {profile?.bio ? (
-            <p className="whitespace-pre-line text-sm leading-7 text-stone-600">
+            <p className={cn("whitespace-pre-line text-sm leading-7", TEXT_BODY)}>
               {profile.bio}
             </p>
           ) : (
-            <p className="text-sm text-stone-500">
+            <p className="text-sm text-muted-foreground">
               Add a short summary of your experience and what you're looking
               for.
             </p>

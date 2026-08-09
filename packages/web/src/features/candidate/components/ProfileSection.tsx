@@ -3,8 +3,12 @@ import type { ReactNode } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
 import { cn } from "../../../lib/utils";
-import { CARD_CLASS } from "../theme";
-
+import {
+  CARD_CLASS,
+  TEXT_HEADING,
+  TEXT_META,
+  ACCENT_HOVER,
+} from "../theme";
 /**
  * Anchor id for a section, derived from its title so it stays stable without
  * every card having to invent and pass one.
@@ -48,7 +52,12 @@ export function ProfileSection({
       <CardContent className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-stone-900">
+            <h2
+  className={cn(
+    "flex items-center gap-2 text-lg font-semibold",
+    TEXT_HEADING,
+  )}
+>
               {Icon && (
                 <Icon
                   className="h-5 w-5 shrink-0 text-indigo-600"
@@ -58,7 +67,7 @@ export function ProfileSection({
               {title}
             </h2>
             {description && (
-              <p className="mt-1 text-sm text-stone-500">{description}</p>
+              <p className={cn( "mt-1 text-sm",TEXT_META,)}>{description}</p>
             )}
           </div>
           {action && <div className="shrink-0">{action}</div>}
@@ -93,7 +102,12 @@ export function SectionAction({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="h-9 w-9 rounded-full text-stone-500 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+     className={cn(
+  "h-9 w-9 rounded-full transition-colors",
+  TEXT_META,
+  ACCENT_HOVER,
+)}
+
     >
       <Icon className="h-4 w-4" aria-hidden="true" />
     </Button>

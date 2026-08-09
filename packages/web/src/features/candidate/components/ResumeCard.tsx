@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { cn } from "../../../lib/utils";
 import { getApiErrorMessage } from "../../../lib/api-errors";
 import { useUploadResume } from "../hooks";
-import { CARD_CLASS } from "../theme";
-
+import { CARD_CLASS ,ACCENT_CHIP} from "../theme";
 const ACCEPTED_EXTENSIONS = [".pdf", ".docx"];
 const ACCEPTED_MIME_TYPES = [
   "application/pdf",
@@ -90,7 +89,8 @@ export function ResumeCard({ profileExists, resumeUrl }: ResumeCardProps) {
                 href={resumeUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+                className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900", ACCENT_CHIP)}
+
               >
                 <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">{resumeFileName(resumeUrl)}</span>
@@ -116,8 +116,8 @@ export function ResumeCard({ profileExists, resumeUrl }: ResumeCardProps) {
               onDrop={onDrop}
               className={cn(
                 "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2",
-                isDragging
-                  ? "border-indigo-400 bg-indigo-50"
+                isDragging?
+                  "border-indigo-400 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-950/40"
                   : "border-stone-300 bg-stone-50/60 hover:bg-stone-100",
                 uploadResume.isPending && "pointer-events-none opacity-60",
               )}

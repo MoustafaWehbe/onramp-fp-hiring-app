@@ -11,7 +11,7 @@ import {
   getRoleNavItems,
   type RoleNavItem,
 } from "../../lib/roles";
-
+import { ThemeToggle } from "../theme/ThemeToggle";
 const publicNavItems: RoleNavItem[] = [
   { to: "/", label: "Home" },
   { to: "/jobs", label: "Jobs" },
@@ -75,6 +75,7 @@ export function Header() {
         <div className="hidden items-center gap-3 md:flex">
           {user && currentRole ? (
             <>
+             <ThemeToggle />
               <NotificationBell />
               <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 {user.name}
@@ -110,6 +111,7 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
           {user && currentRole && <NotificationBell />}
           <button
             type="button"

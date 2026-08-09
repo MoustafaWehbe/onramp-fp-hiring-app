@@ -19,8 +19,10 @@ import {
   useExperience,
   useUpdateExperience,
 } from "../hooks";
-import type { WorkExperienceRecord } from "../../../types/candidate";
 
+import type { WorkExperienceRecord } from "../../../types/candidate";
+import { cn } from "../../../lib/utils"
+import { ACCENT_SURFACE, TEXT_SUBTLE } from "../theme";
 const experienceFormSchema = z.object({
   company: z.string().min(1, "Company is required").max(255),
   title: z.string().min(1, "Title is required").max(255),
@@ -95,7 +97,7 @@ function ExperienceForm({ initial, onCancel, onSaved }: ExperienceFormProps) {
     <form
       onSubmit={form.handleSubmit(onSubmit)}
       noValidate
-      className="space-y-4 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4"
+     className={cn("space-y-4 rounded-xl p-4", ACCENT_SURFACE)}
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -218,7 +220,7 @@ export function WorkHistoryCard({ profileExists }: WorkHistoryCardProps) {
     >
       <div className="space-y-4">
         {!profileExists && (
-          <p className="text-sm text-stone-500">
+          <p className="text-sm text-muted-foreground">
             Set up your profile above to start adding work experience.
           </p>
         )}
@@ -254,7 +256,7 @@ export function WorkHistoryCard({ profileExists }: WorkHistoryCardProps) {
         )}
 
         {profileExists && experiences.length === 0 && !addingNew && (
-          <p className="text-sm text-stone-500">
+          <p className="text-sm text-muted-foreground">
             No work experience added yet.
           </p>
         )}
@@ -292,7 +294,7 @@ export function WorkHistoryCard({ profileExists }: WorkHistoryCardProps) {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-stone-400 hover:text-indigo-600"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
                         aria-label={`Edit ${experience.title} at ${experience.company}`}
                         onClick={() => setEditingId(experience.id)}
                       >
@@ -302,7 +304,7 @@ export function WorkHistoryCard({ profileExists }: WorkHistoryCardProps) {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-stone-400 hover:text-destructive"
+                        className={cn("h-8 w-8 hover:text-destructive", TEXT_SUBTLE)}
                         aria-label={`Remove ${experience.title} at ${experience.company}`}
                         onClick={() => void handleDelete(experience)}
                       >

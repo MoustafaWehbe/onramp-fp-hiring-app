@@ -122,7 +122,7 @@ export function ProfileQuickLinks() {
         aria-expanded={isOpen}
         aria-controls="profile-quick-links"
         className={cn(
-          "fixed left-0 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-center gap-2 rounded-r-xl border border-l-0 border-stone-200 bg-white py-4 pl-1.5 pr-2 text-stone-500 shadow-md transition-colors hover:bg-indigo-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 lg:flex",
+          "fixed left-0 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-center gap-2 rounded-r-xl border border-l-0 BORDER_SUBTLE, bg-background py-4 pl-1.5 pr-2 TEXT_META, shadow-md transition-colors ACCENT_HOVER focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 lg:flex",
           isOpen && "pointer-events-none opacity-0",
         )}
       >
@@ -168,18 +168,18 @@ export function ProfileQuickLinks() {
         id="profile-quick-links"
         aria-label="Profile sections"
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-full w-64 max-w-[80vw] flex-col border-r border-stone-200 bg-white shadow-xl transition-transform duration-200 ease-out",
+          "fixed left-0 top-0 z-50 flex h-full w-64 max-w-[80vw] flex-col border-r border-stone-200 bg-background shadow-xl transition-transform duration-200 ease-out",
           isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex items-center justify-between border-b border-stone-200 px-4 py-4">
-          <p className="text-sm font-semibold text-stone-900">Jump to</p>
+          <p className="text-sm font-semibold TEXT_HEADING">Jump to</p>
           <button
             type="button"
             onClick={() => setIsOpen(false)}
             tabIndex={isOpen ? 0 : -1}
             aria-label="Close profile sections"
-            className="rounded-full p-1.5 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+            className="rounded-full p-1.5 TEXT_META transition-colors hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -200,15 +200,15 @@ export function ProfileQuickLinks() {
                   className={cn(
                     "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
                     isActive
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "text-stone-600 hover:bg-stone-100 hover:text-stone-900",
+                     ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                     : "text-stone-600 dark:text-stone-400 hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100"
                   )}
                 >
                   {section.label}
                   {isActive && (
                     <span
                       aria-hidden="true"
-                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500"
+                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500 dark:bg-indigo-400"
                     />
                   )}
                 </button>
