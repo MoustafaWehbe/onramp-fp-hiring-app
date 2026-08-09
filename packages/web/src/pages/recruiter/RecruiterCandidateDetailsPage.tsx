@@ -22,6 +22,7 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { InterviewDetailsForm } from "../../features/applications/components/InterviewDetailsForm";
 import { formatInterviewDate } from "../../features/applications/interview-date";
 import { useRecruiterCandidate } from "../../features/recruiter/hooks";
+import { ScorecardPanel } from "../../features/scorecards/components/ScorecardPanel";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
 
@@ -179,6 +180,33 @@ export function RecruiterCandidateDetailsPage() {
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
                   No company-scoped applications are available to annotate.
+                </p>
+              )}
+            </div>
+
+            <div className="border-t pt-6">
+              <h2 className="font-semibold">Interview scorecards</h2>
+              {(candidate.applicationInsights?.length ?? 0) > 0 ? (
+                <div className="mt-3 grid gap-4">
+                  {candidate.applicationInsights?.map((application) => (
+                    <div
+                      key={application.applicationId}
+                      className="rounded-md border bg-muted/20 p-4"
+                    >
+                      <p className="text-sm font-medium">
+                        {application.jobTitle}
+                      </p>
+                      <div className="mt-4">
+                        <ScorecardPanel
+                          applicationId={application.applicationId}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No company-scoped applications are available to score.
                 </p>
               )}
             </div>

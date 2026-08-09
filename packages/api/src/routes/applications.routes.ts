@@ -8,6 +8,7 @@ import {
   updateApplicationInterviewSchema,
   updateApplicationStageSchema,
 } from "../schemas/applications.schemas";
+import { submitScorecardSchema } from "../schemas/scorecards.schemas";
 import { Application, CandidateProfile, Job } from "@starter-kit/shared/db";
 import { applicationController } from "../controllers/applications.controllers";
 import { validate } from "../middleware/validate";
@@ -148,4 +149,25 @@ router.post(
   ownApplicationGuard,
   applicationController.assignInterviewer,
 );
+
+// Scorecards reuse ownApplicationGuard, so submitting or reading an
+// evaluation is scoped through the application's job to the caller's company
+// exactly like a stage change is. A recruiter at another company gets the
+// same 404 they would get for any other application they cannot see.
+router.put(
+  "/:id/scorecard",
+  ...requireRecruiter,
+  validate(applicationIdParamSchema, "params"),
+  validate(submitScorecardSchema),
+  ownApplicationGuard,
+  applicationController.submitScorecard,
+);
+router.get(
+  "/:id/scorecards",
+  ...requireRecruiter,
+  validate(applicationIdParamSchema, "params"),
+  ownApplicationGuard,
+  applicationController.getScorecards,
+);
+
 export { router as applicationRouter };

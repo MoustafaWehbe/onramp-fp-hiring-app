@@ -17,6 +17,11 @@ const COMPANY_ID = "10000000-0000-4000-8000-000000000001";
 const USERS = {
   recruiter: "20000000-0000-4000-8000-000000000001",
   interviewer: "20000000-0000-4000-8000-000000000002",
+  // A second recruiter at the same company. Scorecards are per-interviewer,
+  // so demonstrating an aggregate across two people — and that a resubmission
+  // updates one of them rather than adding a third — needs two accounts that
+  // can both reach the same application.
+  recruiter2: "20000000-0000-4000-8000-000000000003",
   candidate1: "20000000-0000-4000-8000-000000000101",
   candidate2: "20000000-0000-4000-8000-000000000102",
   candidate3: "20000000-0000-4000-8000-000000000103",
@@ -98,6 +103,13 @@ async function removeDemoData(queryInterface) {
   });
   await queryInterface.bulkDelete("application_notes", { id: NOTES });
   await queryInterface.bulkDelete("applications", { id: APPLICATIONS });
+  // Deleting the applications above already cascaded their scorecards away.
+  // Templates are company-owned rather than application-owned, so they need
+  // their own sweep — and it has to happen before the users below, because
+  // scorecard_templates.created_by deliberately blocks deleting an author.
+  await queryInterface.bulkDelete("scorecard_templates", {
+    company_id: COMPANY_ID,
+  });
   await queryInterface.bulkDelete("job_skills", { job_id: jobIds });
   await queryInterface.bulkDelete("candidate_skills", {
     candidate_profile_id: profileIds,
@@ -153,6 +165,16 @@ module.exports = {
         password_hash: passwordHash,
         name: "Ivan Terview",
         role: "INTERVIEWER",
+        email_verified: true,
+        company_id: COMPANY_ID,
+        ...stamp,
+      },
+      {
+        id: USERS.recruiter2,
+        email: "recruiter2@northwindlabs.example.com",
+        password_hash: passwordHash,
+        name: "Nadia Hiring",
+        role: "RECRUITER",
         email_verified: true,
         company_id: COMPANY_ID,
         ...stamp,

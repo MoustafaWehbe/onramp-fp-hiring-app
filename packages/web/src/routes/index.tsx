@@ -23,6 +23,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import { RecruiterCandidateDetailsPage } from "../pages/recruiter/RecruiterCandidateDetailsPage";
 import { RecruiterCreateCompanyPage } from "../pages/recruiter/RecruiterCreateCompanyPage";
 import { RecruiterCreateJobPage } from "../pages/recruiter/RecruiterCreateJobPage";
+import { RecruiterScorecardTemplatesPage } from "../pages/recruiter/RecruiterScorecardTemplatesPage";
 import { RecruiterJobDetailsPage } from "../pages/recruiter/RecruiterJobDetailsPage";
 import { RecruiterEditJobPage } from "../pages/recruiter/RecruiterEditJobPage";
 import { PublicCareerPage } from "../pages/PublicCareerPage";
@@ -93,6 +94,10 @@ export function AppRoutes() {
 <Route
   path="/recruiter/pipeline/:jobId"
   element={<RecruiterPipelinePage />}
+/>
+<Route
+  path="/recruiter/scorecard-templates"
+  element={<RecruiterScorecardTemplatesPage />}
 />
         </Route>
           

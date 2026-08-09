@@ -16,6 +16,7 @@ import {
 import type { ApplicationStage } from "@starter-kit/shared/db";
 import { Op, UniqueConstraintError } from "sequelize";
 import { createError } from "../middleware/error-handler";
+import { scorecardsService } from "./scorecards.service";
 import {
   applicationResumeService,
   resumeContentType,
@@ -447,7 +448,7 @@ export class ApplicationService {
       ],
     });
 
-    return applications.sort((left, right) => {
+    const sorted = applications.sort((left, right) => {
       const leftScore = left.fitScore ?? -1;
       const rightScore = right.fitScore ?? -1;
 
@@ -462,7 +463,22 @@ export class ApplicationService {
         ? right.submittedAt.getTime()
         : 0;
       return rightSubmittedAt - leftSubmittedAt;
-    }).map((application) => this.serialize(application, true));
+    });
+
+    // One query for the whole board rather than one per card: the pipeline
+    // routinely renders dozens of applications, and a per-card lookup would
+    // turn opening it into dozens of round trips.
+    const summaries = await scorecardsService.getSummaries(
+      sorted.map((application) => application.id),
+    );
+
+    return sorted.map((application) => ({
+      ...this.serialize(application, true),
+      scorecardSummary: summaries.get(application.id) ?? {
+        scorecardCount: 0,
+        averageRating: null,
+      },
+    }));
   }
 
   async replaceResume(
