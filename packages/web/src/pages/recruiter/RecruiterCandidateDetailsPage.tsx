@@ -23,6 +23,7 @@ import { InterviewDetailsForm } from "../../features/applications/components/Int
 import { formatInterviewDate } from "../../features/applications/interview-date";
 import { useRecruiterCandidate } from "../../features/recruiter/hooks";
 import { ScorecardPanel } from "../../features/scorecards/components/ScorecardPanel";
+import { TalentPoolSection } from "../../features/recruiter/components/TalentPoolSection";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
 
@@ -136,6 +137,58 @@ export function RecruiterCandidateDetailsPage() {
               <p className="mt-2 whitespace-pre-line text-sm leading-7 text-muted-foreground">
                 {candidate.bio ?? "No biography provided."}
               </p>
+            </div>
+
+            <div className="border-t pt-6">
+              <h2 className="font-semibold">Talent pool & outreach</h2>
+              <div className="mt-3">
+                <TalentPoolSection candidate={candidate} />
+              </div>
+            </div>
+
+            <div className="border-t pt-6">
+              <h2 className="font-semibold">Application history</h2>
+              {(candidate.applicationInsights?.length ?? 0) > 0 ? (
+                <div className="mt-3 grid gap-3">
+                  {candidate.applicationInsights?.map((application) => (
+                    <div
+                      key={application.applicationId}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/20 p-4"
+                    >
+                      <div>
+                        <Link
+                          to={`/recruiter/jobs/${application.jobId}`}
+                          className="text-sm font-medium hover:text-primary"
+                        >
+                          {application.jobTitle}
+                        </Link>
+                        {application.submittedAt && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Applied {formatDate(application.submittedAt)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline">{application.stage}</Badge>
+                        {application.fitScore !== null && (
+                          <Badge variant="secondary">
+                            {application.fitScore}% fit
+                          </Badge>
+                        )}
+                        {application.scorecardAverage != null && (
+                          <Badge variant="secondary">
+                            Scorecard {application.scorecardAverage.toFixed(1)}/5
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No company-scoped application history is available.
+                </p>
+              )}
             </div>
 
             <div className="border-t pt-6">

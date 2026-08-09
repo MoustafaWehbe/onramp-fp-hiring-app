@@ -44,6 +44,12 @@ function destinationFor(notification: NotificationRecord): string | null {
       : null;
   }
 
+  if (notification.type === "invite_to_apply") {
+    return notification.relatedJobId
+      ? `/jobs/${notification.relatedJobId}`
+      : null;
+  }
+
   return notification.relatedApplicationId ? "/applications" : null;
 }
 
@@ -162,7 +168,8 @@ export function NotificationBell() {
               <div className="px-4 py-8 text-center">
                 <p className="text-sm font-medium">You&apos;re all caught up</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  New applications and stage changes will show up here.
+                  New applications, stage changes, and invitations will show
+                  up here.
                 </p>
               </div>
             ) : (

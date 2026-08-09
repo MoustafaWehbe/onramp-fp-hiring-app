@@ -52,7 +52,7 @@ export class NotificationService {
       title: notification.title,
       body: notification.body ?? null,
       relatedApplicationId: notification.relatedApplicationId ?? null,
-      relatedJobId,
+      relatedJobId: notification.relatedJobId ?? relatedJobId,
       readAt: notification.readAt?.toISOString() ?? null,
       createdAt: notification.createdAt.toISOString(),
     };
@@ -107,6 +107,13 @@ export class NotificationService {
       title: input.title,
       body: input.body ?? null,
       relatedApplicationId: input.relatedApplicationId ?? null,
+      // Application-backed notifications continue deriving their job through
+      // the application. Invitations have no application, so only they store
+      // the direct job reference.
+      relatedJobId:
+        input.type === "invite_to_apply"
+          ? (input.relatedJobId ?? null)
+          : null,
     });
 
     return this.serialize(notification, input.relatedJobId ?? null);
@@ -190,6 +197,35 @@ export class NotificationService {
     }
 
     await this.broadcastApplicationChange(applicationId);
+  }
+
+  /** A recruiter invited a known candidate to apply to another open job. */
+  async recordCandidateInvite(
+    candidateProfileId: string,
+    job: Job,
+  ): Promise<RealtimeNotificationPayload> {
+    const candidate = await CandidateProfile.findByPk(candidateProfileId, {
+      attributes: ["id", "userId"],
+    });
+
+    if (!candidate) {
+      throw createError("Candidate profile not found", 404);
+    }
+
+    const payload = await this.create({
+      userId: candidate.userId,
+      type: "invite_to_apply",
+      title: `You're invited to apply for ${job.title}`,
+      body: "A recruiter thinks this opening could be a good match. Review the role and apply if you're interested.",
+      relatedJobId: job.id,
+    });
+
+    publishRealtimeAndForget({
+      userIds: [candidate.userId],
+      event: { name: "notification", payload },
+    });
+
+    return payload;
   }
 
   async list(userId: string, options: ListOptions) {

@@ -1,6 +1,9 @@
 import type { AIScoringStatus, ApplicationStage } from "./applications";
 
-export type NotificationType = "new_application" | "stage_change";
+export type NotificationType =
+  | "new_application"
+  | "stage_change"
+  | "invite_to_apply";
 
 export interface NotificationRecord {
   id: string;

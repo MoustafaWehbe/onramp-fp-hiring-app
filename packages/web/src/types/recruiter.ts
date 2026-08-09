@@ -3,6 +3,35 @@ import type {
   RecruiterApplicationStage,
 } from "./applications";
 
+export interface CandidateTagRecord {
+  id: string;
+  label: string;
+}
+
+export interface CandidatePoolEntryRecord {
+  id: string;
+  notes: string | null;
+  addedAt: string;
+  addedBy: string | null;
+  tags: CandidateTagRecord[];
+}
+
+export interface RecruiterCandidateFilters {
+  search?: string;
+  tagId?: string;
+  skill?: string;
+  minFitScore?: number;
+  maxFitScore?: number;
+  minScorecardAverage?: number;
+  maxScorecardAverage?: number;
+  poolStatus?: "all" | "in_pool" | "not_in_pool";
+}
+
+export interface CandidatePoolInput {
+  notes?: string | null;
+  tagIds?: string[];
+}
+
 export interface RecruiterCandidateRecord {
   id: string;
   userId: string;
@@ -18,6 +47,13 @@ export interface RecruiterCandidateRecord {
     name: string;
     email: string;
   };
+  skills?: Array<{ id: string; name: string }>;
+  poolEntry?: CandidatePoolEntryRecord | null;
+  metrics?: {
+    applicationCount: number;
+    bestFitScore: number | null;
+    scorecardAverage: number | null;
+  };
   applicationResumes?: Array<{
     applicationId: string;
     jobId: string;
@@ -32,7 +68,9 @@ export interface RecruiterCandidateRecord {
     applicationId: string;
     jobId: string;
     jobTitle: string;
+    jobStatus?: "DRAFT" | "OPEN" | "CLOSED";
     stage: RecruiterApplicationStage;
+    submittedAt?: string;
     resumeOriginalFilename: string | null;
     resumeUploadedAt: string | null;
     parsedYearsExperience: number | null;
@@ -47,6 +85,8 @@ export interface RecruiterCandidateRecord {
     interviewDate: string | null;
     recruiterNotes: string | null;
     interviewScheduledAt: string | null;
+    scorecardAverage?: number | null;
+    scorecardCount?: number;
   }>;
 }
 

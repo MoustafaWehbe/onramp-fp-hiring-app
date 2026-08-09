@@ -23,6 +23,9 @@ import { ScorecardTemplate } from "./ScorecardTemplate";
 import { ScorecardCriterion } from "./ScorecardCriterion";
 import { InterviewScorecard } from "./InterviewScorecard";
 import { ScorecardRating } from "./ScorecardRating";
+import { CandidatePoolEntry } from "./CandidatePoolEntry";
+import { CandidateTag } from "./CandidateTag";
+import { CandidatePoolTag } from "./CandidatePoolTag";
 
 export {
   User,
@@ -49,6 +52,9 @@ export {
   ScorecardCriterion,
   InterviewScorecard,
   ScorecardRating,
+  CandidatePoolEntry,
+  CandidateTag,
+  CandidatePoolTag,
 };
 export {
   RATING_MIN,
@@ -101,6 +107,9 @@ export function initModels(sequelize: Sequelize): void {
   ScorecardCriterion.initModel(sequelize);
   InterviewScorecard.initModel(sequelize);
   ScorecardRating.initModel(sequelize);
+  CandidatePoolEntry.initModel(sequelize);
+  CandidateTag.initModel(sequelize);
+  CandidatePoolTag.initModel(sequelize);
 
   // Auth associations
   User.hasMany(Session, { foreignKey: "userId", as: "sessions" });
@@ -251,6 +260,54 @@ export function initModels(sequelize: Sequelize): void {
   Job.hasMany(SavedJob, { foreignKey: "jobId", as: "savedJobs" });
   SavedJob.belongsTo(Job, { foreignKey: "jobId", as: "job" });
 
+  // Company-private talent pool and tags. A candidate can appear in several
+  // companies' pools, but every entry and tag is independently scoped.
+  Company.hasMany(CandidatePoolEntry, {
+    foreignKey: "companyId",
+    as: "candidatePoolEntries",
+  });
+  CandidatePoolEntry.belongsTo(Company, {
+    foreignKey: "companyId",
+    as: "company",
+  });
+  CandidateProfile.hasMany(CandidatePoolEntry, {
+    foreignKey: "candidateId",
+    as: "poolEntries",
+  });
+  CandidatePoolEntry.belongsTo(CandidateProfile, {
+    foreignKey: "candidateId",
+    as: "candidate",
+  });
+  User.hasMany(CandidatePoolEntry, {
+    foreignKey: "addedBy",
+    as: "addedPoolEntries",
+  });
+  CandidatePoolEntry.belongsTo(User, {
+    foreignKey: "addedBy",
+    as: "addedByUser",
+  });
+
+  Company.hasMany(CandidateTag, {
+    foreignKey: "companyId",
+    as: "candidateTags",
+  });
+  CandidateTag.belongsTo(Company, {
+    foreignKey: "companyId",
+    as: "company",
+  });
+  CandidatePoolEntry.belongsToMany(CandidateTag, {
+    through: CandidatePoolTag,
+    foreignKey: "poolEntryId",
+    otherKey: "tagId",
+    as: "tags",
+  });
+  CandidateTag.belongsToMany(CandidatePoolEntry, {
+    through: CandidatePoolTag,
+    foreignKey: "tagId",
+    otherKey: "poolEntryId",
+    as: "poolEntries",
+  });
+
   // Application: stage history, notes, interview assignments, AI screenings
   Application.hasMany(ApplicationStageHistory, {
     foreignKey: "applicationId",
@@ -375,5 +432,13 @@ export function initModels(sequelize: Sequelize): void {
   Notification.belongsTo(Application, {
     foreignKey: "relatedApplicationId",
     as: "relatedApplication",
+  });
+  Job.hasMany(Notification, {
+    foreignKey: "relatedJobId",
+    as: "inviteNotifications",
+  });
+  Notification.belongsTo(Job, {
+    foreignKey: "relatedJobId",
+    as: "relatedJob",
   });
 }
