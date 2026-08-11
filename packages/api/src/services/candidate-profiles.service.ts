@@ -91,6 +91,8 @@ export class CandidateProfileService {
         "interviewDate",
         "recruiterNotes",
         "interviewScheduledAt",
+        "googleMeetLink",
+        "calendarSyncStatus",
       ],
       where: {
         candidateProfileId: id,
@@ -141,6 +143,8 @@ export class CandidateProfileService {
           interviewDate: application.interviewDate ?? null,
           recruiterNotes: application.recruiterNotes ?? null,
           interviewScheduledAt: application.interviewScheduledAt ?? null,
+          googleMeetLink: application.googleMeetLink ?? null,
+          calendarSyncStatus: application.calendarSyncStatus ?? "not_synced",
         };
       }),
       applicationResumes: companyApplications

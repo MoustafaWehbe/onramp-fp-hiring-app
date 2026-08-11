@@ -26,6 +26,7 @@ import { ScorecardRating } from "./ScorecardRating";
 import { CandidatePoolEntry } from "./CandidatePoolEntry";
 import { CandidateTag } from "./CandidateTag";
 import { CandidatePoolTag } from "./CandidatePoolTag";
+import { RecruiterCalendarConnection } from "./RecruiterCalendarConnection";
 
 export {
   User,
@@ -55,6 +56,7 @@ export {
   CandidatePoolEntry,
   CandidateTag,
   CandidatePoolTag,
+  RecruiterCalendarConnection,
 };
 export {
   RATING_MIN,
@@ -73,8 +75,10 @@ export {
 } from "./Job";
 export {
   AI_SCORING_STATUSES,
+  CALENDAR_SYNC_STATUSES,
   APPLICATION_STAGES,
   type AIScoringStatus,
+  type CalendarSyncStatus,
   type ApplicationStage,
 } from "./Application";
 export {
@@ -110,6 +114,7 @@ export function initModels(sequelize: Sequelize): void {
   CandidatePoolEntry.initModel(sequelize);
   CandidateTag.initModel(sequelize);
   CandidatePoolTag.initModel(sequelize);
+  RecruiterCalendarConnection.initModel(sequelize);
 
   // Auth associations
   User.hasMany(Session, { foreignKey: "userId", as: "sessions" });
@@ -120,6 +125,15 @@ export function initModels(sequelize: Sequelize): void {
 
   User.hasMany(OAuthIdentity, { foreignKey: "userId", as: "oauthIdentities" });
   OAuthIdentity.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+  User.hasOne(RecruiterCalendarConnection, {
+    foreignKey: "recruiterId",
+    as: "calendarConnection",
+  });
+  RecruiterCalendarConnection.belongsTo(User, {
+    foreignKey: "recruiterId",
+    as: "recruiter",
+  });
 
   Session.hasMany(RefreshToken, {
     foreignKey: "sessionId",
@@ -256,6 +270,15 @@ export function initModels(sequelize: Sequelize): void {
 
   Job.hasMany(Application, { foreignKey: "jobId", as: "applications" });
   Application.belongsTo(Job, { foreignKey: "jobId", as: "job" });
+
+  User.hasMany(Application, {
+    foreignKey: "calendarSyncRecruiterId",
+    as: "calendarSyncedApplications",
+  });
+  Application.belongsTo(User, {
+    foreignKey: "calendarSyncRecruiterId",
+    as: "calendarSyncRecruiter",
+  });
 
   Job.hasMany(SavedJob, { foreignKey: "jobId", as: "savedJobs" });
   SavedJob.belongsTo(Job, { foreignKey: "jobId", as: "job" });

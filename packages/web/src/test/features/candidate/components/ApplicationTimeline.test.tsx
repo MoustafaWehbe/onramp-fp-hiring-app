@@ -19,6 +19,7 @@ function timeline(
     currentStage: "INTERVIEWING",
     submittedAt: "2026-07-20T09:00:00.000Z",
     interviewDate: null,
+    googleMeetLink: null,
     entries: [
       {
         id: "entry-1",
@@ -69,6 +70,24 @@ describe("ApplicationTimeline", () => {
     expect(screen.getByText("Interviewing")).toBeInTheDocument();
     expect(screen.getByText(/Jul 20, 2026/)).toBeInTheDocument();
     expect(screen.getByText(/Jul 24, 2026/)).toBeInTheDocument();
+  });
+
+  it("shows the Google Meet link even when an older application has no history rows", () => {
+    mockTimeline(
+      timeline({
+        entries: [],
+        interviewDate: "2026-08-10T14:00:00.000Z",
+        googleMeetLink: "https://meet.google.com/abc-defg-hij",
+      }),
+    );
+
+    render(<ApplicationTimeline applicationId="application-1" />);
+
+    expect(screen.getByText(/Interview scheduled for/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Join Google Meet/ })).toHaveAttribute(
+      "href",
+      "https://meet.google.com/abc-defg-hij",
+    );
   });
 
   it("never renders recruiter-only fields", () => {

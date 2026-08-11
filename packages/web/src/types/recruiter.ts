@@ -2,6 +2,7 @@ import type {
   AIScoringStatus,
   RecruiterApplicationStage,
 } from "./applications";
+import type { CalendarSyncStatus } from "./calendar";
 
 export interface CandidateTagRecord {
   id: string;
@@ -85,6 +86,8 @@ export interface RecruiterCandidateRecord {
     interviewDate: string | null;
     recruiterNotes: string | null;
     interviewScheduledAt: string | null;
+    googleMeetLink?: string | null;
+    calendarSyncStatus?: CalendarSyncStatus;
     scorecardAverage?: number | null;
     scorecardCount?: number;
   }>;

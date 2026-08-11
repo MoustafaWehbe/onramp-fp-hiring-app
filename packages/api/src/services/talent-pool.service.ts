@@ -168,6 +168,8 @@ export class TalentPoolService {
         "interviewDate",
         "recruiterNotes",
         "interviewScheduledAt",
+        "googleMeetLink",
+        "calendarSyncStatus",
         "createdAt",
         "updatedAt",
       ],
@@ -293,6 +295,8 @@ export class TalentPoolService {
           interviewDate: application.interviewDate ?? null,
           recruiterNotes: application.recruiterNotes ?? null,
           interviewScheduledAt: application.interviewScheduledAt ?? null,
+          googleMeetLink: application.googleMeetLink ?? null,
+          calendarSyncStatus: application.calendarSyncStatus ?? "not_synced",
           scorecardAverage: average(ratings),
           scorecardCount: applicationScorecards.length,
         };

@@ -26,6 +26,7 @@ import {
   toInterviewDateInput,
 } from "../../features/applications/interview-date";
 import { useRecruiterJobs } from "../../features/jobs/hooks";
+import { useCalendarConnection } from "../../features/calendar/hooks";
 import { useRealtime } from "../../providers/RealtimeProvider";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn } from "../../lib/utils";
@@ -169,6 +170,7 @@ function SchedulePrompt({
   onDismiss: () => void;
 }) {
   const updateInterview = useUpdateApplicationInterview();
+  const connectionQuery = useCalendarConnection();
   const [value, setValue] = useState(() =>
     toInterviewDateInput(application.interviewDate),
   );
@@ -188,6 +190,13 @@ function SchedulePrompt({
             value={value}
             onChange={(event) => setValue(event.target.value)}
           />
+          {connectionQuery.data && (
+            <p className="text-xs text-muted-foreground">
+              {connectionQuery.data.connected
+                ? `Google Calendar and Meet will sync from ${connectionQuery.data.googleEmail}.`
+                : "The date will save without Google Calendar sync. Connect it in Settings to add Meet."}
+            </p>
+          )}
         </div>
         <Button
           type="button"
@@ -202,8 +211,16 @@ function SchedulePrompt({
                 interviewDate: fromInterviewDateInput(value),
               },
               {
-                onSuccess: () => {
-                  toast.success("Interview date saved.");
+                onSuccess: (updated) => {
+                  if (updated.calendarSyncStatus === "synced") {
+                    toast.success("Interview saved and synced to Google Calendar.");
+                  } else if (updated.calendarSyncStatus === "failed") {
+                    toast.warning(
+                      "Interview saved, but Google Calendar sync failed.",
+                    );
+                  } else {
+                    toast.success("Interview date saved without calendar sync.");
+                  }
                   onDismiss();
                 },
                 onError: (error) => {

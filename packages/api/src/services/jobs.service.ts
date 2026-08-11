@@ -18,6 +18,7 @@ import {
 } from "sequelize";
 import { isCompanyProfileComplete } from "./company.service";
 import { createError } from "../middleware/error-handler";
+import { calendarService } from "./calendar.service";
 
 interface JobFields {
   title: string;
@@ -380,6 +381,7 @@ export class JobService {
   }
 
   async update(job: Job, input: JobUpdateInput) {
+    const previousStatus = job.status;
     const nextRanges = {
       experienceMin: input.experienceMin ?? job.experienceMin,
       experienceMax: input.experienceMax ?? job.experienceMax,
@@ -399,6 +401,10 @@ export class JobService {
         await this.replaceSkills(job.id, skills, transaction);
       }
     });
+
+    if (previousStatus !== "CLOSED" && job.status === "CLOSED") {
+      await calendarService.cancelForClosedJob(job.id);
+    }
 
     return this.getRecruiterById(job.id);
   }

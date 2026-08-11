@@ -225,6 +225,8 @@ export function RecruiterCandidateDetailsPage() {
                           interviewScheduledAt={
                             application.interviewScheduledAt
                           }
+                          googleMeetLink={application.googleMeetLink}
+                          calendarSyncStatus={application.calendarSyncStatus}
                         />
                       </div>
                     </div>

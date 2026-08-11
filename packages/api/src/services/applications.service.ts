@@ -24,6 +24,7 @@ import {
 } from "./application-resume.service";
 import { scheduleApplicationFitScore } from "./application-scoring-queue.service";
 import { notificationService } from "./notifications.service";
+import { calendarService } from "./calendar.service";
 
 /**
  * Notifications and realtime pushes are a side channel on data that is
@@ -77,11 +78,19 @@ export class ApplicationService {
       fitScore,
       interviewDate,
       interviewScheduledAt,
+      googleEventId: _googleEventId,
+      googleMeetLink,
+      calendarSyncStatus,
+      calendarSyncRecruiterId: _calendarSyncRecruiterId,
       recruiterNotes,
       resumeFileUrl,
       resumeText,
       ...safeApplication
     } = plain;
+    // Explicitly consume storage-only identifiers while keeping them out of
+    // every response shape.
+    void _googleEventId;
+    void _calendarSyncRecruiterId;
 
     return {
       ...safeApplication,
@@ -102,6 +111,8 @@ export class ApplicationService {
             interviewDate: interviewDate ?? null,
             recruiterNotes: recruiterNotes ?? null,
             interviewScheduledAt: interviewScheduledAt ?? null,
+            googleMeetLink: googleMeetLink ?? null,
+            calendarSyncStatus: calendarSyncStatus ?? "not_synced",
           }
         : {}),
     };
@@ -421,6 +432,8 @@ export class ApplicationService {
         "interviewDate",
         "recruiterNotes",
         "interviewScheduledAt",
+        "googleMeetLink",
+        "calendarSyncStatus",
         "submittedAt",
         "createdAt",
         "updatedAt",
@@ -646,6 +659,10 @@ export class ApplicationService {
       changedBy: actorUserId ?? null,
     });
 
+    if (stage === "REJECTED" || interview.interviewDate !== undefined) {
+      await calendarService.synchronizeInterview(application.id, actorUserId);
+    }
+
     // The ownership guard loads a minimal job association. Reload without it
     // so ownership-only job metadata does not alter the response contract.
     const updated = await Application.findByPk(application.id);
@@ -674,8 +691,13 @@ export class ApplicationService {
       interviewDate?: string | null;
       recruiterNotes?: string | null;
     },
+    actorUserId?: string,
   ) {
     await application.update(this.interviewAttributes(application, input));
+
+    if (input.interviewDate !== undefined) {
+      await calendarService.synchronizeInterview(application.id, actorUserId);
+    }
 
     const updated = await Application.findByPk(application.id);
 

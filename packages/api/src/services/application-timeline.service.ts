@@ -85,6 +85,7 @@ export class ApplicationTimelineService {
       currentStage: application.stage,
       submittedAt: application.submittedAt ?? null,
       interviewDate: application.interviewDate ?? null,
+      googleMeetLink: application.googleMeetLink ?? null,
       entries,
       /**
        * True when the application reached its current stage before history

@@ -18,6 +18,7 @@ import {
 } from "../features/realtime/client";
 import { useAuth } from "../hooks/useAuth";
 import { recruiterKeys } from "../features/recruiter/hooks";
+import { calendarKeys } from "../features/calendar/hooks";
 
 interface RealtimeContextValue {
   status: RealtimeStatus;
@@ -66,6 +67,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
             void queryClient.invalidateQueries({
               queryKey: applicationKeys.all,
             });
+            void queryClient.invalidateQueries({
+              queryKey: calendarKeys.interviews,
+            });
           }
           hasConnected.current = true;
         }
@@ -97,6 +101,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         // and interview fields, and no longer polls for them.
         void queryClient.invalidateQueries({
           queryKey: recruiterKeys.candidates,
+        });
+        void queryClient.invalidateQueries({
+          queryKey: calendarKeys.interviews,
         });
       },
     });

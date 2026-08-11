@@ -13,9 +13,34 @@ import {
   tagIdParamSchema,
   updateCandidatePoolSchema,
 } from "../schemas/talent-pool.schemas";
+import { calendarController } from "../controllers/calendar.controller";
 
 const router = Router();
 const requireRecruiter = [authenticate, authorize("RECRUITER", "ADMIN")];
+
+// Calendar consent is deliberately separate from sign-in OAuth. The callback
+// is protected by its signed, purpose-scoped state cookie; every JSON endpoint
+// and the flow start still require an authenticated recruiter.
+router.get(
+  "/calendar/callback",
+  calendarController.callback,
+);
+router.get(
+  "/calendar/connect",
+  ...requireRecruiter,
+  calendarController.connect,
+);
+router.get(
+  "/calendar/connection",
+  ...requireRecruiter,
+  calendarController.connection,
+);
+router.delete(
+  "/calendar/connection",
+  ...requireRecruiter,
+  calendarController.disconnect,
+);
+router.get("/calendar", ...requireRecruiter, calendarController.list);
 
 router.get(
   "/dashboard",

@@ -146,6 +146,7 @@ export interface ApplicationTimeline {
   currentStage: string;
   submittedAt: string | null;
   interviewDate: string | null;
+  googleMeetLink: string | null;
   entries: ApplicationTimelineEntry[];
   /** False when the application moved stages before history was recorded. */
   hasCompleteHistory: boolean;
