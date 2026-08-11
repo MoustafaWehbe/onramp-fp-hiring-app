@@ -137,7 +137,7 @@ export function Login() {
           {state.registered && !error && (
             <p
               role="status"
-              className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700"
+             className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400"
             >
               Account created — sign in to continue.
             </p>

@@ -10,11 +10,10 @@ import { Skeleton } from "../../../components/ui/skeleton";
 import { cn } from "../../../lib/utils";
 import { getApiErrorMessage } from "../../../lib/api-errors";
 import { useSetSkills, useSkillCatalog, useSkills } from "../hooks";
-
+import { ACCENT_CHIP } from "../theme";
 interface SkillsCardProps {
   profileExists: boolean;
 }
-
 export function SkillsCard({ profileExists }: SkillsCardProps) {
   const skillsQuery = useSkills(profileExists);
   const [isEditing, setIsEditing] = useState(false);
@@ -76,7 +75,7 @@ export function SkillsCard({ profileExists }: SkillsCardProps) {
     >
       <div className="space-y-4">
         {!profileExists && (
-          <p className="text-sm text-stone-500">
+          <p className="text-sm text-muted-foreground">
             Set up your profile above to start adding skills.
           </p>
         )}
@@ -108,14 +107,14 @@ export function SkillsCard({ profileExists }: SkillsCardProps) {
         {profileExists && !isEditing && skillsQuery.data && (
           <div className="flex flex-wrap gap-2">
             {skillsQuery.data.length === 0 ? (
-              <p className="text-sm text-stone-500">No skills added yet.</p>
+              <p className="text-sm text-muted-foreground">No skills added yet.</p>
             ) : (
               // Pills that wrap, sized for scanning rather than reading.
               skillsQuery.data.map((skill) => (
                 <Badge
                   key={skill.id}
                   variant="outline"
-                  className="rounded-full border-indigo-200 bg-indigo-50 px-3 py-1 text-sm text-indigo-700"
+                  className={cn("rounded-full px-3 py-1 text-sm", ACCENT_CHIP)}
                 >
                   {skill.name}
                 </Badge>

@@ -36,7 +36,7 @@ export function ProfilePage() {
   }, [profileExists, seedProfile]);
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
       {/* Fixed-position, so it navigates the sections below without taking
           part in the page's layout or shifting the column. */}
       <ProfileQuickLinks />

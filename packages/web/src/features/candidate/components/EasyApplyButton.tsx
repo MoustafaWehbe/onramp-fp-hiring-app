@@ -84,9 +84,9 @@ export function EasyApplyButton({
       // mark it as the primary path, with the CV upload below reading as the
       // alternative it now is.
       className={cn(
-        "gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-base font-semibold shadow-md shadow-indigo-500/20 transition-all hover:from-indigo-500 hover:to-violet-500 hover:shadow-lg hover:shadow-indigo-500/25",
-        className,
-      )}
+  "gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-base font-semibold text-white shadow-md shadow-indigo-500/20 transition-all hover:from-indigo-500 hover:to-violet-500 hover:shadow-lg hover:shadow-indigo-500/25",
+  className,
+)}
     >
       <Zap className="h-4 w-4" aria-hidden="true" />
       {easyApply.isPending ? "Applying…" : "Easy Apply"}

@@ -2,8 +2,9 @@
   "extends": "../shared/config/tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "./",
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "types": ["jest", "node"]
   },
-  "include": ["src/**/*", "app.ts", "server.ts"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "include": ["src/**/*", "app.ts", "server.ts", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

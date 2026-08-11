@@ -40,7 +40,7 @@ export function RolePicker({ value, onChange, className }: RolePickerProps) {
             onClick={() => onChange(role)}
             className={cn(
               "flex w-full items-center gap-3 rounded-md border bg-background p-3 text-left transition-colors",
-              "hover:border-slate-300 hover:bg-accent/50",
+              "hover:border-slate-300 dark:hover:border-slate-600 hover:bg-accent/50",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               isSelected && "border-primary bg-primary/5",
             )}

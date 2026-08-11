@@ -19,7 +19,8 @@ import {
   useUpdateEducation,
 } from "../hooks";
 import type { EducationRecord } from "../../../types/candidate";
-
+import { cn } from "../../../lib/utils"
+import { TEXT_SUBTLE } from "../theme";
 const educationFormSchema = z
   .object({
     institution: z.string().min(1, "Institution is required").max(255),
@@ -226,7 +227,7 @@ export function EducationCard({ hasProfile }: { hasProfile: boolean }) {
     >
       <div className="space-y-4">
         {!hasProfile && (
-          <p className="text-sm text-stone-500">
+          <p className="text-sm text-muted-foreground">
             Create your profile to add education.
           </p>
         )}
@@ -249,7 +250,7 @@ export function EducationCard({ hasProfile }: { hasProfile: boolean }) {
           !educationQuery.isLoading &&
           entries.length === 0 &&
           !isAdding && (
-            <p className="text-sm text-stone-500">No education added yet.</p>
+            <p className="text-sm text-muted-foreground">No education added yet.</p>
           )}
 
         {entries.length > 0 && (
@@ -291,7 +292,7 @@ export function EducationCard({ hasProfile }: { hasProfile: boolean }) {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-stone-400 hover:text-indigo-600"
+                        className="h-8 w-8 text-muted-foreground hover:text-indigo-400"
                         aria-label={`Edit ${entry.institution}`}
                         onClick={() => {
                           setIsAdding(false);
@@ -304,7 +305,7 @@ export function EducationCard({ hasProfile }: { hasProfile: boolean }) {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-stone-400 hover:text-destructive"
+                        className={cn("h-8 w-8 hover:text-destructive", TEXT_SUBTLE)}
                         aria-label={`Remove ${entry.institution}`}
                         onClick={() => remove(entry)}
                         disabled={deleteEducation.isPending}

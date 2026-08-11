@@ -38,6 +38,9 @@ import { Label } from "../../components/ui/label";
 import { ApplicationTimeline } from "../../features/candidate/components/ApplicationTimeline";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
+// NOTE: path assumed from this file's existing "../../features/..." import
+// depth — confirm this resolves to your actual theme.ts location.
+import { CARD_CLASS, TEXT_WARNING } from "../../features/candidate/components/theme";
 
 interface StagePresentation {
   label: string;
@@ -58,7 +61,7 @@ function ApplicationListSkeleton() {
   return (
     <div className="grid gap-4" aria-label="Loading applications">
       {[0, 1, 2].map((item) => (
-        <Card key={item}>
+        <Card key={item} className={CARD_CLASS}>
           <CardContent className="flex gap-4 p-5">
             <Skeleton className="h-11 w-11 shrink-0 rounded-md" />
             <div className="flex-1 space-y-2">
@@ -129,7 +132,7 @@ function ApplicationCard({
   }
 
   return (
-    <Card>
+    <Card className={CARD_CLASS}>
       <CardContent className="space-y-5 p-5">
         <div className="flex gap-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border bg-card text-primary">
@@ -190,7 +193,7 @@ function ApplicationCard({
                     : "recently"}
                 </p>
                 {application.resumeParseSucceeded === false && (
-                  <p className="text-xs text-amber-700" role="status">
+                  <p className={cn("text-xs", TEXT_WARNING)} role="status">
                     This CV is stored, but its text could not be parsed.
                   </p>
                 )}
@@ -317,7 +320,7 @@ export function ApplicationsPage() {
         {applicationsQuery.isLoading && <ApplicationListSkeleton />}
 
         {applicationsQuery.isError && (
-          <Card role="alert">
+          <Card role="alert" className={CARD_CLASS}>
             <CardContent className="flex flex-col items-start gap-4 p-6">
               <div>
                 <h2 className="font-semibold">Applications unavailable</h2>
@@ -341,7 +344,7 @@ export function ApplicationsPage() {
         )}
 
         {applicationsQuery.isSuccess && applications.length === 0 && (
-          <Card>
+          <Card className={CARD_CLASS}>
             <CardContent className="flex flex-col items-start gap-4 p-6">
               <div>
                 <h2 className="font-semibold">No applications yet</h2>
@@ -371,7 +374,7 @@ export function ApplicationsPage() {
         )}
 
         {applicationsQuery.isSuccess && (
-          <Card className="mt-6">
+          <Card className={cn(CARD_CLASS, "mt-6")}>
             <CardHeader>
               <CardTitle className="text-xl">Application health</CardTitle>
             </CardHeader>

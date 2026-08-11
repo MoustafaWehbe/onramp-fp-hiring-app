@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../../../lib/utils";
+import { ACCENT_RING_SOFT, TEXT_BODY, TEXT_HEADING, TEXT_META, TIMELINE_RAIL } from "../theme";
 
 /**
  * One vertical timeline, used in three places: profile experience, profile
@@ -15,11 +16,16 @@ export type TimelineTone = "accent" | "muted" | "current";
 
 const markerTone: Record<TimelineTone, string> = {
   // Filled: a completed, affirmative step.
-  accent: "border-indigo-500 bg-indigo-500 text-white",
+  accent: "border-indigo-500 bg-indigo-500 text-white dark:border-indigo-400 dark:bg-indigo-400",
   // Hollow: happened, but not a step forward (a rejection).
-  muted: "border-stone-300 bg-white text-stone-400",
+  muted:
+    "border-stone-300 bg-white text-stone-400 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-600",
   // Ringed: where things stand right now.
-  current: "border-indigo-500 bg-white text-indigo-600 ring-4 ring-indigo-100",
+  current: cn(
+    "border-indigo-500 bg-white text-indigo-600 ring-4",
+    ACCENT_RING_SOFT,
+    "dark:border-indigo-400 dark:bg-stone-900 dark:text-indigo-400",
+  ),
 };
 
 export function Timeline({
@@ -68,7 +74,8 @@ export function TimelineItem({
         <span
           aria-hidden="true"
           className={cn(
-            "absolute w-px bg-stone-200",
+            "absolute w-px",
+            TIMELINE_RAIL,
             compact
               ? "left-[11px] top-6 h-[calc(100%-1.5rem)]"
               : "left-[15px] top-8 h-[calc(100%-2rem)]",
@@ -91,19 +98,20 @@ export function TimelineItem({
           <div className="min-w-0">
             <h4
               className={cn(
-                "font-semibold text-stone-900",
+                "font-semibold",
+                TEXT_HEADING,
                 compact ? "text-sm" : "text-base",
               )}
             >
               {title}
             </h4>
             {subtitle && (
-              <p className="mt-0.5 truncate text-sm text-stone-600">
+              <p className={cn("mt-0.5 truncate text-sm", TEXT_BODY)}>
                 {subtitle}
               </p>
             )}
             {meta && (
-              <p className="mt-0.5 text-xs text-stone-500">{meta}</p>
+              <p className={cn("mt-0.5 text-xs", TEXT_META)}>{meta}</p>
             )}
           </div>
           {actions && (
@@ -113,7 +121,8 @@ export function TimelineItem({
         {children && (
           <div
             className={cn(
-              "text-sm leading-6 text-stone-600",
+              "text-sm leading-6",
+              TEXT_BODY,
               compact ? "mt-1.5" : "mt-2",
             )}
           >

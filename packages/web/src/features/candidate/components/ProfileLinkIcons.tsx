@@ -1,6 +1,7 @@
 import { Github, Globe, Linkedin, Twitter, type LucideIcon } from "lucide-react";
 import type { ProfileLinks } from "../../../types/candidate";
-
+import {BORDER_SUBTLE, TEXT_BODY, ACCENT_HOVER} from "../theme";
+import { cn } from "@/lib/utils";
 /**
  * Links render as icon buttons rather than a list of raw URLs.
  *
@@ -46,7 +47,7 @@ export function ProfileLinkIcons({
               rel="noreferrer"
               title={label}
               aria-label={label}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2"
+              className={cn( "flex h-9 w-9 items-center justify-center rounded-full border bg-background transition-colors hover:border-indigo-300 dark:hover:border-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2",BORDER_SUBTLE, TEXT_BODY, ACCENT_HOVER,)}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
             </a>
