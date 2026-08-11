@@ -81,6 +81,8 @@ const recruiterApplication: RecruiterPipelineApplication = {
   interviewDate: null,
   recruiterNotes: null,
   interviewScheduledAt: null,
+  googleMeetLink: null,
+  calendarSyncStatus: "not_synced",
   candidateProfile: {
     id: "candidate-profile-1",
     userId: "candidate-1",

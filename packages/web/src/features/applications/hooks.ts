@@ -8,6 +8,7 @@ import type {
   UpdateApplicationStageInput,
 } from "../../types/applications";
 import { recruiterKeys } from "../recruiter/hooks";
+import { calendarKeys } from "../calendar/hooks";
 import * as api from "./api";
 
 export const applicationKeys = {
@@ -127,6 +128,7 @@ export function useUpdateApplicationStage() {
       void queryClient.invalidateQueries({
         queryKey: applicationKeys.byJob(input.jobId),
       });
+      void queryClient.invalidateQueries({ queryKey: calendarKeys.interviews });
     },
   });
 }
@@ -149,6 +151,7 @@ export function useUpdateApplicationInterview() {
           queryKey: recruiterKeys.candidate(input.candidateProfileId),
         });
       }
+      void queryClient.invalidateQueries({ queryKey: calendarKeys.interviews });
     },
   });
 }

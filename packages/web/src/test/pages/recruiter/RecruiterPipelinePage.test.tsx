@@ -66,12 +66,23 @@ vi.mock("@/features/jobs/hooks", () => ({
   useRecruiterJobs: () => useRecruiterJobs(),
 }));
 
+vi.mock("@/features/calendar/hooks", () => ({
+  useCalendarConnection: () => ({
+    data: {
+      configured: true,
+      connected: false,
+      googleEmail: null,
+      connectedAt: null,
+    },
+  }),
+}));
+
 vi.mock("@/providers/RealtimeProvider", () => ({
   useRealtime: () => useRealtime(),
 }));
 
 vi.mock("sonner", () => ({
-  toast: { error: toastError, success: toastSuccess },
+  toast: { error: toastError, success: toastSuccess, warning: vi.fn() },
 }));
 
 const amaraApplication: RecruiterPipelineApplication = {
@@ -96,6 +107,8 @@ const amaraApplication: RecruiterPipelineApplication = {
   interviewDate: null,
   recruiterNotes: null,
   interviewScheduledAt: null,
+  googleMeetLink: null,
+  calendarSyncStatus: "not_synced",
   submittedAt: "2026-07-27T10:00:00.000Z",
   createdAt: "2026-07-27T10:00:00.000Z",
   updatedAt: "2026-07-27T10:00:00.000Z",

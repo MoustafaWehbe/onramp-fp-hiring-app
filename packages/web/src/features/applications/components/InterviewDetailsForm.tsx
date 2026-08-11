@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../../components/ui/button";
@@ -8,6 +9,8 @@ import { getApiErrorMessage } from "../../../lib/api-errors";
 import { formatDate } from "../../../lib/utils";
 import { useUpdateApplicationInterview } from "../hooks";
 import { fromInterviewDateInput, toInterviewDateInput } from "../interview-date";
+import { useCalendarConnection } from "../../calendar/hooks";
+import type { CalendarSyncStatus } from "../../../types/calendar";
 
 interface InterviewDetailsFormProps {
   applicationId: string;
@@ -16,6 +19,8 @@ interface InterviewDetailsFormProps {
   interviewDate: string | null;
   recruiterNotes: string | null;
   interviewScheduledAt: string | null;
+  googleMeetLink?: string | null;
+  calendarSyncStatus?: CalendarSyncStatus;
 }
 
 /**
@@ -29,8 +34,11 @@ export function InterviewDetailsForm({
   interviewDate,
   recruiterNotes,
   interviewScheduledAt,
+  googleMeetLink,
+  calendarSyncStatus = "not_synced",
 }: InterviewDetailsFormProps) {
   const updateInterview = useUpdateApplicationInterview();
+  const connectionQuery = useCalendarConnection();
   const [dateValue, setDateValue] = useState(() =>
     toInterviewDateInput(interviewDate),
   );
@@ -72,8 +80,18 @@ export function InterviewDetailsForm({
         ...(notesChanged ? { recruiterNotes: nextRecruiterNotes } : {}),
       },
       {
-        onSuccess: () => {
-          toast.success("Interview details saved.");
+        onSuccess: (application) => {
+          if (!dateChanged) {
+            toast.success("Interview details saved.");
+          } else if (application.calendarSyncStatus === "synced") {
+            toast.success("Interview saved and synced to Google Calendar.");
+          } else if (application.calendarSyncStatus === "failed") {
+            toast.warning(
+              "Interview saved, but Google Calendar sync failed. Reconnect your calendar and try again.",
+            );
+          } else {
+            toast.success("Interview saved without calendar sync.");
+          }
         },
         onError: (error) => {
           toast.error(
@@ -112,6 +130,36 @@ export function InterviewDetailsForm({
             ? `First scheduled ${formatDate(interviewScheduledAt)}.`
             : "Optional — leave empty and set it once a time is agreed."}
         </p>
+        {!interviewDate && connectionQuery.data && (
+          <p className="text-xs text-muted-foreground">
+            {connectionQuery.data.connected
+              ? `Saving a date will create a Google Calendar event from ${connectionQuery.data.googleEmail}.`
+              : "Saving a date will work normally. Connect Google Calendar in Settings to add a Meet link."}
+          </p>
+        )}
+        {interviewDate && calendarSyncStatus === "synced" && googleMeetLink && (
+          <a
+            href={googleMeetLink}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+          >
+            Join Google Meet
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
+        )}
+        {calendarSyncStatus === "failed" && (
+          <p className="text-xs font-medium text-destructive" role="alert">
+            {interviewDate
+              ? "Interview saved, but calendar sync failed. Reconnect Google Calendar in Settings, then save the date again."
+              : "Interview cleared in HireFlow, but Google Calendar cancellation failed. Reconnect the calendar and retry the change."}
+          </p>
+        )}
+        {interviewDate && calendarSyncStatus === "not_synced" && (
+          <p className="text-xs text-muted-foreground">
+            Not synced — the interview date is still saved in HireFlow.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">

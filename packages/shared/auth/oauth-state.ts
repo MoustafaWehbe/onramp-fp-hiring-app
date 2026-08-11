@@ -23,6 +23,10 @@ export interface OAuthStatePayload {
   role?: string;
   /** Frontend path to land on afterwards. */
   returnTo?: string;
+  /** Authenticated account that started a non-sign-in OAuth flow. */
+  userId?: string;
+  /** Keeps a calendar consent callback distinct from a sign-in callback. */
+  purpose?: string;
 }
 
 const STATE_TTL_SECONDS = 10 * 60;

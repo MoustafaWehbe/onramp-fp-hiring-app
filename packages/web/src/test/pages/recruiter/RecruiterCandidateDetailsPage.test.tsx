@@ -24,6 +24,17 @@ vi.mock("@/features/applications/hooks", () => ({
   useUpdateApplicationInterview: () => useUpdateApplicationInterview(),
 }));
 
+vi.mock("@/features/calendar/hooks", () => ({
+  useCalendarConnection: () => ({
+    data: {
+      configured: true,
+      connected: false,
+      googleEmail: null,
+      connectedAt: null,
+    },
+  }),
+}));
+
 vi.mock("@/features/recruiter/components/TalentPoolSection", () => ({
   TalentPoolSection: () => <div>Talent pool controls</div>,
 }));
@@ -56,7 +67,7 @@ vi.mock("@/features/scorecards/hooks", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: { error: vi.fn(), success: vi.fn() },
+  toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() },
 }));
 
 const candidate: RecruiterCandidateRecord = {

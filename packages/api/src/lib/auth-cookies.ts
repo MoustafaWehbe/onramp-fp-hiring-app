@@ -14,6 +14,7 @@ const isProduction = (): boolean => process.env.NODE_ENV === "production";
 export const ACCESS_COOKIE = "accessToken";
 export const REFRESH_COOKIE = "refreshToken";
 export const OAUTH_STATE_COOKIE = "oauthState";
+export const CALENDAR_OAUTH_STATE_COOKIE = "calendarOAuthState";
 
 const ACCESS_MAX_AGE = 15 * 60 * 1000; // 15 minutes
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -21,6 +22,7 @@ const OAUTH_STATE_MAX_AGE = 10 * 60 * 1000; // 10 minutes
 
 const REFRESH_COOKIE_PATH = "/api/auth/refresh";
 const OAUTH_STATE_COOKIE_PATH = "/api/auth";
+const CALENDAR_OAUTH_STATE_COOKIE_PATH = "/api/recruiter/calendar";
 
 export function setAuthCookies(
   res: Response,
@@ -68,4 +70,24 @@ export function setOAuthStateCookie(res: Response, state: string): void {
 
 export function clearOAuthStateCookie(res: Response): void {
   res.clearCookie(OAUTH_STATE_COOKIE, { path: OAUTH_STATE_COOKIE_PATH });
+}
+
+/** Separate state cookie so calendar consent can never satisfy sign-in OAuth. */
+export function setCalendarOAuthStateCookie(
+  res: Response,
+  state: string,
+): void {
+  res.cookie(CALENDAR_OAUTH_STATE_COOKIE, state, {
+    httpOnly: true,
+    secure: isProduction(),
+    sameSite: "lax",
+    path: CALENDAR_OAUTH_STATE_COOKIE_PATH,
+    maxAge: OAUTH_STATE_MAX_AGE,
+  });
+}
+
+export function clearCalendarOAuthStateCookie(res: Response): void {
+  res.clearCookie(CALENDAR_OAUTH_STATE_COOKIE, {
+    path: CALENDAR_OAUTH_STATE_COOKIE_PATH,
+  });
 }

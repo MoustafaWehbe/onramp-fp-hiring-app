@@ -167,6 +167,7 @@ export const applicationController = {
           interviewDate: req.body.interviewDate,
           recruiterNotes: req.body.recruiterNotes,
         },
+        req.user!.userId,
       );
 
       res.status(200).json({

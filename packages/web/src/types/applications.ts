@@ -1,4 +1,5 @@
 import type { ScorecardSummary } from "./scorecards";
+import type { CalendarSyncStatus } from "./calendar";
 
 export type ApplicationStage =
   | "DRAFT"
@@ -96,6 +97,8 @@ export interface RecruiterApplicationRecord extends SubmittedApplication {
   interviewDate: string | null;
   recruiterNotes: string | null;
   interviewScheduledAt: string | null;
+  googleMeetLink: string | null;
+  calendarSyncStatus: CalendarSyncStatus;
 }
 
 /**

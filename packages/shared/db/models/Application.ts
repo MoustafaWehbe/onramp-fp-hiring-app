@@ -18,6 +18,13 @@ export const AI_SCORING_STATUSES = [
 ] as const;
 export type AIScoringStatus = (typeof AI_SCORING_STATUSES)[number];
 
+export const CALENDAR_SYNC_STATUSES = [
+  "not_synced",
+  "synced",
+  "failed",
+] as const;
+export type CalendarSyncStatus = (typeof CALENDAR_SYNC_STATUSES)[number];
+
 export interface ApplicationAttributes {
   id: string;
   jobId: string;
@@ -49,6 +56,11 @@ export interface ApplicationAttributes {
   recruiterNotes?: string | null;
   /** Audit stamp of when interviewDate was first set; survives a later clear. */
   interviewScheduledAt?: Date | null;
+  googleEventId?: string | null;
+  googleMeetLink?: string | null;
+  calendarSyncStatus?: CalendarSyncStatus | null;
+  /** Recruiter whose primary Google Calendar owns googleEventId. */
+  calendarSyncRecruiterId?: string | null;
   /** Set on entry to HIRED. The measured endpoint for time-to-hire. */
   hiredAt?: Date | null;
   /** Null while the application is a DRAFT; set when the candidate submits. */
@@ -78,6 +90,10 @@ export type ApplicationCreationAttributes = Optional<
   | "interviewDate"
   | "recruiterNotes"
   | "interviewScheduledAt"
+  | "googleEventId"
+  | "googleMeetLink"
+  | "calendarSyncStatus"
+  | "calendarSyncRecruiterId"
   | "hiredAt"
   | "submittedAt"
 >;
@@ -107,6 +123,10 @@ export class Application
   declare interviewDate: Date | null | undefined;
   declare recruiterNotes: string | null | undefined;
   declare interviewScheduledAt: Date | null | undefined;
+  declare googleEventId: string | null | undefined;
+  declare googleMeetLink: string | null | undefined;
+  declare calendarSyncStatus: CalendarSyncStatus | null | undefined;
+  declare calendarSyncRecruiterId: string | null | undefined;
   declare hiredAt: Date | null | undefined;
   declare submittedAt: Date | undefined;
   declare readonly createdAt: Date;
@@ -222,6 +242,30 @@ export class Application
         interviewScheduledAt: {
           type: DataTypes.DATE,
           allowNull: true,
+        },
+        googleEventId: {
+          type: DataTypes.STRING(1024),
+          allowNull: true,
+        },
+        googleMeetLink: {
+          type: DataTypes.STRING(2048),
+          allowNull: true,
+        },
+        calendarSyncStatus: {
+          type: DataTypes.STRING(20),
+          allowNull: true,
+          validate: {
+            isIn: {
+              args: [[...CALENDAR_SYNC_STATUSES]],
+              msg: `calendarSyncStatus must be one of: ${CALENDAR_SYNC_STATUSES.join(", ")}`,
+            },
+          },
+        },
+        calendarSyncRecruiterId: {
+          type: DataTypes.UUID,
+          allowNull: true,
+          references: { model: "users", key: "id" },
+          onDelete: "SET NULL",
         },
         hiredAt: {
           type: DataTypes.DATE,

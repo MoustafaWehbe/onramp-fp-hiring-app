@@ -26,6 +26,8 @@ import { RecruiterCreateJobPage } from "../pages/recruiter/RecruiterCreateJobPag
 import { RecruiterScorecardTemplatesPage } from "../pages/recruiter/RecruiterScorecardTemplatesPage";
 import { RecruiterJobDetailsPage } from "../pages/recruiter/RecruiterJobDetailsPage";
 import { RecruiterEditJobPage } from "../pages/recruiter/RecruiterEditJobPage";
+import { RecruiterCalendarPage } from "../pages/recruiter/RecruiterCalendarPage";
+import { RecruiterSettingsPage } from "../pages/recruiter/RecruiterSettingsPage";
 import { PublicCareerPage } from "../pages/PublicCareerPage";
 export function AppRoutes() {
   return (
@@ -67,6 +69,8 @@ export function AppRoutes() {
             element={<RecruiterPipelinePage />}
           />
           <Route path="/recruiter/jobs" element={<RecruiterJobsPage />} />
+          <Route path="/recruiter/calendar" element={<RecruiterCalendarPage />} />
+          <Route path="/recruiter/settings" element={<RecruiterSettingsPage />} />
           <Route
             path="/recruiter/candidates"
             element={<RecruiterCandidatesPage />}

@@ -1,4 +1,4 @@
-import { Check, CircleDashed, Info, X } from "lucide-react";
+import { Check, CircleDashed, ExternalLink, Info, Video, X } from "lucide-react";
 import { Skeleton } from "../../../components/ui/skeleton";
 import { useApplicationTimeline } from "../hooks";
 import { getApiErrorMessage } from "../../../lib/api-errors";
@@ -47,6 +47,39 @@ function toneFor(
   return isLatest ? "current" : "accent";
 }
 
+function InterviewCallout({
+  interviewDate,
+  googleMeetLink,
+}: {
+  interviewDate: string | null;
+  googleMeetLink: string | null;
+}) {
+  if (!interviewDate) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2 rounded-md border bg-muted/20 p-3 text-xs">
+      <p className="flex items-center gap-2 text-muted-foreground">
+        <CircleDashed className="h-3.5 w-3.5" aria-hidden="true" />
+        Interview scheduled for {formatMoment(interviewDate)}
+      </p>
+      {googleMeetLink && (
+        <a
+          href={googleMeetLink}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 font-medium text-primary hover:underline"
+        >
+          <Video className="h-3.5 w-3.5" aria-hidden="true" />
+          Join Google Meet
+          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+        </a>
+      )}
+    </div>
+  );
+}
+
 export function ApplicationTimeline({
   applicationId,
   enabled = true,
@@ -81,12 +114,18 @@ export function ApplicationTimeline({
 
   if (timeline.entries.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No progress recorded yet. This application is currently{" "}
-        {(stageLabels[timeline.currentStage] ?? timeline.currentStage
-        ).toLowerCase()}
-        .
-      </p>
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          No progress recorded yet. This application is currently{" "}
+          {(stageLabels[timeline.currentStage] ?? timeline.currentStage
+          ).toLowerCase()}
+          .
+        </p>
+        <InterviewCallout
+          interviewDate={timeline.interviewDate}
+          googleMeetLink={timeline.googleMeetLink}
+        />
+      </div>
     );
   }
 
@@ -133,12 +172,10 @@ export function ApplicationTimeline({
         </p>
       )}
 
-      {timeline.interviewDate && (
-        <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <CircleDashed className="h-3.5 w-3.5" aria-hidden="true" />
-          Interview scheduled for {formatMoment(timeline.interviewDate)}
-        </p>
-      )}
+      <InterviewCallout
+        interviewDate={timeline.interviewDate}
+        googleMeetLink={timeline.googleMeetLink}
+      />
     </div>
   );
 }
