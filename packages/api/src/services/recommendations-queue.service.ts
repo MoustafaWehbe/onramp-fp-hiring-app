@@ -17,7 +17,9 @@ export async function enqueueCandidateRecommendations(
     {
       // Collapses a burst of edits into one refresh: saving three fields in a
       // row should not queue three full rescoring passes.
-      jobId: `recommendations:${candidateProfileId}`,
+      // BullMQ rejects ':' in custom IDs. Keep this deterministic so edits
+      // still collapse into one delayed refresh for the profile.
+      jobId: `recommendations-${candidateProfileId}`,
       delay: 5_000,
       removeOnComplete: true,
     },

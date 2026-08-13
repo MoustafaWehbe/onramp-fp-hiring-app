@@ -1,3 +1,5 @@
+import type { SkillOption } from "./skills";
+
 export type EmploymentType = "FULL_TIME" | "PART_TIME" | "CONTRACT";
 export type RecruiterJobStatus = "DRAFT" | "OPEN" | "CLOSED";
 export type EditableJobStatus = Extract<
@@ -5,10 +7,7 @@ export type EditableJobStatus = Extract<
   "DRAFT" | "OPEN"
 >;
 
-export interface JobSkillRecord {
-  id: string;
-  name: string;
-}
+export type JobSkillRecord = SkillOption;
 
 /**
  * Safe public shape returned by GET /api/jobs/public and
