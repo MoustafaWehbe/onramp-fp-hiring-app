@@ -22,6 +22,11 @@ import {
   employmentTypeLabels,
   formatSalaryRange,
 } from "../../lib/job-presentation";
+import {
+  ACCENT_CHIP,
+  CARD_CLASS,
+  CARD_HOVER_CLASS,
+} from "../../features/candidate/theme";
 import type { JobSummary } from "../../types/jobs";
 
 interface JobCardProps {
@@ -35,7 +40,7 @@ interface JobCardProps {
 
 export function JobCard({ job, linkCompany = true }: JobCardProps) {
   return (
-    <Card className="flex h-full flex-col transition-colors hover:border-slate-300">
+    <Card className={cn(CARD_CLASS, CARD_HOVER_CLASS, "flex h-full flex-col")}>
       <CardHeader className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
@@ -106,7 +111,11 @@ export function JobCard({ job, linkCompany = true }: JobCardProps) {
             aria-label={`${job.title} skills`}
           >
             {job.skills.map((skill) => (
-              <Badge key={skill} variant="outline">
+              <Badge
+                key={skill}
+                variant="outline"
+                className={cn("rounded-full px-3 py-1", ACCENT_CHIP)}
+              >
                 {skill}
               </Badge>
             ))}
