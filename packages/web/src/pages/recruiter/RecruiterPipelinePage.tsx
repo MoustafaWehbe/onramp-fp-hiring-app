@@ -36,6 +36,7 @@ import type {
 } from "../../types/applications";
 // add to imports
 import { TEXT_WARNING, WARNING_BANNER } from "../../features/candidate/theme";
+import { SuccessMoment } from "../../components/shared/SuccessMoment";
 function BoardSkeleton() {
   return (
     <div className="flex gap-3 overflow-hidden" aria-label="Loading pipeline">
@@ -251,6 +252,7 @@ export function RecruiterPipelinePage() {
   const { jobId } = useParams<{ jobId: string }>();
   const [minimumFitScore, setMinimumFitScore] = useState(0);
   const [scheduleFor, setScheduleFor] = useState<string | null>(null);
+  const [justHired, setJustHired] = useState<string | null>(null);
   const applicationsQuery = useApplicationsByJob(jobId);
   const updateStage = useUpdateApplicationStage();
   const rescoreApplication = useRescoreApplication();
@@ -298,6 +300,12 @@ export function RecruiterPipelinePage() {
           // Only offer scheduling when there is nothing scheduled yet.
           if (stage === "INTERVIEWING" && !application.interviewDate) {
             setScheduleFor(application.id);
+          }
+
+          // The one deliberate celebratory moment on this page — a hire is
+          // the outcome the whole pipeline exists to produce.
+          if (stage === "HIRED") {
+            setJustHired(name);
           }
         },
         onError: (error) => {
@@ -383,6 +391,13 @@ export function RecruiterPipelinePage() {
 
         {jobId && applicationsQuery.isSuccess && (
           <div className="space-y-4">
+            {justHired && (
+              <SuccessMoment
+                message={`${justHired} was hired!`}
+                onDismiss={() => setJustHired(null)}
+              />
+            )}
+
             {isDegraded && (
   <Card className={WARNING_BANNER} role="status">
     <CardContent className={cn("p-4 text-sm", TEXT_WARNING)}>
