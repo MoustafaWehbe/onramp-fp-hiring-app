@@ -12,7 +12,15 @@ import { Skeleton } from "../../../components/ui/skeleton";
 import { cn } from "../../../lib/utils";
 import { useRecommendations } from "../hooks";
 import type { JobRecommendation } from "../../../types/candidate";
-import { ACCENT_CHIP, TEXT_BODY, TEXT_HEADING, TEXT_META } from "../theme";
+import {
+  ACCENT_CHIP,
+  ACCENT_RING,
+  CARD_CLASS,
+  CARD_HOVER_CLASS,
+  TEXT_BODY,
+  TEXT_HEADING,
+  TEXT_META,
+} from "../theme";
 /**
  * "Jobs you might like", sorted by score.
  *
@@ -36,7 +44,7 @@ function MatchRing({ score }: { score: number }) {
       ? "stroke-emerald-500"
       : score >= 50
         ? "stroke-indigo-500"
-        : "stroke-stone-400";
+        : "stroke-stone-400 dark:stroke-stone-500";
 
   return (
     <div
@@ -51,7 +59,7 @@ function MatchRing({ score }: { score: number }) {
           r={radius}
           fill="none"
           strokeWidth="4"
-          className="stroke-stone-200"
+          className="stroke-stone-200 dark:stroke-stone-700"
         />
         <circle
           cx="24"
@@ -66,7 +74,7 @@ function MatchRing({ score }: { score: number }) {
         />
       </svg>
       <span
-        className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-stone-700"
+        className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-stone-700 dark:text-stone-300"
         aria-hidden="true"
       >
         {score}
@@ -87,9 +95,9 @@ function RecommendationCard({
   }
 
   return (
-    // Mirrors the JobCard pattern used elsewhere: bordered card, company
-    // above title, hover border shift.
-    <div className="rounded-xl border border-stone-200 bg-white p-4 transition-colors hover:border-indigo-300">
+    // Mirrors the JobCard pattern used elsewhere: elevated card, company
+    // above title, hover-lift.
+    <div className={cn(CARD_CLASS, CARD_HOVER_CLASS, "p-4")}>
       <div className="flex items-start gap-4">
         <MatchRing score={recommendation.score} />
 
@@ -101,7 +109,10 @@ function RecommendationCard({
           <h3 className={cn("mt-1 text-base font-semibold leading-6", TEXT_HEADING)}>
             <Link
               to={`/jobs/${job.id}`}
-              className="rounded-sm outline-none hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2"
+              className={cn(
+                "rounded-sm outline-none hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-offset-2 dark:hover:text-indigo-400",
+                ACCENT_RING,
+              )}
             >
               {job.title}
             </Link>
@@ -151,7 +162,7 @@ export function RecommendedJobs({ limit = 4 }: { limit?: number }) {
   const data = recommendationsQuery.data;
 
   return (
-    <Card>
+    <Card className={CARD_CLASS}>
       <CardHeader>
         <CardTitle className="text-xl">Jobs you might like</CardTitle>
         <p className="text-sm text-muted-foreground">
