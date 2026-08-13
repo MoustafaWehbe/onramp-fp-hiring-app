@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
+import { CARD_CLASS } from "../../features/candidate/theme";
 import type { PlatformRole } from "../../types/users";
 
 const registerSchema = z
@@ -98,7 +99,7 @@ export function Register() {
   const RoleIcon = role ? roleIcons[role] : null;
 
   return (
-    <Card>
+    <Card className={CARD_CLASS}>
       <CardHeader>
         <CardTitle>
           {role
