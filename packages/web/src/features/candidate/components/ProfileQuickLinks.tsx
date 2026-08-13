@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, List, X } from "lucide-react";
 import { cn } from "../../../lib/utils";
-import { ACCENT_GRADIENT } from "../theme";
+import {
+  ACCENT_GRADIENT,
+  ACCENT_HOVER,
+  BORDER_SUBTLE,
+  TEXT_HEADING,
+  TEXT_META,
+} from "../theme";
 
 /**
  * In-page navigation for the profile page: a collapsed rail on desktop, a
@@ -122,7 +128,13 @@ export function ProfileQuickLinks() {
         aria-expanded={isOpen}
         aria-controls="profile-quick-links"
         className={cn(
-          "fixed left-0 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-center gap-2 rounded-r-xl border border-l-0 BORDER_SUBTLE, bg-background py-4 pl-1.5 pr-2 TEXT_META, shadow-md transition-colors ACCENT_HOVER focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 lg:flex",
+          "fixed left-0 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-center gap-2 rounded-r-xl border border-l-0",
+          BORDER_SUBTLE,
+          "bg-background py-4 pl-1.5 pr-2",
+          TEXT_META,
+          "shadow-md transition-colors",
+          ACCENT_HOVER,
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 lg:flex",
           isOpen && "pointer-events-none opacity-0",
         )}
       >
@@ -168,18 +180,22 @@ export function ProfileQuickLinks() {
         id="profile-quick-links"
         aria-label="Profile sections"
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-full w-64 max-w-[80vw] flex-col border-r border-stone-200 bg-background shadow-xl transition-transform duration-200 ease-out",
+          "fixed left-0 top-0 z-50 flex h-full w-64 max-w-[80vw] flex-col border-r border-stone-200 dark:border-stone-800 bg-background shadow-xl transition-transform duration-200 ease-out",
           isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between border-b border-stone-200 px-4 py-4">
-          <p className="text-sm font-semibold TEXT_HEADING">Jump to</p>
+        <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 px-4 py-4">
+          <p className={cn("text-sm font-semibold", TEXT_HEADING)}>Jump to</p>
           <button
             type="button"
             onClick={() => setIsOpen(false)}
             tabIndex={isOpen ? 0 : -1}
             aria-label="Close profile sections"
-            className="rounded-full p-1.5 TEXT_META transition-colors hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+            className={cn(
+              "rounded-full p-1.5",
+              TEXT_META,
+              "transition-colors hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+            )}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>

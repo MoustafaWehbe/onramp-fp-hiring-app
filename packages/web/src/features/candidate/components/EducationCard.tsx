@@ -292,7 +292,7 @@ export function EducationCard({ hasProfile }: { hasProfile: boolean }) {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-indigo-400"
+                        className="h-8 w-8 text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400"
                         aria-label={`Edit ${entry.institution}`}
                         onClick={() => {
                           setIsAdding(false);

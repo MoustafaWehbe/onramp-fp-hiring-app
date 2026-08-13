@@ -12,7 +12,7 @@ import { Skeleton } from "../../../components/ui/skeleton";
 import { cn } from "../../../lib/utils";
 import { useRecommendations } from "../hooks";
 import type { JobRecommendation } from "../../../types/candidate";
-import { ACCENT_CHIP } from "../theme";
+import { ACCENT_CHIP, TEXT_BODY, TEXT_HEADING, TEXT_META } from "../theme";
 /**
  * "Jobs you might like", sorted by score.
  *
@@ -94,11 +94,11 @@ function RecommendationCard({
         <MatchRing score={recommendation.score} />
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-sm ${TEXT_META}">
+          <div className={cn("flex items-center gap-2 text-sm", TEXT_META)}>
             <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="truncate">{job.company?.name ?? "Company"}</span>
           </div>
-          <h3 className="mt-1 text-base font-semibold leading-6 ${TEXT_HEADING}">
+          <h3 className={cn("mt-1 text-base font-semibold leading-6", TEXT_HEADING)}>
             <Link
               to={`/jobs/${job.id}`}
               className="rounded-sm outline-none hover:text-indigo-600 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2"
@@ -108,14 +108,14 @@ function RecommendationCard({
           </h3>
 
           {(job.location || job.isRemote) && (
-            <p className="mt-1 inline-flex items-center gap-1.5 text-sm ${TEXT_META}">
+            <p className={cn("mt-1 inline-flex items-center gap-1.5 text-sm", TEXT_META)}>
               <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
               {job.isRemote ? "Remote" : job.location}
             </p>
           )}
 
           {recommendation.reason && (
-            <p className="mt-2 text-sm leading-6 ${TEXT_BODY}">
+            <p className={cn("mt-2 text-sm leading-6", TEXT_BODY)}>
               {recommendation.reason}
             </p>
           )}

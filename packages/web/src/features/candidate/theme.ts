@@ -13,8 +13,8 @@ export const ACCENT_RING = "focus-visible:ring-indigo-400 dark:focus-visible:rin
  */
 export const TEXT_HEADING = "text-stone-900 dark:text-stone-100";
 export const TEXT_BODY = "text-stone-600 dark:text-stone-400";
-export const TEXT_META = "text-stone-500 dark:text-stone-500";
-export const TEXT_SUBTLE = "text-stone-400 dark:text-stone-600";
+export const TEXT_META = "text-stone-500 dark:text-stone-400";
+export const TEXT_SUBTLE = "text-stone-400 dark:text-stone-500";
  
 /** Borders/dividers that sit on top of CARD_CLASS's background. */
 export const BORDER_SUBTLE = "border-stone-200 dark:border-stone-800";
@@ -39,4 +39,4 @@ export const WARNING_BANNER =
   "border-amber-500/40 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40";
 /** Soft indigo-tinted panel background — for a highlighted block inside a card, not a pill/tag. */
 export const ACCENT_SURFACE =
-  "border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/30";
+  "border border-indigo-100 bg-indigo-50/40 dark:border-indigo-900/60 dark:bg-indigo-950/30";
