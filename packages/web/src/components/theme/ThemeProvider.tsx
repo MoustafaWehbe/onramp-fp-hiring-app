@@ -16,6 +16,10 @@ const ThemeContext = createContext<ThemeContextValue | null>(
   null,
 );
 
+function isTheme(value: string | null): value is Theme {
+  return value === "light" || value === "dark";
+}
+
 export function ThemeProvider({
   children,
 }: {
@@ -24,11 +28,9 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
-    const saved = localStorage.getItem("theme") as
-      | Theme
-      | null;
+    const saved = localStorage.getItem("theme");
 
-    if (saved) {
+    if (isTheme(saved)) {
       setTheme(saved);
       document.documentElement.classList.toggle(
         "dark",

@@ -38,9 +38,7 @@ import { Label } from "../../components/ui/label";
 import { ApplicationTimeline } from "../../features/candidate/components/ApplicationTimeline";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
-// NOTE: path assumed from this file's existing "../../features/..." import
-// depth — confirm this resolves to your actual theme.ts location.
-import { CARD_CLASS, TEXT_WARNING } from "../../features/candidate/components/theme";
+import { CARD_CLASS, TEXT_WARNING } from "../../features/candidate/theme";
 
 interface StagePresentation {
   label: string;

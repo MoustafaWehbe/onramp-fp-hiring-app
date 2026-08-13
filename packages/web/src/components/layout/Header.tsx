@@ -73,9 +73,9 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
+          <ThemeToggle />
           {user && currentRole ? (
             <>
-             <ThemeToggle />
               <NotificationBell />
               <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 {user.name}
