@@ -13,6 +13,10 @@ const { useRecruiterCandidates, useRecruiterTags } = vi.hoisted(() => ({
 vi.mock("@/features/recruiter/hooks", () => ({
   useRecruiterCandidates: () => useRecruiterCandidates(),
   useRecruiterTags: () => useRecruiterTags(),
+  // RecruiterCandidatesPage now seeds its initial poolStatus filter from
+  // this constant (features/recruiter/hooks.ts) so the sidebar's opportunistic
+  // candidate-count badge peeks at the exact same query-cache entry.
+  DEFAULT_CANDIDATE_FILTERS: { poolStatus: "all" },
 }));
 
 const amara: RecruiterCandidateRecord = {

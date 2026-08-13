@@ -16,6 +16,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Skeleton } from "../../components/ui/skeleton";
 import {
+  DEFAULT_CANDIDATE_FILTERS,
   useRecruiterCandidates,
   useRecruiterTags,
 } from "../../features/recruiter/hooks";
@@ -36,7 +37,7 @@ export function RecruiterCandidatesPage() {
   const [minScorecardAverage, setMinScorecardAverage] = useState("");
   const [poolStatus, setPoolStatus] = useState<
     "all" | "in_pool" | "not_in_pool"
-  >("all");
+  >(DEFAULT_CANDIDATE_FILTERS.poolStatus ?? "all");
 
   const filters = useMemo<RecruiterCandidateFilters>(
     () => ({
