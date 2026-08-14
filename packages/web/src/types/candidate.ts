@@ -1,3 +1,5 @@
+import type { SkillOption } from "./skills";
+
 /** Mirrors packages/shared/db/models/CandidateProfile.ts. */
 export interface CandidateProfileRecord {
   id: string;
@@ -30,9 +32,7 @@ export interface WorkExperienceRecord {
 }
 
 /** Mirrors packages/shared/db/models/Skill.ts. */
-export interface SkillRecord {
-  id: string;
-  name: string;
+export interface SkillRecord extends SkillOption {
   createdAt: string;
   updatedAt: string;
 }

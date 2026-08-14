@@ -1,3 +1,5 @@
+import { SKILL_PILL_CLASS } from "../../components/skills/styles";
+
 /** Shared visual language for the four candidate-profile cards: warm neutral base, indigo-violet accent, rounded-2xl, soft shadows. */
 export const CARD_CLASS =
   "rounded-2xl border-stone-200/70 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-[0_6px_24px_-4px_rgba(79,70,229,0.10)] dark:shadow-[0_6px_24px_-4px_rgba(129,140,248,0.15)]";
@@ -33,7 +35,7 @@ export const ACCENT_RING_SOFT = "ring-indigo-100 dark:ring-indigo-500/20";
 export const TEXT_WARNING = "text-amber-700 dark:text-amber-400";
  /** Indigo pill/chip style for tags — e.g. a skill badge. */
 export const ACCENT_CHIP =
-  "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-300";
+  SKILL_PILL_CLASS;
 /** Full warning-banner container (border + background) — pair with TEXT_WARNING for the text inside. */
 export const WARNING_BANNER =
   "border-amber-500/40 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40";

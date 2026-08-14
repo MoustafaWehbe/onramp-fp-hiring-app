@@ -2,10 +2,10 @@ import {
   Application,
   CandidateProfile,
   CandidateSkill,
-  Skill,
   getSequelize,
 } from "@starter-kit/shared/db";
 import { Op, type Transaction } from "sequelize";
+import { skillService } from "./skills.service";
 
 /**
  * Seeds a candidate's profile from what phase 1 parsed out of their resume.
@@ -98,15 +98,18 @@ export class CandidateProfileSeedService {
     names: string[],
     transaction: Transaction,
   ): Promise<string[]> {
-    const unique = [...new Map(names.map((n) => [n.toLowerCase(), n])).values()];
+    const normalizedNames = names.map((name) => name.trim()).filter(Boolean);
+    const unique = [
+      ...new Map(
+        normalizedNames.map((name) => [name.toLowerCase(), name]),
+      ).values(),
+    ].sort((left, right) =>
+      left.toLocaleLowerCase().localeCompare(right.toLocaleLowerCase()),
+    );
     const ids: string[] = [];
 
     for (const name of unique) {
-      const [skill] = await Skill.findOrCreate({
-        where: { name },
-        defaults: { name },
-        transaction,
-      });
+      const { skill } = await skillService.findOrCreateByName(name, transaction);
       ids.push(skill.id);
     }
 

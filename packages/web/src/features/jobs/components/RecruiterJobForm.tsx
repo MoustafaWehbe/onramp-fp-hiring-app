@@ -1,9 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, X } from "lucide-react";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Badge } from "../../../components/ui/badge";
+import { SkillsInput } from "../../../components/skills/SkillsInput";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -14,6 +12,7 @@ import type {
   RecruiterJobInput,
   RecruiterJobRecord,
 } from "../../../types/jobs";
+import type { SkillOption } from "../../../types/skills";
 
 const selectClassName =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
@@ -56,13 +55,7 @@ const jobFormSchema = z
       .trim()
       .regex(/^[A-Za-z]{3}$/, "Use a three-letter currency code"),
     skills: z
-      .array(
-        z
-          .string()
-          .trim()
-          .min(1)
-          .max(100, "Keep each skill under 100 characters"),
-      )
+      .array(z.object({ id: z.string(), name: z.string().trim().min(1).max(100) }))
       .min(1, "Add at least one required skill")
       .max(20, "Add no more than 20 skills"),
     description: z
@@ -111,7 +104,7 @@ function initialValues(job?: RecruiterJobRecord): JobFormValues {
     salaryMin: job?.salaryMin ?? 0,
     salaryMax: job?.salaryMax ?? 0,
     salaryCurrency: job?.salaryCurrency ?? "USD",
-    skills: job?.skills.map((skill) => skill.name) ?? [],
+    skills: job?.skills ?? [],
     description: job?.description ?? "",
     status: job?.status ?? "DRAFT",
   };
@@ -152,7 +145,6 @@ type RecruiterJobFormProps =
 
 export function RecruiterJobForm(props: RecruiterJobFormProps) {
   const { initialJob, isSubmitting, submitLabel } = props;
-  const [skillInput, setSkillInput] = useState("");
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobFormSchema),
     defaultValues: initialValues(initialJob),
@@ -160,44 +152,12 @@ export function RecruiterJobForm(props: RecruiterJobFormProps) {
   const skills = form.watch("skills");
   const isRemote = form.watch("isRemote");
 
-  function addSkill() {
-    const skill = skillInput.trim();
-
-    if (!skill) {
-      return;
-    }
-
-    if (
-      skills.some(
-        (existing) => existing.toLocaleLowerCase() === skill.toLocaleLowerCase(),
-      )
-    ) {
-      setSkillInput("");
-      return;
-    }
-
-    if (skills.length >= 20) {
-      form.setError("skills", {
-        type: "manual",
-        message: "Add no more than 20 skills",
-      });
-      return;
-    }
-
-    form.setValue("skills", [...skills, skill], {
+  function setSkills(nextSkills: SkillOption[]) {
+    form.setValue("skills", nextSkills, {
       shouldDirty: true,
       shouldValidate: true,
     });
     form.clearErrors("skills");
-    setSkillInput("");
-  }
-
-  function removeSkill(skill: string) {
-    form.setValue(
-      "skills",
-      skills.filter((item) => item !== skill),
-      { shouldDirty: true, shouldValidate: true },
-    );
   }
 
   async function submit(values: JobFormValues) {
@@ -207,7 +167,7 @@ export function RecruiterJobForm(props: RecruiterJobFormProps) {
       description: values.description.trim(),
       location: values.location.trim() || undefined,
       salaryCurrency: values.salaryCurrency.trim().toUpperCase(),
-      skills: values.skills.map((skill) => skill.trim()),
+      skills: values.skills.map((skill) => skill.name.trim()),
     };
 
     if (props.mode === "create") {
@@ -397,49 +357,19 @@ export function RecruiterJobForm(props: RecruiterJobFormProps) {
             Required skills
           </h2>
           <p className="text-sm text-muted-foreground">
-            Add up to 20 skill tags. Press Enter or use Add skill.
+            Search the shared skill list or add a new skill for everyone to use.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Input
-            id="job-skill-input"
-            value={skillInput}
-            onChange={(event) => setSkillInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === ",") {
-                event.preventDefault();
-                addSkill();
-              }
-            }}
-            placeholder="React"
-            aria-label="Required skill"
-          />
-          <Button type="button" variant="outline" onClick={addSkill}>
-            <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            Add skill
-          </Button>
-        </div>
-        {skills.length > 0 && (
-          <div className="flex flex-wrap gap-2" aria-label="Selected skills">
-            {skills.map((skill) => (
-              <Badge
-                key={skill}
-                variant="secondary"
-                className="gap-1 py-1 pl-2.5 pr-1"
-              >
-                {skill}
-                <button
-                  type="button"
-                  className="rounded p-0.5 hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={() => removeSkill(skill)}
-                  aria-label={`Remove ${skill}`}
-                >
-                  <X className="h-3 w-3" aria-hidden="true" />
-                </button>
-              </Badge>
-            ))}
-          </div>
-        )}
+        <SkillsInput
+          id="job-skill-input"
+          label="Required skill"
+          placeholder="Try React or TypeScript"
+          value={skills}
+          onChange={setSkills}
+          maxSkills={20}
+          disabled={isSubmitting}
+          invalid={Boolean(form.formState.errors.skills)}
+        />
         <FieldError message={form.formState.errors.skills?.message} />
       </section>
 

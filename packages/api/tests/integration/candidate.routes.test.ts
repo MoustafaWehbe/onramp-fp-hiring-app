@@ -382,6 +382,28 @@ describe("GET/PUT /api/candidate/skills", () => {
     expect(res.status).toBe(422);
   });
 
+  it("removes a profile association without deleting the shared skill", async () => {
+    const removeRes = await request(app)
+      .put("/api/candidate/skills")
+      .set("Cookie", cookie(tokenA))
+      .send({ skillIds: [skillNode.id] });
+
+    expect(removeRes.status).toBe(200);
+    expect(removeRes.body.data.map((skill: { id: string }) => skill.id)).toEqual([
+      skillNode.id,
+    ]);
+    expect(await Skill.findByPk(skillReact.id)).not.toBeNull();
+
+    const searchRes = await request(app)
+      .get("/api/skills")
+      .query({ q: skillReact.name })
+      .set("Cookie", cookie(tokenB));
+    expect(searchRes.body.data).toContainEqual({
+      id: skillReact.id,
+      name: skillReact.name,
+    });
+  });
+
   it("candidate B's skill list is independent of candidate A's", async () => {
     const res = await request(app)
       .get("/api/candidate/skills")

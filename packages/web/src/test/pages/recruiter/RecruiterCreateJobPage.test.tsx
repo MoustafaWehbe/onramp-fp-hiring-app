@@ -8,14 +8,23 @@ const {
   useCompanyProfile,
   useCreateRecruiterJob,
   mutateAsync,
+  searchSkills,
+  createSkill,
   toastSuccess,
   toastError,
 } = vi.hoisted(() => ({
   useCompanyProfile: vi.fn(),
   useCreateRecruiterJob: vi.fn(),
   mutateAsync: vi.fn(),
+  searchSkills: vi.fn(),
+  createSkill: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+}));
+
+vi.mock("@/features/skills/api", () => ({
+  searchSkills,
+  createSkill,
 }));
 
 vi.mock("@/features/company/hooks", () => ({
@@ -74,6 +83,8 @@ beforeEach(() => {
     isPending: false,
   });
   mutateAsync.mockResolvedValue({ id: "job-1" });
+  searchSkills.mockResolvedValue([]);
+  createSkill.mockResolvedValue({ id: "skill-typescript", name: "TypeScript" });
 });
 
 describe("RecruiterCreateJobPage", () => {
@@ -130,7 +141,11 @@ describe("RecruiterCreateJobPage", () => {
     await user.clear(screen.getByLabelText("Maximum salary"));
     await user.type(screen.getByLabelText("Maximum salary"), "120000");
     await user.type(screen.getByLabelText("Required skill"), "TypeScript");
-    await user.click(screen.getByRole("button", { name: "Add skill" }));
+    await user.click(
+      await screen.findByRole("option", {
+        name: 'Add "TypeScript" as a new skill',
+      }),
+    );
     await user.type(
       screen.getByLabelText("Description"),
       "Build reliable hiring workflows.",

@@ -13,12 +13,12 @@ import {
   Op,
   col,
   fn,
-  where as sqlWhere,
   type Transaction,
 } from "sequelize";
 import { isCompanyProfileComplete } from "./company.service";
 import { createError } from "../middleware/error-handler";
 import { calendarService } from "./calendar.service";
+import { skillService } from "./skills.service";
 
 interface JobFields {
   title: string;
@@ -143,20 +143,15 @@ export class JobService {
     transaction: Transaction,
   ): Promise<Skill[]> {
     const skills: Skill[] = [];
+    const orderedNames = [...names].sort((left, right) =>
+      left.toLocaleLowerCase().localeCompare(right.toLocaleLowerCase()),
+    );
 
-    for (const name of names) {
-      const existing = await Skill.findOne({
-        where: sqlWhere(fn("LOWER", col("name")), name.toLocaleLowerCase()),
-        transaction,
-      });
-
-      if (existing) {
-        skills.push(existing);
-        continue;
-      }
-
-      const created = await Skill.create({ name }, { transaction });
-      skills.push(created);
+    // Stable lock ordering prevents two concurrent multi-skill saves from
+    // deadlocking when they contain the same names in a different order.
+    for (const name of orderedNames) {
+      const { skill } = await skillService.findOrCreateByName(name, transaction);
+      skills.push(skill);
     }
 
     return skills;
