@@ -5,11 +5,12 @@ import { JobCard } from "../components/jobs/JobCard";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
+import { CompanyLogo } from "../components/shared/CompanyLogo";
 import { useCompanyCareersPage } from "../features/company/hooks";
 import { getApiErrorMessage } from "../lib/api-errors";
 import { toJobSummary } from "../lib/job-presentation";
 import { cn } from "../lib/utils";
-import type { PublicCompanyRecord } from "../types/company";
+import { ACCENT_GRADIENT } from "../features/candidate/theme";
 
 /**
  * A company's public, unauthenticated careers page.
@@ -34,39 +35,6 @@ function CareerPageSkeleton() {
         <Skeleton className="h-64 w-full" />
       </div>
     </div>
-  );
-}
-
-/**
- * The logo when one is set, the company's initial when not.
- *
- * A remote logoUrl is recruiter-supplied and can 404 at any time, so a failure
- * swaps in the same fallback rather than leaving a broken-image icon on the
- * company's own front door.
- */
-function CompanyLogo({ company }: { company: PublicCompanyRecord }) {
-  const fallback = (
-    <span
-      aria-hidden="true"
-      className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border bg-muted text-2xl font-bold text-muted-foreground"
-    >
-      {company.name.trim().charAt(0).toUpperCase() || "?"}
-    </span>
-  );
-
-  if (!company.logoUrl) {
-    return fallback;
-  }
-
-  return (
-    <img
-      src={company.logoUrl}
-      alt={`${company.name} logo`}
-      className="h-20 w-20 shrink-0 rounded-xl border bg-card object-contain p-2"
-      onError={(event) => {
-        event.currentTarget.style.display = "none";
-      }}
-    />
   );
 }
 
@@ -137,37 +105,50 @@ export function PublicCareerPage() {
   return (
     <div className="bg-muted/30">
       <section className="border-b bg-background">
-        <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 lg:px-8">
           <BackToJobsLink />
+        </div>
 
-          <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-start">
-            <CompanyLogo company={company} />
+        {/* Same identity-header treatment as the candidate profile: a
+            gradient cover band with the logo pulled up over it. */}
+        <div
+          className={cn("mt-6 h-28 w-full sm:h-36", ACCENT_GRADIENT)}
+          aria-hidden="true"
+        />
 
-            <div className="min-w-0 flex-1">
-              <div className="inline-flex w-fit items-center gap-2 rounded-md border bg-card px-3 py-1 text-sm font-medium text-muted-foreground">
-                <Search className="h-4 w-4" aria-hidden="true" />
-                {roleCount} open {roleCount === 1 ? "role" : "roles"}
-              </div>
-              <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
-                Careers at {company.name}
-              </h1>
-              {company.description && (
-                <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-                  {company.description}
-                </p>
-              )}
-              {company.website && (
-                <a
-                  href={company.website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                >
-                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                  Visit {company.name}
-                </a>
-              )}
+        <div className="mx-auto w-full max-w-5xl px-4 pb-8 sm:px-6 lg:px-8">
+          <div className="-mt-12 sm:-mt-14">
+            <CompanyLogo
+              name={company.name}
+              logoUrl={company.logoUrl}
+              className="h-24 w-24 sm:h-28 sm:w-28"
+            />
+          </div>
+
+          <div className="mt-4">
+            <div className="inline-flex w-fit items-center gap-2 rounded-md border bg-card px-3 py-1 text-sm font-medium text-muted-foreground">
+              <Search className="h-4 w-4" aria-hidden="true" />
+              {roleCount} open {roleCount === 1 ? "role" : "roles"}
             </div>
+            <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
+              Careers at {company.name}
+            </h1>
+            {company.description && (
+              <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
+                {company.description}
+              </p>
+            )}
+            {company.website && (
+              <a
+                href={company.website}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                Visit {company.name}
+              </a>
+            )}
           </div>
         </div>
       </section>

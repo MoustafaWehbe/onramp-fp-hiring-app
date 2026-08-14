@@ -50,12 +50,46 @@ export function TimeToHireCard({ timeToHire }: { timeToHire: TimeToHireStats }) 
   return (
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Average" value={formatDays(timeToHire.averageDays)} />
-        <StatTile label="Median" value={formatDays(timeToHire.medianDays)} />
-        <StatTile label="Fastest" value={formatDays(timeToHire.fastestDays)} />
+        <StatTile
+          label="Average"
+          value={formatDays(timeToHire.averageDays)}
+          countUp={
+            timeToHire.averageDays === null
+              ? undefined
+              : {
+                  target: timeToHire.averageDays,
+                  format: (n) => formatDays(n),
+                }
+          }
+        />
+        <StatTile
+          label="Median"
+          value={formatDays(timeToHire.medianDays)}
+          countUp={
+            timeToHire.medianDays === null
+              ? undefined
+              : {
+                  target: timeToHire.medianDays,
+                  format: (n) => formatDays(n),
+                }
+          }
+        />
+        <StatTile
+          label="Fastest"
+          value={formatDays(timeToHire.fastestDays)}
+          countUp={
+            timeToHire.fastestDays === null
+              ? undefined
+              : {
+                  target: timeToHire.fastestDays,
+                  format: (n) => formatDays(n),
+                }
+          }
+        />
         <StatTile
           label="Hires measured"
           value={String(timeToHire.hiredCount)}
+          countUp={{ target: timeToHire.hiredCount }}
         />
       </div>
 

@@ -3,6 +3,14 @@ import { SKILL_PILL_CLASS } from "../../components/skills/styles";
 /** Shared visual language for the four candidate-profile cards: warm neutral base, indigo-violet accent, rounded-2xl, soft shadows. */
 export const CARD_CLASS =
   "rounded-2xl border-stone-200/70 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-[0_6px_24px_-4px_rgba(79,70,229,0.10)] dark:shadow-[0_6px_24px_-4px_rgba(129,140,248,0.15)]";
+/**
+ * Hover-lift affordance for interactive cards (job cards, pipeline cards,
+ * recommendation cards). Pair with CARD_CLASS via cn(CARD_CLASS, CARD_HOVER_CLASS).
+ * The motion itself is neutralized app-wide for prefers-reduced-motion in globals.css,
+ * so this token doesn't need its own reduced-motion branch.
+ */
+export const CARD_HOVER_CLASS =
+  "transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_30px_-6px_rgba(79,70,229,0.18)] dark:hover:shadow-[0_10px_30px_-6px_rgba(129,140,248,0.22)]";
 export const ACCENT_GRADIENT =
   "bg-gradient-to-br from-indigo-500 to-violet-500 dark:from-indigo-400 dark:to-violet-400";
 export const ACCENT_TEXT = "text-indigo-600 dark:text-indigo-400";

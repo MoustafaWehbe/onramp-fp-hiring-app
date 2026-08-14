@@ -14,12 +14,14 @@ import { usePublicJobs } from "../../features/jobs/hooks";
 import { useAuth } from "../../hooks/useAuth";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { toJobSummary } from "../../lib/job-presentation";
+import { CARD_CLASS } from "../../features/candidate/theme";
+import { cn } from "../../lib/utils";
 
 const ALL_STACKS = "All stacks";
 
 function JobCardSkeleton() {
   return (
-    <Card className="flex h-full flex-col" aria-hidden="true">
+    <Card className={cn(CARD_CLASS, "flex h-full flex-col")} aria-hidden="true">
       <CardHeader className="space-y-4 p-5">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-7 w-4/5" />

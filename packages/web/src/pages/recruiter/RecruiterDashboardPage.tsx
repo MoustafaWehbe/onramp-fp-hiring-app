@@ -26,6 +26,8 @@ import {
 } from "../../features/recruiter/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
+import { CARD_CLASS } from "../../features/candidate/theme";
+import { CountUpNumber } from "../../components/shared/CountUpNumber";
 import type { RecruiterApplicationStage } from "../../types/applications";
 
 const stageLabels: Record<RecruiterApplicationStage, string> = {
@@ -165,11 +167,18 @@ export function RecruiterDashboardPage() {
           <>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {metrics.map(([Icon, value, label]) => (
-                <Card key={label}>
+                <Card key={label} className={CARD_CLASS}>
                   <CardContent className="flex gap-4 p-5">
-                    <Icon className="h-9 w-9 text-primary" aria-hidden="true" />
+                    <span
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
+                      aria-hidden="true"
+                    >
+                      <Icon className="h-5 w-5" />
+                    </span>
                     <div>
-                      <p className="text-2xl font-semibold">{value}</p>
+                      <p className="text-3xl font-bold tracking-tight">
+                        <CountUpNumber value={value} />
+                      </p>
                       <p className="text-sm text-muted-foreground">{label}</p>
                     </div>
                   </CardContent>
@@ -177,7 +186,7 @@ export function RecruiterDashboardPage() {
               ))}
             </div>
 
-            <Card className="mt-6">
+            <Card className={cn(CARD_CLASS, "mt-6")}>
               <CardHeader>
                 <CardTitle className="text-xl">Time to hire</CardTitle>
                 <p className="text-sm text-muted-foreground">
@@ -196,7 +205,7 @@ export function RecruiterDashboardPage() {
             </Card>
 
             <div className="mt-6 grid gap-5 lg:grid-cols-2">
-              <Card>
+              <Card className={CARD_CLASS}>
                 <CardHeader>
                   <CardTitle className="text-xl">Funnel conversion</CardTitle>
                   <p className="text-sm text-muted-foreground">
@@ -218,7 +227,7 @@ export function RecruiterDashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className={CARD_CLASS}>
                 <CardHeader>
                   <CardTitle className="text-xl">
                     Fit score distribution
@@ -245,7 +254,7 @@ export function RecruiterDashboardPage() {
             </div>
 
             <div className="mt-6 grid gap-5">
-              <Card>
+              <Card className={CARD_CLASS}>
                 <CardHeader className="flex-row items-center justify-between space-y-0">
                   <CardTitle className="text-xl">Recent applicants</CardTitle>
                   <Link
@@ -267,7 +276,7 @@ export function RecruiterDashboardPage() {
                     dashboard.recentApplicants.map((application) => (
                       <div
                         key={application.id}
-                        className="rounded-md border p-4"
+                        className="rounded-md border p-4 transition-colors hover:bg-muted/40"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">

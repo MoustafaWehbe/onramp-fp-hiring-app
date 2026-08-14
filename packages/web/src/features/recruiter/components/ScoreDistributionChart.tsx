@@ -9,6 +9,7 @@ import {
   YAxis,
 } from "recharts";
 import type { ScoreDistributionStats } from "../../../types/analytics";
+import { CountUpNumber } from "../../../components/shared/CountUpNumber";
 import {
   axisTickStyle,
   CHART_TOKENS,
@@ -105,27 +106,35 @@ export function ScoreDistributionChart({
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
         <span>
           Average{" "}
-          <span className="font-medium text-foreground tabular-nums">
-            {distribution.averageScore}
+          <span className="font-semibold text-foreground tabular-nums">
+            {distribution.averageScore === null ? (
+              "—"
+            ) : (
+              <CountUpNumber value={distribution.averageScore} />
+            )}
           </span>
         </span>
         <span>
           Median{" "}
-          <span className="font-medium text-foreground tabular-nums">
-            {distribution.medianScore}
+          <span className="font-semibold text-foreground tabular-nums">
+            {distribution.medianScore === null ? (
+              "—"
+            ) : (
+              <CountUpNumber value={distribution.medianScore} />
+            )}
           </span>
         </span>
         <span>
           Scored{" "}
-          <span className="font-medium text-foreground tabular-nums">
-            {distribution.scoredCount}
+          <span className="font-semibold text-foreground tabular-nums">
+            <CountUpNumber value={distribution.scoredCount} />
           </span>
         </span>
         {distribution.unscoredCount > 0 && (
           <span>
             Awaiting a score{" "}
-            <span className="font-medium text-foreground tabular-nums">
-              {distribution.unscoredCount}
+            <span className="font-semibold text-foreground tabular-nums">
+              <CountUpNumber value={distribution.unscoredCount} />
             </span>
           </span>
         )}

@@ -39,6 +39,7 @@ import { ApplicationTimeline } from "../../features/candidate/components/Applica
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
 import { CARD_CLASS, TEXT_WARNING } from "../../features/candidate/theme";
+import { CountUpNumber } from "../../components/shared/CountUpNumber";
 
 interface StagePresentation {
   label: string;
@@ -377,13 +378,17 @@ export function ApplicationsPage() {
               <CardTitle className="text-xl">Application health</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-3">
-              {[
-                [String(applications.length), "Total applications"],
-                [String(interviews), "Interviews in progress"],
-                [String(positiveOutcomes), "Offers and hires"],
-              ].map(([value, label]) => (
+              {(
+                [
+                  [applications.length, "Total applications"],
+                  [interviews, "Interviews in progress"],
+                  [positiveOutcomes, "Offers and hires"],
+                ] satisfies Array<[number, string]>
+              ).map(([value, label]) => (
                 <div key={label} className="border-l pl-4">
-                  <p className="text-2xl font-semibold">{value}</p>
+                  <p className="text-2xl font-bold tracking-tight">
+                    <CountUpNumber value={value} />
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">{label}</p>
                 </div>
               ))}

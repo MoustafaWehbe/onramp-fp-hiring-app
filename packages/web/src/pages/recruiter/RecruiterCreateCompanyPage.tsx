@@ -18,12 +18,15 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Skeleton } from "../../components/ui/skeleton";
 import { Textarea } from "../../components/ui/textarea";
+import { CompanyLogo } from "../../components/shared/CompanyLogo";
 import {
   useCompanyProfile,
   useCreateCompanyProfile,
   useUpdateCompanyProfile,
 } from "../../features/company/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
+import { ACCENT_GRADIENT, CARD_CLASS } from "../../features/candidate/theme";
+import { cn } from "../../lib/utils";
 import type {
   CompanyProfile,
   CompanyProfileInput,
@@ -175,6 +178,10 @@ export function RecruiterCreateCompanyPage() {
   }
 
   const isSaving = createProfile.isPending || updateProfile.isPending;
+  // Live preview of the banner/logo, so a recruiter sees what candidates
+  // will see on the careers page as they type — same treatment as that page.
+  const previewName = form.watch("name");
+  const previewLogoUrl = form.watch("logoUrl");
 
   return (
     <div className="bg-muted/30">
@@ -212,146 +219,173 @@ export function RecruiterCreateCompanyPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {profileQuery.data
-                  ? "Update company details"
-                  : "Tell us about your company"}
-              </CardTitle>
-              <CardDescription>
-                All five setup fields are required. Website, description, and
-                logo are optional.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="space-y-6"
-                onSubmit={form.handleSubmit((values) => void submit(values))}
-                noValidate
-              >
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="company-name">Company name</Label>
-                    <Input
-                      id="company-name"
-                      placeholder="Northstar Labs"
-                      aria-invalid={Boolean(form.formState.errors.name)}
-                      {...form.register("name")}
-                    />
-                    <FieldError
-                      message={form.formState.errors.name?.message}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company-industry">Industry</Label>
-                    <Input
-                      id="company-industry"
-                      placeholder="Developer tools"
-                      aria-invalid={Boolean(form.formState.errors.industry)}
-                      {...form.register("industry")}
-                    />
-                    <FieldError
-                      message={form.formState.errors.industry?.message}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company-size">Company size</Label>
-                    <Input
-                      id="company-size"
-                      placeholder="11–50 employees"
-                      aria-invalid={Boolean(form.formState.errors.size)}
-                      {...form.register("size")}
-                    />
-                    <FieldError
-                      message={form.formState.errors.size?.message}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company-location">Location</Label>
-                    <Input
-                      id="company-location"
-                      placeholder="Beirut, Lebanon"
-                      aria-invalid={Boolean(form.formState.errors.location)}
-                      {...form.register("location")}
-                    />
-                    <FieldError
-                      message={form.formState.errors.location?.message}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="company-contact">Hiring contact</Label>
-                  <Input
-                    id="company-contact"
-                    placeholder="talent@northstar.example or +961 1 234 567"
-                    aria-invalid={Boolean(form.formState.errors.contact)}
-                    {...form.register("contact")}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Add the email address or phone number candidates can use.
-                  </p>
-                  <FieldError
-                    message={form.formState.errors.contact?.message}
+          <>
+            {/* Same identity-header treatment as the candidate profile: a
+                gradient cover band with the logo pulled up over it — live,
+                so it previews exactly what candidates will see. */}
+            <Card className={cn(CARD_CLASS, "mb-6 overflow-hidden")}>
+              <div
+                className={cn("h-24 w-full sm:h-28", ACCENT_GRADIENT)}
+                aria-hidden="true"
+              />
+              <div className="px-6 pb-6">
+                <div className="-mt-10 sm:-mt-12">
+                  <CompanyLogo
+                    name={previewName || "Your company"}
+                    logoUrl={previewLogoUrl}
+                    className="h-20 w-20 sm:h-24 sm:w-24"
                   />
                 </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {previewName || "Your company"} on its public careers page
+                </p>
+              </div>
+            </Card>
 
-                <div className="grid gap-5 sm:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {profileQuery.data
+                    ? "Update company details"
+                    : "Tell us about your company"}
+                </CardTitle>
+                <CardDescription>
+                  All five setup fields are required. Website, description,
+                  and logo are optional.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  className="space-y-6"
+                  onSubmit={form.handleSubmit((values) => void submit(values))}
+                  noValidate
+                >
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="company-name">Company name</Label>
+                      <Input
+                        id="company-name"
+                        placeholder="Northstar Labs"
+                        aria-invalid={Boolean(form.formState.errors.name)}
+                        {...form.register("name")}
+                      />
+                      <FieldError
+                        message={form.formState.errors.name?.message}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="company-industry">Industry</Label>
+                      <Input
+                        id="company-industry"
+                        placeholder="Developer tools"
+                        aria-invalid={Boolean(form.formState.errors.industry)}
+                        {...form.register("industry")}
+                      />
+                      <FieldError
+                        message={form.formState.errors.industry?.message}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="company-size">Company size</Label>
+                      <Input
+                        id="company-size"
+                        placeholder="11–50 employees"
+                        aria-invalid={Boolean(form.formState.errors.size)}
+                        {...form.register("size")}
+                      />
+                      <FieldError
+                        message={form.formState.errors.size?.message}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="company-location">Location</Label>
+                      <Input
+                        id="company-location"
+                        placeholder="Beirut, Lebanon"
+                        aria-invalid={Boolean(form.formState.errors.location)}
+                        {...form.register("location")}
+                      />
+                      <FieldError
+                        message={form.formState.errors.location?.message}
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="company-website">Website (optional)</Label>
+                    <Label htmlFor="company-contact">Hiring contact</Label>
                     <Input
-                      id="company-website"
-                      type="url"
-                      placeholder="https://northstar.example"
-                      aria-invalid={Boolean(form.formState.errors.website)}
-                      {...form.register("website")}
+                      id="company-contact"
+                      placeholder="talent@northstar.example or +961 1 234 567"
+                      aria-invalid={Boolean(form.formState.errors.contact)}
+                      {...form.register("contact")}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Add the email address or phone number candidates can
+                      use.
+                    </p>
                     <FieldError
-                      message={form.formState.errors.website?.message}
+                      message={form.formState.errors.contact?.message}
                     />
                   </div>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="company-website">
+                        Website (optional)
+                      </Label>
+                      <Input
+                        id="company-website"
+                        type="url"
+                        placeholder="https://northstar.example"
+                        aria-invalid={Boolean(form.formState.errors.website)}
+                        {...form.register("website")}
+                      />
+                      <FieldError
+                        message={form.formState.errors.website?.message}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="company-logo-url">
+                        Logo URL (optional)
+                      </Label>
+                      <Input
+                        id="company-logo-url"
+                        type="url"
+                        placeholder="https://northstar.example/logo.png"
+                        aria-invalid={Boolean(form.formState.errors.logoUrl)}
+                        {...form.register("logoUrl")}
+                      />
+                      <FieldError
+                        message={form.formState.errors.logoUrl?.message}
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="company-logo-url">
-                      Logo URL (optional)
+                    <Label htmlFor="company-description">
+                      Description (optional)
                     </Label>
-                    <Input
-                      id="company-logo-url"
-                      type="url"
-                      placeholder="https://northstar.example/logo.png"
-                      aria-invalid={Boolean(form.formState.errors.logoUrl)}
-                      {...form.register("logoUrl")}
-                    />
-                    <FieldError
-                      message={form.formState.errors.logoUrl?.message}
+                    <Textarea
+                      id="company-description"
+                      rows={5}
+                      placeholder="What does your company build, and how does the team work?"
+                      {...form.register("description")}
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="company-description">
-                    Description (optional)
-                  </Label>
-                  <Textarea
-                    id="company-description"
-                    rows={5}
-                    placeholder="What does your company build, and how does the team work?"
-                    {...form.register("description")}
-                  />
-                </div>
-
-                <div className="flex justify-end border-t pt-6">
-                  <Button type="submit" disabled={isSaving}>
-                    {isSaving
-                      ? "Saving…"
-                      : profileQuery.data
-                        ? "Save and continue"
-                        : "Create and continue"}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                  <div className="flex justify-end border-t pt-6">
+                    <Button type="submit" disabled={isSaving}>
+                      {isSaving
+                        ? "Saving…"
+                        : profileQuery.data
+                          ? "Save and continue"
+                          : "Create and continue"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </>
         )}
       </section>
     </div>

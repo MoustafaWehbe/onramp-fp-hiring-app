@@ -10,6 +10,7 @@ import {
 import { Link } from "react-router-dom";
 import { Badge } from "../../../components/ui/badge";
 import { cn } from "../../../lib/utils";
+import { CARD_CLASS, CARD_HOVER_CLASS } from "../../candidate/theme";
 import type { RecruiterPipelineApplication } from "../../../types/applications";
 import { formatInterviewDate } from "../interview-date";
 
@@ -110,8 +111,13 @@ export function PipelineCard({
           : undefined
       }
       className={cn(
-        "rounded-md border bg-background p-3 shadow-sm",
-        isDragging && "opacity-50",
+        CARD_CLASS,
+        // Hover-lift is suppressed while this card is the one being
+        // dragged — it already has its own drag-overlay clone to carry
+        // motion, so a competing translate here would fight the drag.
+        !isDragging && CARD_HOVER_CLASS,
+        "p-3",
+        isDragging && "scale-95 opacity-40",
         isMoving && "opacity-60",
       )}
     >

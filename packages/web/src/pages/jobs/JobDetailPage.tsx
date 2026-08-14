@@ -25,6 +25,8 @@ import {
 import { Skeleton } from "../../components/ui/skeleton";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { SuccessMoment } from "../../components/shared/SuccessMoment";
+import { ACCENT_TEXT, CARD_CLASS, TEXT_META } from "../../features/candidate/theme";
 import {
   useApplyToJob,
   useMyApplications,
@@ -82,6 +84,7 @@ export function JobDetailPage() {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [justApplied, setJustApplied] = useState(false);
 
   if (jobQuery.isLoading) {
     return <JobDetailSkeleton />;
@@ -167,6 +170,7 @@ export function JobDetailPage() {
         );
       }
       setResumeFile(null);
+      setJustApplied(true);
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 409) {
         setDuplicateJobId(job.id);
@@ -223,7 +227,10 @@ export function JobDetailPage() {
           jobId={job.id}
           className="w-full"
           disabled={isCheckingApplications || isApplyingToThisJob}
-          onApplied={() => void applicationsQuery.refetch()}
+          onApplied={() => {
+            void applicationsQuery.refetch();
+            setJustApplied(true);
+          }}
         />
 
         <div className="flex items-center gap-3">
@@ -318,33 +325,50 @@ export function JobDetailPage() {
 
           <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-3">
                 <Link
                   to={`/careers/${job.company.id}`}
-                  className="inline-flex items-center gap-2 rounded-sm outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-sm text-sm font-semibold uppercase tracking-wide outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    ACCENT_TEXT,
+                  )}
                 >
                   <Building2 className="h-4 w-4" aria-hidden="true" />
                   {job.company.name}
                 </Link>
                 <Badge variant="success">Open</Badge>
               </div>
-              <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
+              <h1 className="mt-3 text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
                 {job.title}
               </h1>
-              <p className="mt-4 max-w-3xl text-base leading-7 text-muted-foreground">
-                {job.location ??
-                  (job.isRemote ? "Remote" : "Location not specified")}{" "}
-                · Posted{" "}
-                {formatDate(job.createdAt)}
-              </p>
+              <div className={cn("mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm", TEXT_META)}>
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  {job.location ??
+                    (job.isRemote ? "Remote" : "Location not specified")}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  Posted {formatDate(job.createdAt)}
+                </span>
+              </div>
             </div>
             {applicationAction}
           </div>
+          {justApplied && (
+            <SuccessMoment
+              message={
+                hasDraft ? "Draft application submitted!" : "Application submitted!"
+              }
+              onDismiss={() => setJustApplied(false)}
+              className="mt-6 sm:max-w-md sm:self-end"
+            />
+          )}
         </div>
       </section>
 
       <section className="mx-auto grid w-full max-w-5xl gap-5 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:px-8">
-        <Card>
+        <Card className={CARD_CLASS}>
           <CardHeader>
             <CardTitle className="text-xl">About this role</CardTitle>
           </CardHeader>
@@ -356,7 +380,7 @@ export function JobDetailPage() {
         </Card>
 
         <aside>
-          <Card>
+          <Card className={CARD_CLASS}>
             <CardHeader>
               <CardTitle className="text-lg">Role snapshot</CardTitle>
             </CardHeader>

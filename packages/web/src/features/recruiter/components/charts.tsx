@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CountUpNumber } from "../../../components/shared/CountUpNumber";
 
 /**
  * Chart chrome shared by the analytics charts.
@@ -71,20 +72,32 @@ export function ChartTooltipCard({
 /**
  * A single number is a stat tile, not a one-bar chart — the average and
  * median time-to-hire are exactly that case.
+ *
+ * `countUp` animates the tile from 0 to a numeric value on load rather than
+ * showing it instantly — pass it whenever `value` has a clean numeric
+ * source; omit it (e.g. the "—" no-data case) to fall back to plain text.
  */
 export function StatTile({
   label,
   value,
   hint,
+  countUp,
 }: {
   label: string;
   value: string;
   hint?: string;
+  countUp?: { target: number; format?: (value: number) => string };
 }) {
   return (
     <div className="rounded-md border p-4">
       <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
+      <p className="mt-1 text-2xl font-bold tracking-tight">
+        {countUp ? (
+          <CountUpNumber value={countUp.target} format={countUp.format} />
+        ) : (
+          value
+        )}
+      </p>
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );

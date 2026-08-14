@@ -12,7 +12,21 @@ export function App() {
             logout, following the signed-in user. */}
         <RealtimeProvider>
           <AppRoutes />
-          <Toaster richColors closeButton position="top-right" />
+          {/* Sonner already animates toasts in/out; this only aligns the
+              surface (rounded-2xl, elevated shadow) with the rest of the
+              app's card language. richColors still owns the per-type
+              (success/error/warning/info) background and text colors. */}
+          <Toaster
+            richColors
+            closeButton
+            position="top-right"
+            toastOptions={{
+              classNames: {
+                toast:
+                  "rounded-2xl shadow-[0_10px_30px_-8px_rgba(79,70,229,0.25)] dark:shadow-[0_10px_30px_-8px_rgba(129,140,248,0.3)]",
+              },
+            }}
+          />
         </RealtimeProvider>
       </AuthProvider>
     </BrowserRouter>
