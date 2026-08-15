@@ -11,6 +11,7 @@ import type {
   ProfileExtrasInput,
   ProfileInput,
   RecommendationsResponse,
+  ResumeReviewResult,
   SkillRecord,
   WorkExperienceRecord,
 } from "../../types/candidate";
@@ -204,6 +205,41 @@ export async function getRecommendations(
   const { data } = await apiClient.get<Envelope<RecommendationsResponse>>(
     "/candidate/recommendations",
     limit ? { params: { limit } } : undefined,
+  );
+  return data.data;
+}
+
+// ─── AI resume review ──────────────────────────────────────────────────────
+
+/**
+ * When no file is attached the API falls back to this job's application
+ * resume, or the candidate's standing profile — so the same call works
+ * before or after the candidate has attached a CV for this job.
+ */
+export async function reviewResumeForJob({
+  jobId,
+  resumeFile,
+}: {
+  jobId: string;
+  resumeFile?: File | null;
+}): Promise<ResumeReviewResult> {
+  const formData = resumeFile ? new FormData() : undefined;
+
+  if (resumeFile && formData) {
+    formData.append("resume", resumeFile);
+  }
+
+  const { data } = await apiClient.post<Envelope<ResumeReviewResult>>(
+    `/candidate/jobs/${jobId}/resume-review`,
+    formData,
+    {
+      // The free model backing this can legitimately take ~10-30s, and the
+      // server itself retries once or twice on a dropped connection before
+      // giving up — this timeout is a backstop against a genuinely hung
+      // request, not the expected case, so it sits comfortably above that.
+      timeout: 60_000,
+      ...(formData ? { headers: { "Content-Type": "multipart/form-data" } } : {}),
+    },
   );
   return data.data;
 }

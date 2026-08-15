@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isAxiosError } from "axios";
 import {
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
   FileUp,
   Laptop,
   MapPin,
+  TriangleAlert,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -26,7 +27,13 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { SuccessMoment } from "../../components/shared/SuccessMoment";
-import { ACCENT_TEXT, CARD_CLASS, TEXT_META } from "../../features/candidate/theme";
+import {
+  ACCENT_TEXT,
+  CARD_CLASS,
+  TEXT_META,
+  TEXT_WARNING,
+  WARNING_BANNER,
+} from "../../features/candidate/theme";
 import {
   useApplyToJob,
   useMyApplications,
@@ -35,6 +42,7 @@ import {
   APPLICATION_RESUME_ACCEPT,
   validateApplicationResume,
 } from "../../features/applications/resume-files";
+import { ResumeAIReview } from "../../features/applications/components/ResumeAIReview";
 import { usePublicJob } from "../../features/jobs/hooks";
 import { useAuth } from "../../hooks/useAuth";
 import { EasyApplyButton } from "../../features/candidate/components/EasyApplyButton";
@@ -44,6 +52,7 @@ import {
   formatSalaryRange,
 } from "../../lib/job-presentation";
 import { cn, formatDate } from "../../lib/utils";
+import type { ResumeReviewResult } from "../../types/candidate";
 
 function BackToJobsLink() {
   return (
@@ -85,6 +94,18 @@ export function JobDetailPage() {
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [justApplied, setJustApplied] = useState(false);
+  const [resumeReview, setResumeReview] = useState<ResumeReviewResult | null>(null);
+  const [hasReviewed, setHasReviewed] = useState(false);
+  const [acknowledgedReviewWarning, setAcknowledgedReviewWarning] = useState(false);
+
+  // A fresh job (and a fresh CV upload) means a stale review no longer
+  // applies — the review is deliberately never persisted, so leaving this
+  // page (or switching jobs on it) is exactly when it should be discarded.
+  useEffect(() => {
+    setResumeReview(null);
+    setHasReviewed(false);
+    setAcknowledgedReviewWarning(false);
+  }, [jobId]);
 
   if (jobQuery.isLoading) {
     return <JobDetailSkeleton />;
@@ -140,6 +161,12 @@ export function JobDetailPage() {
     (existingApplication !== undefined && !hasDraft) ||
     applyToJob.data?.jobId === job.id ||
     duplicateJobId === job.id;
+
+  // Gated only on a review the candidate actually ran and that flagged real
+  // gaps — a candidate who never clicked "Review with AI" sees no warning
+  // and applies exactly as before.
+  const reviewFlaggedIssues = hasReviewed && (resumeReview?.cons.length ?? 0) > 0;
+  const blockingReviewWarning = reviewFlaggedIssues && !acknowledgedReviewWarning;
 
   async function handleApply() {
     if (resumeFile) {
@@ -215,6 +242,35 @@ export function JobDetailPage() {
         <Button type="button" className="w-full sm:w-auto" disabled>
           Already applied
         </Button>
+      );
+    }
+
+    if (blockingReviewWarning) {
+      const issueCount = resumeReview?.cons.length ?? 0;
+      return (
+        <div
+          className={cn(
+            "w-full space-y-3 rounded-lg border p-4 sm:w-80",
+            WARNING_BANNER,
+          )}
+        >
+          <p className={cn("flex items-center gap-2 text-sm font-semibold", TEXT_WARNING)}>
+            <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Your AI review found {issueCount} {issueCount === 1 ? "gap" : "gaps"}
+          </p>
+          <p className={cn("text-sm", TEXT_WARNING)}>
+            Worth a look before you apply — see the gaps and suggestions in the
+            AI Resume Review panel. You can fix them first, or apply anyway.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => setAcknowledgedReviewWarning(true)}
+          >
+            Apply anyway
+          </Button>
+        </div>
       );
     }
 
@@ -379,7 +435,19 @@ export function JobDetailPage() {
           </CardContent>
         </Card>
 
-        <aside>
+        <aside className="space-y-5">
+          {user && isCandidate && (
+            <ResumeAIReview
+              jobId={job.id}
+              resumeFile={resumeFile}
+              onResult={(result) => {
+                setResumeReview(result);
+                setHasReviewed(true);
+                setAcknowledgedReviewWarning(false);
+              }}
+            />
+          )}
+
           <Card className={CARD_CLASS}>
             <CardHeader>
               <CardTitle className="text-lg">Role snapshot</CardTitle>

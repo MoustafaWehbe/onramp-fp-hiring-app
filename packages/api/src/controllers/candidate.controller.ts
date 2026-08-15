@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { CandidateProfile, WorkExperience } from "@starter-kit/shared/db";
 import { candidateService } from "../services/candidate.service";
+import { resumeReviewService } from "../services/resume-review.service";
 import { storageProvider } from "../lib/storage";
 import { resumeStorageKey } from "../lib/resume-upload";
 import { createError } from "../middleware/error-handler";
@@ -130,6 +131,21 @@ export const candidateController = {
       const profile = await candidateService.attachResume(req.user!.userId, upload);
 
       res.json({ data: profile });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // ─── AI resume review ────────────────────────────────────────────────────
+
+  async reviewResume(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await resumeReviewService.review(
+        req.user!.userId,
+        req.params.jobId as string,
+        req.file,
+      );
+      res.status(200).json({ data: result });
     } catch (err) {
       next(err);
     }

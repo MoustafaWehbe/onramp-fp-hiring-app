@@ -139,6 +139,18 @@ export interface ApplicationTimelineEntry {
   changedAt: string;
 }
 
+/**
+ * Result of an on-demand "Review with AI" run, scoped to one job. Never
+ * persisted server-side — this type only ever lives in frontend state for
+ * the current page visit, and is gone once the candidate navigates away.
+ */
+export interface ResumeReviewResult {
+  score: number;
+  pros: string[];
+  cons: string[];
+  suggestions: string[];
+}
+
 export interface ApplicationTimeline {
   applicationId: string;
   jobTitle: string;
