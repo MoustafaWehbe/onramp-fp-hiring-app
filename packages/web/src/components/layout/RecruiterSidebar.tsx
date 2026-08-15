@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, ChevronsLeft, ChevronsRight, X } from "lucide-react";
+import { BriefcaseBusiness, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { cn } from "../../lib/utils";
@@ -49,14 +49,18 @@ function useRecruiterNavBadges(): Record<string, number | undefined> {
 
 interface RecruiterSidebarProps {
   collapsed: boolean;
-  onToggleCollapse: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }
 
+/**
+ * The collapse/expand toggle lives in RecruiterTopBar, not here — it sits at
+ * the far left of the top bar, in the same spot the mobile hamburger uses,
+ * so the control stays in one consistent place regardless of collapsed
+ * state or viewport. This component only renders what `collapsed` dictates.
+ */
 export function RecruiterSidebar({
   collapsed,
-  onToggleCollapse,
   mobileOpen,
   onCloseMobile,
 }: RecruiterSidebarProps) {
@@ -148,7 +152,11 @@ export function RecruiterSidebar({
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-background transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:translate-x-0 lg:transition-[width] lg:duration-200",
+          // At lg and up this is a normal (non-fixed) flex item inside
+          // RecruiterLayout's height-capped, overflow-hidden shell — it
+          // fills that fixed height and never itself scrolls with the
+          // page; only the content column next to it does.
+          "lg:static lg:h-full lg:shrink-0 lg:translate-x-0 lg:transition-[width] lg:duration-200",
           collapsed ? "lg:w-20" : "lg:w-64",
         )}
       >
@@ -229,27 +237,6 @@ export function RecruiterSidebar({
             );
           })}
         </nav>
-
-        <div className="border-t p-3">
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={cn(
-              "hidden w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 lg:flex",
-              ACCENT_RING,
-            )}
-          >
-            {collapsed ? (
-              <ChevronsRight className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <>
-                <ChevronsLeft className="h-4 w-4" aria-hidden="true" />
-                <span>Collapse</span>
-              </>
-            )}
-          </button>
-        </div>
       </aside>
     </>
   );
