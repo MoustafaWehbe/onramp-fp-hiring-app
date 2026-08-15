@@ -50,6 +50,18 @@ export interface ApplicationAttributes {
   aiGaps?: string[] | null;
   aiScoredAt?: Date | null;
   aiScoringStatus: AIScoringStatus;
+  /**
+   * Candidate-private "Applicant Percentile Score" inputs — from the
+   * resume-review AI module (packages/shared/ai/resume-review.ts), not the
+   * fit-score module above, and never exposed to a recruiter. Computed once,
+   * at application time, and never recalculated afterward: resumeReviewScore
+   * and resumeReviewPercentile are set together and then left alone even as
+   * more candidates apply to the same job.
+   */
+  resumeReviewScore?: number | null;
+  /** This application's rank against every other applicant for its job at the moment it was scored. */
+  resumeReviewPercentile?: number | null;
+  resumeReviewScoredAt?: Date | null;
   /** Optional — a candidate can sit in INTERVIEWING with no date agreed yet. */
   interviewDate?: Date | null;
   /** Free text, latest-wins. Editable at any stage, not just INTERVIEWING. */
@@ -87,6 +99,9 @@ export type ApplicationCreationAttributes = Optional<
   | "aiGaps"
   | "aiScoredAt"
   | "aiScoringStatus"
+  | "resumeReviewScore"
+  | "resumeReviewPercentile"
+  | "resumeReviewScoredAt"
   | "interviewDate"
   | "recruiterNotes"
   | "interviewScheduledAt"
@@ -120,6 +135,9 @@ export class Application
   declare aiGaps: string[] | null | undefined;
   declare aiScoredAt: Date | null | undefined;
   declare aiScoringStatus: AIScoringStatus;
+  declare resumeReviewScore: number | null | undefined;
+  declare resumeReviewPercentile: number | null | undefined;
+  declare resumeReviewScoredAt: Date | null | undefined;
   declare interviewDate: Date | null | undefined;
   declare recruiterNotes: string | null | undefined;
   declare interviewScheduledAt: Date | null | undefined;
@@ -230,6 +248,20 @@ export class Application
               msg: `aiScoringStatus must be one of: ${AI_SCORING_STATUSES.join(", ")}`,
             },
           },
+        },
+        resumeReviewScore: {
+          type: DataTypes.INTEGER,
+          allowNull: true,
+          validate: { min: 0, max: 100 },
+        },
+        resumeReviewPercentile: {
+          type: DataTypes.INTEGER,
+          allowNull: true,
+          validate: { min: 0, max: 100 },
+        },
+        resumeReviewScoredAt: {
+          type: DataTypes.DATE,
+          allowNull: true,
         },
         interviewDate: {
           type: DataTypes.DATE,

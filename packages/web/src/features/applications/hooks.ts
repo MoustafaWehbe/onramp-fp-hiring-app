@@ -80,6 +80,18 @@ export function useRescoreApplication() {
 }
 
 /**
+ * A plain mutation, not a query: triggered once right after a successful
+ * apply, its result belongs only to that confirmation moment — nothing here
+ * is cached or reused on a later visit.
+ */
+export function useApplicationPercentile() {
+  return useMutation({
+    mutationFn: (applicationId: string) =>
+      api.getApplicationPercentile(applicationId),
+  });
+}
+
+/**
  * Optimistic because a Kanban card must land in its new column on drop —
  * waiting for a round trip reads as the drag having failed. The cached list
  * is snapshotted first so a server rejection can put the card back exactly

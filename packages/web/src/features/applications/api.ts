@@ -1,5 +1,6 @@
 import { apiClient } from "../../lib/api-client";
 import type {
+  ApplicationPercentile,
   ApplicationSubmission,
   CandidateApplication,
   ReplaceApplicationResumeInput,
@@ -125,5 +126,22 @@ export async function rescoreApplication({
   const { data } = await apiClient.post<
     Envelope<RecruiterPipelineApplication>
   >(`/applications/${applicationId}/rescore`);
+  return data.data;
+}
+
+/**
+ * Computes (or, once already computed, just returns) this application's
+ * percentile among the job's other applicants. Uses the same OpenRouter
+ * model as "Review with AI", so — like that endpoint — this can take
+ * several seconds to a few tens of seconds.
+ */
+export async function getApplicationPercentile(
+  applicationId: string,
+): Promise<ApplicationPercentile> {
+  const { data } = await apiClient.post<Envelope<ApplicationPercentile>>(
+    `/applications/${applicationId}/percentile`,
+    undefined,
+    { timeout: 60_000 },
+  );
   return data.data;
 }

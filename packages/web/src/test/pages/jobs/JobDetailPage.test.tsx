@@ -8,6 +8,7 @@ const {
   usePublicJob,
   useMyApplications,
   useApplyToJob,
+  useApplicationPercentile,
   useAuth,
   toastSuccess,
   toastInfo,
@@ -18,6 +19,7 @@ const {
   usePublicJob: vi.fn(),
   useMyApplications: vi.fn(),
   useApplyToJob: vi.fn(),
+  useApplicationPercentile: vi.fn(),
   useAuth: vi.fn(),
   toastSuccess: vi.fn(),
   toastInfo: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("@/features/jobs/hooks", () => ({
 vi.mock("@/features/applications/hooks", () => ({
   useMyApplications: (enabled?: boolean) => useMyApplications(enabled),
   useApplyToJob: () => useApplyToJob(),
+  useApplicationPercentile: () => useApplicationPercentile(),
 }));
 
 vi.mock("@/hooks/useAuth", () => ({
@@ -160,6 +163,14 @@ function arrangeCandidate({
 beforeEach(() => {
   vi.clearAllMocks();
   resumeReviewResultRef.current = { score: 80, pros: [], cons: [], suggestions: [] };
+  // Idle by default — the percentile UI has its own tests; these cases only
+  // need it to not blow up when JobDetailPage calls .mutate()/.reset() on it.
+  useApplicationPercentile.mockReturnValue({
+    mutate: vi.fn(),
+    reset: vi.fn(),
+    isPending: false,
+    data: undefined,
+  });
 });
 
 describe("JobDetailPage company cross-navigation", () => {

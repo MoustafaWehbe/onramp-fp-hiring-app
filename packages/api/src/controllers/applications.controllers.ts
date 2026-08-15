@@ -10,6 +10,7 @@ import type {
 } from "@starter-kit/shared/db";
 import { applicationService } from "../services/applications.service";
 import { applicationTimelineService } from "../services/application-timeline.service";
+import { applicantPercentileService } from "../services/applicant-percentile.service";
 import { scorecardsService } from "../services/scorecards.service";
 import { getCallerCompanyId } from "../lib/company-membership";
 import { createError } from "../middleware/error-handler";
@@ -190,6 +191,28 @@ export const applicationController = {
       );
 
       res.status(200).json({ data: timeline });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /applications/:id/percentile — candidate-only. Computes (or, once
+   * already computed, simply returns) this application's percentile among
+   * the job's other applicants. Never exposed on any recruiter-facing route.
+   */
+  async percentile(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const result = await applicantPercentileService.computeForApplication(
+        req.params.id as string,
+        req.user!.userId,
+      );
+
+      res.status(200).json({ data: result });
     } catch (err) {
       next(err);
     }

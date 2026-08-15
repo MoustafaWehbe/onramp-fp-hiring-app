@@ -22,7 +22,7 @@ export function EasyApplyButton({
 }: {
   jobId: string;
   disabled?: boolean;
-  onApplied?: () => void;
+  onApplied?: (application: { id: string; jobId: string; stage: string }) => void;
   className?: string;
 }) {
   const readinessQuery = useEasyApplyReadiness();
@@ -61,9 +61,9 @@ export function EasyApplyButton({
     easyApply.mutate(
       { jobId },
       {
-        onSuccess: () => {
+        onSuccess: (application) => {
           toast.success("Applied with your profile.");
-          onApplied?.();
+          onApplied?.(application);
         },
         onError: (error) => {
           toast.error(

@@ -157,3 +157,14 @@ export interface RescoreApplicationInput {
   applicationId: string;
   jobId: string;
 }
+
+/**
+ * The candidate-only "Applicant Percentile Score" — never present on any
+ * recruiter-facing type in this file. `available` is false (with no
+ * percentile) when there was nothing to score, e.g. no resume text on this
+ * application; that's an expected outcome, not an error.
+ */
+export interface ApplicationPercentile {
+  available: boolean;
+  percentile?: number;
+}
