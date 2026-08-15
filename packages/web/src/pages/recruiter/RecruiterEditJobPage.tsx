@@ -68,9 +68,10 @@ export function RecruiterEditJobPage() {
   }
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
+    // Single-form page — narrower than the shared 7xl frame, same width as
+    // before, just anchored inside it instead of independently centered.
+    <div className="max-w-4xl">
+      <div className="mb-8">
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <PencilLine className="h-5 w-5" aria-hidden="true" />
           </div>
@@ -137,7 +138,6 @@ export function RecruiterEditJobPage() {
             </CardContent>
           </Card>
         )}
-      </section>
     </div>
   );
 }

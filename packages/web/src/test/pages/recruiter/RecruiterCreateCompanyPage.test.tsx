@@ -105,4 +105,45 @@ describe("RecruiterCreateCompanyPage", () => {
     expect(toastSuccess).toHaveBeenCalledWith("Company profile created");
     expect(await screen.findByText("Create job destination")).toBeInTheDocument();
   });
+
+  // Relocated here from RecruiterJobsPage.test.tsx: CareersPageLink now
+  // lives on the company page (see the recruiter-sidebar layout-fixes PR) —
+  // the jobs page stopped being a discoverable home for it once navigation
+  // moved into the sidebar.
+  it("surfaces the public careers page once a company exists", () => {
+    useCompanyProfile.mockReturnValue({
+      data: {
+        id: "22222222-2222-4222-8222-222222222222",
+        name: "Northwind",
+        industry: "Developer tools",
+        size: "11–50 employees",
+        location: "Beirut, Lebanon",
+        contact: "talent@northwind.example",
+        website: "",
+        description: "",
+        logoUrl: "",
+      },
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText("Your public careers page")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View" })).toHaveAttribute(
+      "href",
+      "/careers/22222222-2222-4222-8222-222222222222",
+    );
+  });
+
+  it("hides the careers link until a company exists to point at", () => {
+    // The default beforeEach state is a 404 — no company yet.
+    renderPage();
+
+    expect(
+      screen.queryByText("Your public careers page"),
+    ).not.toBeInTheDocument();
+  });
 });

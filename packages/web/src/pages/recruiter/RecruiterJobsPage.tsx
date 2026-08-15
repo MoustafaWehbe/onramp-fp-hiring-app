@@ -14,7 +14,6 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
-import { CareersPageLink } from "../../features/company/components/CareersPageLink";
 import { useRecruiterJobs } from "../../features/jobs/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { employmentTypeLabels } from "../../lib/job-presentation";
@@ -57,9 +56,8 @@ export function RecruiterJobsPage() {
   const jobs = jobsQuery.data ?? [];
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <>
+      <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-medium text-primary">Recruiter jobs</p>
             <h1 className="mt-2 text-4xl font-bold">
@@ -76,10 +74,6 @@ export function RecruiterJobsPage() {
           >
             Create job
           </Link>
-        </div>
-
-        <div className="mb-6">
-          <CareersPageLink />
         </div>
 
         {jobsQuery.isLoading ? (
@@ -204,7 +198,6 @@ export function RecruiterJobsPage() {
             ))}
           </div>
         )}
-      </section>
-    </div>
+    </>
   );
 }

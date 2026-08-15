@@ -70,9 +70,8 @@ export function RecruiterJobDetailsPage() {
     jobQuery.error.response?.status === 404;
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6">
+    <>
+      <div className="mb-6">
           <Link
             to="/recruiter/jobs"
             className={cn(
@@ -265,7 +264,6 @@ export function RecruiterJobDetailsPage() {
             </div>
           </div>
         )}
-      </section>
-    </div>
+    </>
   );
 }

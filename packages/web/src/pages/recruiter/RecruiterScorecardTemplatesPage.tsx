@@ -183,7 +183,12 @@ export function RecruiterScorecardTemplatesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 py-6">
+    // Same narrower-reading-width pattern as Settings — opts into a
+    // tighter width within the shared 7xl content frame rather than
+    // fighting it (this page previously supplied its own py-6 and had no
+    // horizontal padding of its own at all; both now come from the shared
+    // frame).
+    <div className="max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Scorecard templates</h1>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -86,9 +86,10 @@ export function RecruiterCandidateDetailsPage() {
   const candidate = candidateQuery.data;
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link
+    // Single profile card — narrower than the shared 7xl frame, same width
+    // as before, just anchored inside it instead of independently centered.
+    <div className="max-w-4xl">
+      <Link
           to="/recruiter/candidates"
           className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
@@ -422,7 +423,6 @@ export function RecruiterCandidateDetailsPage() {
             </div>
           </CardContent>
         </Card>
-      </section>
     </div>
   );
 }

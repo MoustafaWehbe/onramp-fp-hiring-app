@@ -42,9 +42,11 @@ export function RecruiterSettingsPage() {
   }
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-        <p className="text-sm font-medium text-primary">Recruiter settings</p>
+    // A single settings card reads better narrower than the shared 7xl
+    // content frame — this inner wrapper doesn't fight that frame, it just
+    // opts into a tighter reading width within it, same width as before.
+    <div className="max-w-3xl">
+      <p className="text-sm font-medium text-primary">Recruiter settings</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">
           Calendar connections
         </h1>
@@ -150,7 +152,6 @@ export function RecruiterSettingsPage() {
             )}
           </CardContent>
         </Card>
-      </section>
     </div>
   );
 }
