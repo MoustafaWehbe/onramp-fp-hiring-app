@@ -13,6 +13,7 @@ const {
   toastInfo,
   toastError,
   toastWarning,
+  resumeReviewResultRef,
 } = vi.hoisted(() => ({
   usePublicJob: vi.fn(),
   useMyApplications: vi.fn(),
@@ -22,6 +23,17 @@ const {
   toastInfo: vi.fn(),
   toastError: vi.fn(),
   toastWarning: vi.fn(),
+  // Lets a test drive the gating flow without a real AI call: set this
+  // before rendering, then click "Simulate AI review" to report it upward
+  // exactly as the real component's onResult would.
+  resumeReviewResultRef: {
+    current: {
+      score: 80,
+      pros: [] as string[],
+      cons: [] as string[],
+      suggestions: [] as string[],
+    },
+  },
 }));
 
 vi.mock("@/features/jobs/hooks", () => ({
@@ -40,6 +52,18 @@ vi.mock("@/hooks/useAuth", () => ({
 // Easy Apply has its own tests; these cases cover the upload-and-apply path.
 vi.mock("@/features/candidate/components/EasyApplyButton", () => ({
   EasyApplyButton: () => null,
+}));
+
+// AI resume review has its own tests; these cases cover the apply flow, and
+// this component's real hook needs a QueryClientProvider this suite doesn't set up.
+// Stubbed as a single button so the gating-flow tests below can still drive
+// a review result into the page exactly as the real component's onResult would.
+vi.mock("@/features/applications/components/ResumeAIReview", () => ({
+  ResumeAIReview: ({ onResult }: { onResult: (result: unknown) => void }) => (
+    <button type="button" onClick={() => onResult(resumeReviewResultRef.current)}>
+      Simulate AI review
+    </button>
+  ),
 }));
 
 vi.mock("sonner", () => ({
@@ -135,6 +159,7 @@ function arrangeCandidate({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resumeReviewResultRef.current = { score: 80, pros: [], cons: [], suggestions: [] };
 });
 
 describe("JobDetailPage company cross-navigation", () => {
@@ -304,5 +329,54 @@ describe("JobDetailPage candidate application action", () => {
     expect(toastSuccess).toHaveBeenCalledWith(
       "Draft application submitted",
     );
+  });
+});
+
+describe("JobDetailPage AI review pre-submit warning", () => {
+  it("applies normally with no warning when the candidate never ran a review", () => {
+    arrangeCandidate();
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
+    expect(screen.queryByText(/Your AI review found/)).not.toBeInTheDocument();
+  });
+
+  it("applies normally when a review ran but flagged no gaps", async () => {
+    resumeReviewResultRef.current = {
+      score: 90,
+      pros: ["Strong match"],
+      cons: [],
+      suggestions: [],
+    };
+    arrangeCandidate();
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Simulate AI review" }));
+
+    expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
+    expect(screen.queryByText(/Your AI review found/)).not.toBeInTheDocument();
+  });
+
+  it("blocks the apply panel behind a warning when the review flagged gaps, until acknowledged", async () => {
+    resumeReviewResultRef.current = {
+      score: 40,
+      pros: [],
+      cons: ["No cloud experience", "Missing leadership examples"],
+      suggestions: ["Add a cloud project"],
+    };
+    arrangeCandidate();
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Simulate AI review" }));
+
+    expect(screen.getByText("Your AI review found 2 gaps")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Apply anyway" }));
+
+    expect(screen.queryByText(/Your AI review found/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
   });
 });

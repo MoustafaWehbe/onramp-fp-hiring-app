@@ -246,6 +246,20 @@ export function useRecommendations(limit?: number, enabled = true) {
   });
 }
 
+// ─── AI resume review ────────────────────────────────────────────────────────
+
+/**
+ * A plain mutation, not a query: its result belongs only in whichever
+ * component called it. There is no query key and nothing is cached, so
+ * navigating away (or asking again) discards the previous result rather than
+ * quietly reusing it.
+ */
+export function useReviewResumeForJob() {
+  return useMutation({
+    mutationFn: api.reviewResumeForJob,
+  });
+}
+
 // ─── Application timeline ────────────────────────────────────────────────────
 
 export function useApplicationTimeline(

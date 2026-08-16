@@ -25,6 +25,7 @@ import {
   createExperienceSchema,
   updateExperienceSchema,
   idParamSchema,
+  jobIdParamSchema,
   setSkillsSchema,
 } from "../schemas/candidate.schemas";
 
@@ -218,6 +219,23 @@ router.post(
   resumeUpload.single("resume"),
   handleUploadError,
   candidateController.uploadResume,
+);
+
+// ─── AI resume review ───────────────────────────────────────────────────────
+
+// The uploaded file (if any) is only ever read into memory to extract text
+// for this one request — resumeUpload buffers to memory and nothing here
+// ever hands it to a storage provider, so nothing is written to disk/S3 and
+// nothing is persisted to the database. When no file is attached, the
+// service falls back to this job's existing application resume or the
+// candidate's standing profile.
+router.post(
+  "/jobs/:jobId/resume-review",
+  ...requireCandidate,
+  resumeUpload.single("resume"),
+  handleUploadError,
+  validate(jobIdParamSchema, "params"),
+  candidateController.reviewResume,
 );
 
 export { router as candidateRouter };

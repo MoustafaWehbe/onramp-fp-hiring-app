@@ -30,7 +30,12 @@ export interface EasyApplyReadiness {
  * through to the live profile afterwards.
  */
 export class EasyApplyService {
-  private async loadProfile(userId: string): Promise<ProfileWithRelations> {
+  /**
+   * Also used by ResumeReviewService: it needs the same skills +
+   * work-experience snapshot Easy Apply builds, for a candidate who wants an
+   * AI review of their standing profile rather than a freshly uploaded CV.
+   */
+  async loadProfile(userId: string): Promise<ProfileWithRelations> {
     const profile = (await CandidateProfile.findOne({
       where: { userId },
       include: [

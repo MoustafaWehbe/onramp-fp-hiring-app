@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(node -e \"const m = require\\('C:/Users/norah/onramp-fp-hiring-app/packages/shared/dist/ai/resume-review.js'\\); console.log\\(Object.keys\\(m\\)\\);\")"
+    ]
+  }
+}

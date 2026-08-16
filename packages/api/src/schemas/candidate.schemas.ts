@@ -79,6 +79,10 @@ export const idParamSchema = z.object({
   id: z.string().uuid("id must be a valid UUID"),
 });
 
+export const jobIdParamSchema = z.object({
+  jobId: z.string().uuid("jobId must be a valid UUID"),
+});
+
 export const setSkillsSchema = z.object({
   skillIds: z.array(z.string().uuid("each skillId must be a valid UUID")).max(50),
 });
