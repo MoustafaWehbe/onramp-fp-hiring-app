@@ -117,6 +117,16 @@ router.get(
   validate(applicationIdParamSchema, "params"),
   applicationController.timeline,
 );
+// Candidate-scoped like /timeline: the service checks the application
+// belongs to the caller. This percentile is private by design — no
+// recruiter-facing route ever exposes it, and applications.service.ts's
+// serialize() strips the underlying fields from every response shape.
+router.post(
+  "/:id/percentile",
+  ...requireCandidate,
+  validate(applicationIdParamSchema, "params"),
+  applicationController.percentile,
+);
 router.patch(
   "/:id/stage",
   ...requireRecruiter,

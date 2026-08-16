@@ -67,8 +67,12 @@ export function createWorkers(): Worker[] {
       console.error(`[${worker.name}] Job ${job?.id} failed:`, err.message);
     });
 
+    // .message only, not the full Error object: console.error(..., err) prints
+    // the whole stack, and this fires once per worker on every connection
+    // blip — during a flaky network window that's a stack-trace flood across
+    // four workers instead of one readable line per event.
     worker.on("error", (err) => {
-      console.error(`[${worker.name}] Worker error:`, err);
+      console.warn(`[${worker.name}] connection error: ${err.message}`);
     });
   });
 

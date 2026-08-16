@@ -35,6 +35,7 @@ import {
   WARNING_BANNER,
 } from "../../features/candidate/theme";
 import {
+  useApplicationPercentile,
   useApplyToJob,
   useMyApplications,
 } from "../../features/applications/hooks";
@@ -43,6 +44,7 @@ import {
   validateApplicationResume,
 } from "../../features/applications/resume-files";
 import { ResumeAIReview } from "../../features/applications/components/ResumeAIReview";
+import { ApplicationPercentile } from "../../features/applications/components/ApplicationPercentile";
 import { usePublicJob } from "../../features/jobs/hooks";
 import { useAuth } from "../../hooks/useAuth";
 import { EasyApplyButton } from "../../features/candidate/components/EasyApplyButton";
@@ -89,6 +91,7 @@ export function JobDetailPage() {
     Boolean(user && isCandidate),
   );
   const applyToJob = useApplyToJob();
+  const applicationPercentile = useApplicationPercentile();
   const [duplicateJobId, setDuplicateJobId] = useState<string | null>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
@@ -101,10 +104,14 @@ export function JobDetailPage() {
   // A fresh job (and a fresh CV upload) means a stale review no longer
   // applies — the review is deliberately never persisted, so leaving this
   // page (or switching jobs on it) is exactly when it should be discarded.
+  // The percentile mutation is reset alongside it for the same reason: it's
+  // keyed to a specific application on this job, not something to carry
+  // across a job switch.
   useEffect(() => {
     setResumeReview(null);
     setHasReviewed(false);
     setAcknowledgedReviewWarning(false);
+    applicationPercentile.reset();
   }, [jobId]);
 
   if (jobQuery.isLoading) {
@@ -198,6 +205,7 @@ export function JobDetailPage() {
       }
       setResumeFile(null);
       setJustApplied(true);
+      applicationPercentile.mutate(application.id);
     } catch (error) {
       if (isAxiosError(error) && error.response?.status === 409) {
         setDuplicateJobId(job.id);
@@ -283,9 +291,10 @@ export function JobDetailPage() {
           jobId={job.id}
           className="w-full"
           disabled={isCheckingApplications || isApplyingToThisJob}
-          onApplied={() => {
+          onApplied={(application) => {
             void applicationsQuery.refetch();
             setJustApplied(true);
+            applicationPercentile.mutate(application.id);
           }}
         />
 
@@ -420,6 +429,20 @@ export function JobDetailPage() {
               className="mt-6 sm:max-w-md sm:self-end"
             />
           )}
+          {/* Deliberately not gated on justApplied: the success toast fades
+              after a few seconds, but this can take up to ~30s to resolve —
+              tying its visibility to the toast's timer would hide the
+              result before it ever arrives. It renders nothing on its own
+              (idle mutation) until an apply actually triggers it. */}
+          <ApplicationPercentile
+            isPending={applicationPercentile.isPending}
+            percentile={
+              applicationPercentile.data?.available
+                ? applicationPercentile.data.percentile
+                : undefined
+            }
+            className="mt-3 sm:self-end"
+          />
         </div>
       </section>
 

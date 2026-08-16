@@ -134,6 +134,21 @@ export type ResumeReviewCompletion = (
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
 ) => Promise<string>;
 
+// The interactive "Review with AI" button is advisory and re-runnable on
+// demand; a little variation keeps it from reading identically every time
+// and its output is never compared against anyone else's, so some warmth is
+// fine.
+const INTERACTIVE_REVIEW_TEMPERATURE = 0.2;
+
+// The percentile feature persists this score and ranks it against every
+// other applicant's score for the same job — so unlike the interactive
+// review, "consistent" here doesn't mean "the same candidate gets the same
+// number if they ask twice" (they don't get to ask twice; it's computed once
+// and locked in). It means the score reflects the resume/job evidence and
+// not the model's sampling noise, which is what actually makes cross-
+// candidate comparison meaningful. 0 is as deterministic as the API allows.
+const DETERMINISTIC_SCORE_TEMPERATURE = 0;
+
 // In addition to the first attempt. Kept small: this guards against one
 // dropped connection, not a genuinely unreachable OpenRouter.
 const NETWORK_RETRY_ATTEMPTS = 2;
@@ -155,8 +170,17 @@ export function isTransientNetworkError(error: unknown): boolean {
   return error instanceof APIConnectionError;
 }
 
+/**
+ * The one place that actually calls OpenRouter for this feature — shared by
+ * both the interactive review and the deterministic percentile score, which
+ * differ only in the temperature they pass in. Same prompt, same schema,
+ * same retry/timeout handling either way: the two callers are asking the
+ * same question of the same model, just with different tolerance for the
+ * answer varying between askings.
+ */
 async function requestResumeReviewCompletion(
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
+  temperature: number,
 ): Promise<string> {
   const client = getOpenRouterClient();
   // Live-benchmarked completions with the default model land at ~10-30s;
@@ -178,7 +202,7 @@ async function requestResumeReviewCompletion(
         {
           model: process.env.OPENROUTER_RESUME_REVIEW_MODEL ?? DEFAULT_MODEL,
           messages,
-          temperature: 0.2,
+          temperature,
           // The default model is a reasoning model: its hidden chain-of-thought
           // (returned separately, not in this content string) consumes a
           // variable, sometimes large, share of max_tokens before it ever
@@ -230,9 +254,32 @@ export function isResumeReviewConfigured(): boolean {
   return Boolean(process.env.OPENROUTER_API_KEY);
 }
 
+/**
+ * The candidate-facing "Review with AI" button: pros, cons, suggestions, and
+ * a score, none of it persisted or compared against another candidate.
+ */
 export async function reviewResumeForJob(
   input: ResumeReviewInput,
-  complete: ResumeReviewCompletion = requestResumeReviewCompletion,
+  complete: ResumeReviewCompletion = (messages) =>
+    requestResumeReviewCompletion(messages, INTERACTIVE_REVIEW_TEMPERATURE),
+): Promise<ResumeReviewResult> {
+  const messages = buildResumeReviewMessages(input);
+  const content = await complete(messages);
+  return parseResumeReviewResponse(content);
+}
+
+/**
+ * The percentile feature's scoring call: same prompt and schema as
+ * reviewResumeForJob, at temperature 0 so the score is reproducible enough
+ * to rank against other applicants' scores for the same job. Callers use
+ * only the `score` field — the pros/cons/suggestions this also returns are
+ * a side effect of reusing the shared schema, not something this feature
+ * shows or persists.
+ */
+export async function scoreResumeForApplication(
+  input: ResumeReviewInput,
+  complete: ResumeReviewCompletion = (messages) =>
+    requestResumeReviewCompletion(messages, DETERMINISTIC_SCORE_TEMPERATURE),
 ): Promise<ResumeReviewResult> {
   const messages = buildResumeReviewMessages(input);
   const content = await complete(messages);

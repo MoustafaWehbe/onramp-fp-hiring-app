@@ -85,12 +85,21 @@ export class ApplicationService {
       recruiterNotes,
       resumeFileUrl,
       resumeText,
+      // The Applicant Percentile Score is candidate-private and has no
+      // recruiter-facing equivalent — unlike the fields above, it is never
+      // added back below even when forRecruiter is true.
+      resumeReviewScore: _resumeReviewScore,
+      resumeReviewPercentile: _resumeReviewPercentile,
+      resumeReviewScoredAt: _resumeReviewScoredAt,
       ...safeApplication
     } = plain;
     // Explicitly consume storage-only identifiers while keeping them out of
     // every response shape.
     void _googleEventId;
     void _calendarSyncRecruiterId;
+    void _resumeReviewScore;
+    void _resumeReviewPercentile;
+    void _resumeReviewScoredAt;
 
     return {
       ...safeApplication,
