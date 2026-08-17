@@ -28,6 +28,7 @@ import {
 interface PipelineBoardProps {
   applications: RecruiterPipelineApplication[];
   movingApplicationId?: string;
+  isPro: boolean;
   onMove: (
     application: RecruiterPipelineApplication,
     stage: RecruiterMutableApplicationStage,
@@ -40,11 +41,13 @@ function BoardColumn({
   applications,
   movingApplicationId,
   isDragging,
+  isPro,
 }: {
   stage: RecruiterApplicationStage;
   applications: RecruiterPipelineApplication[];
   movingApplicationId?: string;
   isDragging: boolean;
+  isPro: boolean;
 }) {
   const droppable = isDroppableStage(stage);
   const { setNodeRef, isOver } = useDroppable({ id: stage, disabled: !droppable });
@@ -83,6 +86,7 @@ function BoardColumn({
               key={application.id}
               application={application}
               isMoving={movingApplicationId === application.id}
+              isPro={isPro}
             />
           ))
         )}
@@ -94,6 +98,7 @@ function BoardColumn({
 export function PipelineBoard({
   applications,
   movingApplicationId,
+  isPro,
   onMove,
   onRefuse,
 }: PipelineBoardProps) {
@@ -196,6 +201,7 @@ export function PipelineBoard({
               applications={byStage.get(stage) ?? []}
               movingApplicationId={movingApplicationId}
               isDragging={draggingId !== null}
+              isPro={isPro}
             />
           ))}
         </div>
@@ -215,7 +221,11 @@ export function PipelineBoard({
       >
         {draggingApplication && (
           <div className="w-72 rotate-1 scale-105 rounded-2xl shadow-xl shadow-indigo-500/25 dark:shadow-indigo-400/20">
-            <PipelineCard application={draggingApplication} isMoving={false} />
+            <PipelineCard
+              application={draggingApplication}
+              isMoving={false}
+              isPro={isPro}
+            />
           </div>
         )}
       </DragOverlay>

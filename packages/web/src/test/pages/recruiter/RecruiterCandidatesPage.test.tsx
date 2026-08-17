@@ -5,10 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecruiterCandidatesPage } from "@/pages/recruiter/RecruiterCandidatesPage";
 import type { RecruiterCandidateRecord } from "@/types/recruiter";
 
-const { useRecruiterCandidates, useRecruiterTags } = vi.hoisted(() => ({
-  useRecruiterCandidates: vi.fn(),
-  useRecruiterTags: vi.fn(),
-}));
+const { useRecruiterCandidates, useRecruiterTags, useCompanyProfile } =
+  vi.hoisted(() => ({
+    useRecruiterCandidates: vi.fn(),
+    useRecruiterTags: vi.fn(),
+    useCompanyProfile: vi.fn(),
+  }));
 
 vi.mock("@/features/recruiter/hooks", () => ({
   useRecruiterCandidates: () => useRecruiterCandidates(),
@@ -17,6 +19,13 @@ vi.mock("@/features/recruiter/hooks", () => ({
   // this constant (features/recruiter/hooks.ts) so the sidebar's opportunistic
   // candidate-count badge peeks at the exact same query-cache entry.
   DEFAULT_CANDIDATE_FILTERS: { poolStatus: "all" },
+}));
+
+// The talent pool list is Pro-gated. These tests exercise the unlocked
+// (Pro) behaviour that predates subscription tiers; the locked state has
+// its own test below.
+vi.mock("@/features/company/hooks", () => ({
+  useCompanyProfile: () => useCompanyProfile(),
 }));
 
 const amara: RecruiterCandidateRecord = {
@@ -47,6 +56,11 @@ beforeEach(() => {
     refetch: vi.fn(),
   });
   useRecruiterTags.mockReturnValue({ data: [], isLoading: false });
+  useCompanyProfile.mockReturnValue({
+    data: { subscriptionTier: "PRO" },
+    isSuccess: true,
+    isLoading: false,
+  });
 });
 
 describe("RecruiterCandidatesPage", () => {
@@ -87,5 +101,27 @@ describe("RecruiterCandidatesPage", () => {
         name: "No candidates match your filters",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("locks the whole page for a Free-tier company instead of showing broken filters", () => {
+    useCompanyProfile.mockReturnValue({
+      data: { subscriptionTier: "FREE" },
+      isSuccess: true,
+      isLoading: false,
+    });
+
+    render(
+      <MemoryRouter>
+        <RecruiterCandidatesPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText("Talent pool is a Pro feature"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Amara Okafor")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Search candidates" }),
+    ).not.toBeInTheDocument();
   });
 });

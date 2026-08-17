@@ -62,7 +62,10 @@ function application(
   };
 }
 
-function renderBoard(applications: RecruiterPipelineApplication[]) {
+function renderBoard(
+  applications: RecruiterPipelineApplication[],
+  options: { isPro?: boolean } = {},
+) {
   const onMove = vi.fn();
   const onRefuse = vi.fn();
 
@@ -70,6 +73,7 @@ function renderBoard(applications: RecruiterPipelineApplication[]) {
     <MemoryRouter>
       <PipelineBoard
         applications={applications}
+        isPro={options.isPro ?? true}
         onMove={onMove}
         onRefuse={onRefuse}
       />
@@ -149,6 +153,18 @@ describe("PipelineBoard", () => {
     expect(within(column).getByText("87% fit")).toBeInTheDocument();
     expect(within(column).getByText("Notes")).toBeInTheDocument();
     expect(within(column).getByText(/Aug 5, 2026/)).toBeInTheDocument();
+  });
+
+  it("locks the fit score for a Free-tier company without hiding it entirely", () => {
+    renderBoard([application({ id: "a" })], { isPro: false });
+
+    const column = screen.getByRole("region", { name: "Applied column" });
+    // The real value is still in the DOM (server doesn't redact it) — just
+    // visually blurred and labeled as locked, not replaced or hidden.
+    expect(within(column).getByText("87% fit")).toBeInTheDocument();
+    expect(
+      within(column).getByText("Fit score — upgrade to Pro to view"),
+    ).toBeInTheDocument();
   });
 
   it("shows a pending score without inventing a number", () => {

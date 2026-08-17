@@ -5,12 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecruiterCandidateDetailsPage } from "@/pages/recruiter/RecruiterCandidateDetailsPage";
 import type { RecruiterCandidateRecord } from "@/types/recruiter";
 
-const { useRecruiterCandidate, useUpdateApplicationInterview } = vi.hoisted(
-  () => ({
+const { useRecruiterCandidate, useUpdateApplicationInterview, useCompanyProfile } =
+  vi.hoisted(() => ({
     useRecruiterCandidate: vi.fn(),
     useUpdateApplicationInterview: vi.fn(),
-  }),
-);
+    useCompanyProfile: vi.fn(),
+  }));
 
 vi.mock("@/features/recruiter/hooks", () => ({
   recruiterKeys: {
@@ -37,6 +37,13 @@ vi.mock("@/features/calendar/hooks", () => ({
 
 vi.mock("@/features/recruiter/components/TalentPoolSection", () => ({
   TalentPoolSection: () => <div>Talent pool controls</div>,
+}));
+
+// This page's talent pool / scorecards / AI-insight sections are all
+// Pro-gated. These tests exercise the unlocked (Pro) behaviour that
+// predates subscription tiers; the locked state has its own test below.
+vi.mock("@/features/company/hooks", () => ({
+  useCompanyProfile: () => useCompanyProfile(),
 }));
 
 // The page now renders a scorecard panel per application. This file mounts
@@ -152,6 +159,11 @@ beforeEach(() => {
     isPending: false,
     mutate: vi.fn(),
   });
+  useCompanyProfile.mockReturnValue({
+    data: { subscriptionTier: "PRO" },
+    isSuccess: true,
+    isLoading: false,
+  });
 });
 
 describe("RecruiterCandidateDetailsPage", () => {
@@ -262,5 +274,33 @@ describe("RecruiterCandidateDetailsPage", () => {
     expect(
       screen.getByRole("button", { name: "Save interview details" }),
     ).toBeDisabled();
+  });
+
+  it("locks the Pro-only sections for a Free-tier company without hiding the rest of the page", () => {
+    useCompanyProfile.mockReturnValue({
+      data: { subscriptionTier: "FREE" },
+      isSuccess: true,
+      isLoading: false,
+    });
+
+    renderPage();
+
+    // Talent pool, scorecards, and AI insights are locked…
+    expect(screen.queryByText("Talent pool controls")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Talent pool is a Pro feature"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Interview scorecards are a Pro feature"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("AI fit insights are a Pro feature"),
+    ).toBeInTheDocument();
+    // …but Free-tier content (contact info, application history, CV
+    // downloads) still renders normally.
+    expect(screen.getByText("amara.okafor@example.com")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View or download CV" }),
+    ).toBeInTheDocument();
   });
 });

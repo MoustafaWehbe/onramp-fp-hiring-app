@@ -3,6 +3,7 @@ import type {
   CompanyCareersPage,
   CompanyProfile,
   CompanyProfileInput,
+  SubscriptionTier,
 } from "../../types/company";
 
 interface Envelope<T> {
@@ -45,6 +46,22 @@ export async function updateCompanyProfile({
   const { data } = await apiClient.put<Envelope<CompanyProfile>>(
     `/companies/${id}`,
     input,
+  );
+  return data.data;
+}
+
+// No payment step this phase — see the PAYMENT INTEGRATION SEAM comment
+// alongside the server-side implementation in company.service.ts.
+export async function updateCompanySubscription({
+  id,
+  tier,
+}: {
+  id: string;
+  tier: SubscriptionTier;
+}): Promise<CompanyProfile> {
+  const { data } = await apiClient.post<Envelope<CompanyProfile>>(
+    `/companies/${id}/subscription`,
+    { tier },
   );
   return data.data;
 }

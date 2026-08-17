@@ -1,4 +1,4 @@
-import { RefreshCw, X } from "lucide-react";
+import { Lock, RefreshCw, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ import {
 } from "../../features/applications/interview-date";
 import { useRecruiterJobs } from "../../features/jobs/hooks";
 import { useCalendarConnection } from "../../features/calendar/hooks";
+import { useCompanyProfile } from "../../features/company/hooks";
 import { useRealtime } from "../../providers/RealtimeProvider";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn } from "../../lib/utils";
@@ -256,6 +257,8 @@ export function RecruiterPipelinePage() {
   const applicationsQuery = useApplicationsByJob(jobId);
   const updateStage = useUpdateApplicationStage();
   const rescoreApplication = useRescoreApplication();
+  const companyQuery = useCompanyProfile();
+  const isPro = companyQuery.data?.subscriptionTier === "PRO";
   const { isDegraded } = useRealtime();
   const applications = useMemo(
     () => applicationsQuery.data ?? [],
@@ -459,7 +462,7 @@ export function RecruiterPipelinePage() {
                         Showing {visibleApplications.length} of{" "}
                         {applications.length} candidates.
                       </p>
-                      {unscored.length > 0 && (
+                      {unscored.length > 0 && isPro && (
                         <Button
                           type="button"
                           variant="outline"
@@ -474,6 +477,18 @@ export function RecruiterPipelinePage() {
                             )}
                             aria-hidden="true"
                           />
+                          Rescore {unscored.length} unscored
+                        </Button>
+                      )}
+                      {unscored.length > 0 && !isPro && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          title="AI rescoring requires a Pro subscription. Upgrade to unlock it."
+                        >
+                          <Lock className="mr-2 h-4 w-4" aria-hidden="true" />
                           Rescore {unscored.length} unscored
                         </Button>
                       )}
@@ -500,6 +515,7 @@ export function RecruiterPipelinePage() {
                         ? updateStage.variables?.applicationId
                         : undefined
                     }
+                    isPro={isPro}
                     onMove={moveToStage}
                     onRefuse={(message) => toast.error(message)}
                   />

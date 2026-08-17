@@ -5,6 +5,7 @@ import {
   Search,
   Sparkles,
   Star,
+  Users,
   UserRound,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -15,13 +16,20 @@ import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Skeleton } from "../../components/ui/skeleton";
+import { LockedFeatureState } from "../../components/shared/LockedFeatureState";
 import {
   DEFAULT_CANDIDATE_FILTERS,
   useRecruiterCandidates,
   useRecruiterTags,
 } from "../../features/recruiter/hooks";
+import { useCompanyProfile } from "../../features/company/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn } from "../../lib/utils";
+import {
+  ACCENT_SURFACE,
+  ACCENT_TEXT,
+  CARD_CLASS,
+} from "../../features/candidate/theme";
 import type { RecruiterCandidateFilters } from "../../types/recruiter";
 
 function optionalNumber(value: string): number | undefined {
@@ -59,8 +67,10 @@ export function RecruiterCandidatesPage() {
       tagId,
     ],
   );
-  const candidatesQuery = useRecruiterCandidates(filters);
-  const tagsQuery = useRecruiterTags();
+  const companyQuery = useCompanyProfile();
+  const isPro = companyQuery.data?.subscriptionTier === "PRO";
+  const candidatesQuery = useRecruiterCandidates(filters, { enabled: isPro });
+  const tagsQuery = useRecruiterTags({ enabled: isPro });
   const candidates = candidatesQuery.data ?? [];
 
   // The API is authoritative, while this local pass keeps filtering immediate
@@ -175,6 +185,40 @@ export function RecruiterCandidatesPage() {
           </p>
         </div>
 
+        {companyQuery.isSuccess && !isPro ? (
+          <LockedFeatureState
+            icon={Users}
+            title="Talent pool is a Pro feature"
+            description="Keep notes and tags on every candidate who's applied, filter by fit score or scorecard average, and revisit strong candidates for future roles."
+          />
+        ) : (
+        <>
+        {/* Not yet built — honestly labeled rather than a working feature.
+            Pro-only surface, since a Free company already sees the
+            full-page lock above and doesn't need a second "not available"
+            message stacked on top of it. */}
+        <Card className={cn(CARD_CLASS, "mb-6")}>
+          <CardContent className="flex items-center gap-3 p-4">
+            <span
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                ACCENT_SURFACE,
+              )}
+              aria-hidden="true"
+            >
+              <Sparkles className={cn("h-4 w-4", ACCENT_TEXT)} />
+            </span>
+            <div>
+              <p className="text-sm font-medium">
+                AI-powered candidate recommendations
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Coming soon — HireFlow will surface strong-fit candidates
+                from your talent pool automatically.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="mb-6">
             <CardContent className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
               <div className="relative sm:col-span-2">
@@ -443,6 +487,8 @@ export function RecruiterCandidatesPage() {
               </Card>
             ))}
           </div>
+        )}
+        </>
         )}
     </>
   );
