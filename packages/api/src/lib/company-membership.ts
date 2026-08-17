@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import { User } from "@starter-kit/shared/db";
+import { Company, User, type SubscriptionTier } from "@starter-kit/shared/db";
 
 /**
  * The caller's own company id, used as the getCallerId input to
@@ -17,3 +17,22 @@ export const getCallerCompanyId = async (
   const caller = await User.findByPk(req.user.userId);
   return caller?.companyId;
 };
+
+/** A company's current subscription tier, or undefined if the company (or
+ * companyId itself) doesn't exist. */
+export const getCompanySubscriptionTier = async (
+  companyId?: string | null,
+): Promise<SubscriptionTier | undefined> => {
+  if (!companyId) {
+    return undefined;
+  }
+
+  const company = await Company.findByPk(companyId, {
+    attributes: ["subscriptionTier"],
+  });
+  return company?.subscriptionTier;
+};
+
+export const isCompanyPro = async (
+  companyId?: string | null,
+): Promise<boolean> => (await getCompanySubscriptionTier(companyId)) === "PRO";

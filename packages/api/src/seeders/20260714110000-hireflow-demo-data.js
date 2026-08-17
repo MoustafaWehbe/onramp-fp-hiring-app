@@ -144,6 +144,12 @@ module.exports = {
         description:
           "Northwind Labs builds developer tooling for data-intensive teams.",
         logo_url: "https://northwindlabs.example.com/logo.png",
+        // Seeded as PRO (not the FREE default every other new company gets
+        // via the migration) so AI scoring, the talent pool, and scorecards
+        // are all visible out of the box in the demo environment.
+        subscription_tier: "PRO",
+        subscription_started_at: now,
+        subscription_updated_at: now,
         ...stamp,
       },
     ]);

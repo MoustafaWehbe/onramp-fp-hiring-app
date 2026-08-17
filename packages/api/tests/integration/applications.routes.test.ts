@@ -186,20 +186,27 @@ beforeAll(async () => {
 
   const suffix = randomUUID();
 
+  // Pro, so the existing rescore/AI-scoring assertions below (predating
+  // subscription tiers) keep exercising that behavior now that it's gated.
+  // A dedicated FREE fixture covers the gate itself further down.
   company = await Company.create({
     name: `Applications Company ${suffix}`,
     website: "https://applications.example.com",
     description: "Internal company description",
     logoUrl: "https://applications.example.com/logo.png",
+    subscriptionTier: "PRO",
   });
   createdCompanyIds.push(company.id);
 
+  // Also Pro: the cross-company rescore test expects a 404 from the
+  // ownership guard specifically, not a 403 from the tier gate.
   const otherCompany = await Company.create({
     name: `Other Applications Company ${suffix}`,
     industry: "Security",
     size: "1-10 employees",
     location: "Remote",
     contact: `other-applications-${suffix}@example.com`,
+    subscriptionTier: "PRO",
   });
   createdCompanyIds.push(otherCompany.id);
 
@@ -1104,6 +1111,48 @@ describe("recruiter application pipeline", () => {
       )
       .set("Cookie", cookie(recruiterToken));
     expect(duplicate.status).toBe(409);
+  });
+
+  it("403s a rescore for a Free-tier company with an UPGRADE_REQUIRED code", async () => {
+    const suffix = randomUUID();
+    const freeCompany = await Company.create({
+      name: `Free Rescore Company ${suffix}`,
+      subscriptionTier: "FREE",
+    });
+    createdCompanyIds.push(freeCompany.id);
+
+    const freeRecruiter = await User.create({
+      email: `free-rescore-recruiter-${suffix}@example.com`,
+      passwordHash: "unused-in-these-tests",
+      name: "Free Rescore Recruiter",
+      role: "RECRUITER",
+      companyId: freeCompany.id,
+    });
+    createdUserIds.push(freeRecruiter.id);
+
+    const freeJob = await Job.create({
+      companyId: freeCompany.id,
+      createdById: freeRecruiter.id,
+      title: `Free Rescore Job ${suffix}`,
+      description: "Free-tier rescore gate fixture.",
+      location: "Remote",
+      status: "OPEN",
+    });
+    createdJobIds.push(freeJob.id);
+
+    const freeApplication = await createApplication({
+      jobId: freeJob.id,
+      candidateProfileId: candidateProfileA.id,
+      stage: "APPLIED",
+      submittedAt: new Date(),
+    });
+
+    const res = await request(app)
+      .post(`/api/applications/${freeApplication.id}/rescore`)
+      .set("Cookie", cookie(tokenFor(freeRecruiter)));
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("UPGRADE_REQUIRED");
   });
 
   it("excludes DRAFT applications from the job pipeline", async () => {

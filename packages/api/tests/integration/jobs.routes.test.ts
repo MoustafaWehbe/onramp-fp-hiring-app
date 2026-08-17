@@ -119,6 +119,10 @@ beforeAll(async () => {
 
   const suffix = randomUUID();
 
+  // Pro, since this fixture already carries several simultaneously-OPEN jobs
+  // and the "structured job creation" tests below open more — all of that
+  // predates the Free-tier open-job cap and would otherwise collide with it.
+  // The cap itself is covered by its own "Free-tier open job limit" suite.
   ownCompany = await Company.create({
     name: `Jobs Own Company ${suffix}`,
     industry: "Software",
@@ -128,6 +132,7 @@ beforeAll(async () => {
     website: "https://own-jobs.example.com",
     description: "Internal company description must not leak through public jobs.",
     logoUrl: "https://own-jobs.example.com/logo.png",
+    subscriptionTier: "PRO",
   });
   createdCompanyIds.push(ownCompany.id);
 
@@ -674,6 +679,161 @@ describe("job update ownership and validation", () => {
 
     await otherMutationJob.reload();
     expect(otherMutationJob.title).toBe(originalTitle);
+  });
+});
+
+describe("Free-tier open job limit", () => {
+  function jobInput(overrides: Record<string, unknown> = {}) {
+    return {
+      title: "Limit Test Role",
+      description: "Exercises the Free-tier open-job cap.",
+      employmentType: "FULL_TIME",
+      experienceMin: 0,
+      experienceMax: 5,
+      location: "Remote",
+      isRemote: true,
+      salaryMin: 50000,
+      salaryMax: 80000,
+      salaryCurrency: "USD",
+      // Reuses the file's shared public skill rather than minting a new one
+      // per call — at least one skill is required, but which one is
+      // irrelevant to what this suite is testing.
+      skills: [publicSkill.name],
+      status: "DRAFT",
+      ...overrides,
+    };
+  }
+
+  let freeCompany: Company;
+  let freeRecruiter: User;
+  let freeRecruiterToken: string;
+  let proCompany: Company;
+  let proRecruiter: User;
+  let proRecruiterToken: string;
+
+  beforeAll(async () => {
+    const suffix = randomUUID();
+
+    freeCompany = await Company.create({
+      name: `Job Limit Free Company ${suffix}`,
+      industry: "Software",
+      size: "1-10 employees",
+      location: "Remote",
+      contact: `job-limit-free-${suffix}@example.com`,
+      subscriptionTier: "FREE",
+    });
+    createdCompanyIds.push(freeCompany.id);
+
+    proCompany = await Company.create({
+      name: `Job Limit Pro Company ${suffix}`,
+      industry: "Software",
+      size: "1-10 employees",
+      location: "Remote",
+      contact: `job-limit-pro-${suffix}@example.com`,
+      subscriptionTier: "PRO",
+    });
+    createdCompanyIds.push(proCompany.id);
+
+    freeRecruiter = await User.create({
+      email: `job-limit-free-recruiter-${suffix}@example.com`,
+      passwordHash: "unused-in-these-tests",
+      name: "Free Job Limit Recruiter",
+      role: "RECRUITER",
+      companyId: freeCompany.id,
+    });
+    createdUserIds.push(freeRecruiter.id);
+
+    proRecruiter = await User.create({
+      email: `job-limit-pro-recruiter-${suffix}@example.com`,
+      passwordHash: "unused-in-these-tests",
+      name: "Pro Job Limit Recruiter",
+      role: "RECRUITER",
+      companyId: proCompany.id,
+    });
+    createdUserIds.push(proRecruiter.id);
+
+    freeRecruiterToken = tokenFor(freeRecruiter);
+    proRecruiterToken = tokenFor(proRecruiter);
+  });
+
+  it("allows a Free company's first OPEN job but 403s the second", async () => {
+    const first = await request(app)
+      .post("/api/jobs")
+      .set("Cookie", cookie(freeRecruiterToken))
+      .send(jobInput({ status: "OPEN" }));
+
+    expect(first.status).toBe(201);
+    createdJobIds.push(first.body.data.id);
+
+    const second = await request(app)
+      .post("/api/jobs")
+      .set("Cookie", cookie(freeRecruiterToken))
+      .send(jobInput({ status: "OPEN", title: "Second Limit Test Role" }));
+
+    expect(second.status).toBe(403);
+    expect(second.body.code).toBe("UPGRADE_REQUIRED");
+  });
+
+  it("also enforces the limit on a DRAFT-to-OPEN update", async () => {
+    const draft = await request(app)
+      .post("/api/jobs")
+      .set("Cookie", cookie(freeRecruiterToken))
+      .send(jobInput({ status: "DRAFT", title: "Draft Limit Test Role" }));
+
+    expect(draft.status).toBe(201);
+    createdJobIds.push(draft.body.data.id);
+
+    const res = await request(app)
+      .put(`/api/jobs/${draft.body.data.id}`)
+      .set("Cookie", cookie(freeRecruiterToken))
+      .send({ status: "OPEN" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("UPGRADE_REQUIRED");
+
+    await Job.findByPk(draft.body.data.id).then((job) =>
+      expect(job?.status).toBe("DRAFT"),
+    );
+  });
+
+  it("lets a Pro company open more than one job at a time", async () => {
+    const first = await request(app)
+      .post("/api/jobs")
+      .set("Cookie", cookie(proRecruiterToken))
+      .send(jobInput({ status: "OPEN", title: "Pro Open Role One" }));
+    expect(first.status).toBe(201);
+    createdJobIds.push(first.body.data.id);
+
+    const second = await request(app)
+      .post("/api/jobs")
+      .set("Cookie", cookie(proRecruiterToken))
+      .send(jobInput({ status: "OPEN", title: "Pro Open Role Two" }));
+    expect(second.status).toBe(201);
+    createdJobIds.push(second.body.data.id);
+  });
+
+  it("leaves already-OPEN jobs open when the company downgrades to Free", async () => {
+    const res = await request(app)
+      .post(`/api/companies/${proCompany.id}/subscription`)
+      .set("Cookie", cookie(proRecruiterToken))
+      .send({ tier: "FREE" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.subscriptionTier).toBe("FREE");
+
+    const jobs = await request(app)
+      .get("/api/jobs")
+      .set("Cookie", cookie(proRecruiterToken));
+
+    expect(jobs.status).toBe(200);
+    const openJobs = (
+      jobs.body.data as Array<{ status: string }>
+    ).filter((job) => job.status === "OPEN");
+    expect(openJobs.length).toBeGreaterThanOrEqual(2);
+
+    // Restore the tier so this suite's own fixtures don't bleed a
+    // Free-tier company into any test order run after this one.
+    await proCompany.update({ subscriptionTier: "PRO" });
   });
 });
 

@@ -1,5 +1,8 @@
 import { Model, DataTypes, type Sequelize, type Optional } from "sequelize";
 
+export const SUBSCRIPTION_TIERS = ["FREE", "PRO"] as const;
+export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number];
+
 export interface CompanyAttributes {
   id: string;
   name: string;
@@ -10,6 +13,9 @@ export interface CompanyAttributes {
   website?: string;
   description?: string;
   logoUrl?: string;
+  subscriptionTier: SubscriptionTier;
+  subscriptionStartedAt?: Date;
+  subscriptionUpdatedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -24,6 +30,9 @@ export type CompanyCreationAttributes = Optional<
   | "website"
   | "description"
   | "logoUrl"
+  | "subscriptionTier"
+  | "subscriptionStartedAt"
+  | "subscriptionUpdatedAt"
 >;
 
 export class Company
@@ -39,6 +48,9 @@ export class Company
   declare website: string | undefined;
   declare description: string | undefined;
   declare logoUrl: string | undefined;
+  declare subscriptionTier: SubscriptionTier;
+  declare subscriptionStartedAt: Date | undefined;
+  declare subscriptionUpdatedAt: Date | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 
@@ -80,6 +92,25 @@ export class Company
         },
         logoUrl: {
           type: DataTypes.STRING(2048),
+          allowNull: true,
+        },
+        subscriptionTier: {
+          type: DataTypes.STRING(10),
+          allowNull: false,
+          defaultValue: "FREE",
+          validate: {
+            isIn: {
+              args: [[...SUBSCRIPTION_TIERS]],
+              msg: `subscriptionTier must be one of: ${SUBSCRIPTION_TIERS.join(", ")}`,
+            },
+          },
+        },
+        subscriptionStartedAt: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
+        subscriptionUpdatedAt: {
+          type: DataTypes.DATE,
           allowNull: true,
         },
       },

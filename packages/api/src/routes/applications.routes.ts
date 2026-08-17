@@ -14,6 +14,7 @@ import { applicationController } from "../controllers/applications.controllers";
 import { validate } from "../middleware/validate";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
+import { requirePro } from "../middleware/requirePro";
 import { ownershipGuard } from "../lib/ownership";
 import { getCallerCompanyId } from "../lib/company-membership";
 import { resumeUpload } from "../lib/resume-upload";
@@ -135,9 +136,13 @@ router.patch(
   ownApplicationGuard,
   applicationController.updateInterview,
 );
+// Rescoring is an AI feature, gated Pro — the applicant's own initial score
+// (scheduled automatically on apply) is still gated separately, in the
+// service layer, since that path has no recruiter caller to check.
 router.post(
   "/:id/rescore",
   ...requireRecruiter,
+  requirePro,
   validate(applicationIdParamSchema, "params"),
   ownApplicationGuard,
   applicationController.rescore,
@@ -154,9 +159,11 @@ router.post(
 // evaluation is scoped through the application's job to the caller's company
 // exactly like a stage change is. A recruiter at another company gets the
 // same 404 they would get for any other application they cannot see.
+// Interview scorecards are a Pro feature.
 router.put(
   "/:id/scorecard",
   ...requireRecruiter,
+  requirePro,
   validate(applicationIdParamSchema, "params"),
   validate(submitScorecardSchema),
   ownApplicationGuard,
@@ -165,6 +172,7 @@ router.put(
 router.get(
   "/:id/scorecards",
   ...requireRecruiter,
+  requirePro,
   validate(applicationIdParamSchema, "params"),
   ownApplicationGuard,
   applicationController.getScorecards,

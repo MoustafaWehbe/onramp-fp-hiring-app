@@ -1,4 +1,9 @@
-import { getSequelize, Company, User } from "@starter-kit/shared/db";
+import {
+  getSequelize,
+  Company,
+  User,
+  type SubscriptionTier,
+} from "@starter-kit/shared/db";
 import { createError } from "../middleware/error-handler";
 // jobs.service imports isCompanyProfileComplete back from here, so these two
 // form an import cycle. It is safe because both references are inside method
@@ -50,6 +55,9 @@ export class CompanyService {
       description: company.description ?? null,
       logoUrl: company.logoUrl ?? null,
       profileComplete: isCompanyProfileComplete(company),
+      subscriptionTier: company.subscriptionTier,
+      subscriptionStartedAt: company.subscriptionStartedAt ?? null,
+      subscriptionUpdatedAt: company.subscriptionUpdatedAt ?? null,
     };
   }
 
@@ -147,6 +155,29 @@ export class CompanyService {
     }
 
     await company.update(input);
+
+    return this.serialize(company);
+  }
+
+  // PAYMENT INTEGRATION SEAM: this phase upgrades/downgrades instantly with
+  // no payment step. A real billing integration attaches here — before the
+  // tier actually flips — to authorize/charge before granting PRO, and to
+  // handle webhook-driven downgrades on payment failure/cancellation.
+  async updateSubscription(companyId: string, tier: SubscriptionTier) {
+    const company = await Company.findByPk(companyId);
+
+    if (!company) {
+      throw createError("Company not found", 404);
+    }
+
+    const now = new Date();
+    const becamePro = tier === "PRO" && company.subscriptionTier !== "PRO";
+
+    await company.update({
+      subscriptionTier: tier,
+      subscriptionUpdatedAt: now,
+      ...(becamePro ? { subscriptionStartedAt: now } : {}),
+    });
 
     return this.serialize(company);
   }

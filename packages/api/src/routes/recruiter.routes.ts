@@ -2,6 +2,7 @@ import { Router } from "express";
 import { recruiterController } from "../controllers/recruiter.controller";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
+import { requirePro } from "../middleware/requirePro";
 import { talentPoolController } from "../controllers/talent-pool.controller";
 import { validate } from "../middleware/validate";
 import {
@@ -17,6 +18,10 @@ import { calendarController } from "../controllers/calendar.controller";
 
 const router = Router();
 const requireRecruiter = [authenticate, authorize("RECRUITER", "ADMIN")];
+// Talent pool / CRM is a Pro feature. The candidate detail route is
+// deliberately excluded below — it's also how a Free-tier recruiter opens an
+// applicant from their (still-available) pipeline, so it can't be gated.
+const requireProRecruiter = [...requireRecruiter, requirePro];
 
 // Calendar consent is deliberately separate from sign-in OAuth. The callback
 // is protected by its signed, purpose-scoped state cookie; every JSON endpoint
@@ -51,10 +56,13 @@ router.get(
 
 router.get(
   "/candidates",
-  ...requireRecruiter,
+  ...requireProRecruiter,
   validate(recruiterCandidateFiltersSchema, "query"),
   talentPoolController.listCandidates,
 );
+// Not Pro-gated: also reached from a Free-tier recruiter's own pipeline
+// (PipelineCard's "view applicant" link). The Pro-only widgets on this page
+// (talent pool actions, scorecards) lock at the component level instead.
 router.get(
   "/candidates/:candidateId",
   ...requireRecruiter,
@@ -63,42 +71,42 @@ router.get(
 );
 router.post(
   "/candidates/:candidateId/pool",
-  ...requireRecruiter,
+  ...requireProRecruiter,
   validate(candidateIdParamSchema, "params"),
   validate(addCandidateToPoolSchema),
   talentPoolController.addToPool,
 );
 router.patch(
   "/candidates/:candidateId/pool",
-  ...requireRecruiter,
+  ...requireProRecruiter,
   validate(candidateIdParamSchema, "params"),
   validate(updateCandidatePoolSchema),
   talentPoolController.updatePool,
 );
 router.delete(
   "/candidates/:candidateId/pool",
-  ...requireRecruiter,
+  ...requireProRecruiter,
   validate(candidateIdParamSchema, "params"),
   talentPoolController.removeFromPool,
 );
 router.post(
   "/candidates/:candidateId/invite",
-  ...requireRecruiter,
+  ...requireProRecruiter,
   validate(candidateIdParamSchema, "params"),
   validate(inviteCandidateSchema),
   talentPoolController.invite,
 );
 
-router.get("/tags", ...requireRecruiter, talentPoolController.listTags);
+router.get("/tags", ...requireProRecruiter, talentPoolController.listTags);
 router.post(
   "/tags",
-  ...requireRecruiter,
+  ...requireProRecruiter,
   validate(createCandidateTagSchema),
   talentPoolController.createTag,
 );
 router.delete(
   "/tags/:tagId",
-  ...requireRecruiter,
+  ...requireProRecruiter,
   validate(tagIdParamSchema, "params"),
   talentPoolController.deleteTag,
 );

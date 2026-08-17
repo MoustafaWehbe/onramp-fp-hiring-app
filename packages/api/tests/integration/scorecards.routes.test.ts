@@ -61,8 +61,17 @@ let criteria: { id: string; label: string }[] = [];
 beforeAll(async () => {
   await initializeDatabase();
 
-  company = await Company.create({ name: `Scorecard Co ${suffix}` });
-  otherCompany = await Company.create({ name: `Rival Co ${suffix}` });
+  // Both Pro: scorecards are a Pro feature end to end, and these fixtures
+  // predate subscription tiers — the gate itself has its own dedicated
+  // Free-tier suite further down.
+  company = await Company.create({
+    name: `Scorecard Co ${suffix}`,
+    subscriptionTier: "PRO",
+  });
+  otherCompany = await Company.create({
+    name: `Rival Co ${suffix}`,
+    subscriptionTier: "PRO",
+  });
 
   recruiterA = await User.create({
     email: `sc-recruiter-a-${suffix}@example.com`,
@@ -581,5 +590,101 @@ describe("pipeline summary", () => {
     });
 
     await fresh.destroy();
+  });
+});
+
+// ─── Free-tier gating ──────────────────────────────────────────────────────────
+
+describe("Free-tier scorecard gating", () => {
+  let freeCompany: Company;
+  let freeRecruiter: User;
+  let freeToken: string;
+  let freeJob: Job;
+  let freeApplication: Application;
+  let freeCandidateUser: User;
+  let freeCandidateProfile: CandidateProfile;
+
+  beforeAll(async () => {
+    freeCompany = await Company.create({
+      name: `Free Scorecard Co ${suffix}`,
+      subscriptionTier: "FREE",
+    });
+    freeRecruiter = await User.create({
+      email: `sc-free-recruiter-${suffix}@example.com`,
+      passwordHash: "unused-in-these-tests",
+      name: "Free Scorecard Recruiter",
+      role: "RECRUITER",
+      companyId: freeCompany.id,
+    });
+    freeCandidateUser = await User.create({
+      email: `sc-free-candidate-${suffix}@example.com`,
+      passwordHash: "unused-in-these-tests",
+      name: "Free Scorecard Candidate",
+      role: "CANDIDATE",
+    });
+    freeCandidateProfile = await CandidateProfile.create({
+      userId: freeCandidateUser.id,
+      headline: "Engineer",
+    });
+    freeJob = await Job.create({
+      companyId: freeCompany.id,
+      createdById: freeRecruiter.id,
+      title: `Free Scorecard Job ${suffix}`,
+      description: "Role used by the Free-tier scorecard gate tests.",
+      location: "Remote",
+      employmentType: "FULL_TIME",
+      status: "OPEN",
+    });
+    freeApplication = await Application.create({
+      jobId: freeJob.id,
+      candidateProfileId: freeCandidateProfile.id,
+      stage: "INTERVIEWING",
+      submittedAt: new Date(),
+    });
+
+    freeToken = tokenFor(freeRecruiter);
+  });
+
+  afterAll(async () => {
+    await Application.destroy({ where: { id: freeApplication.id } });
+    await Job.destroy({ where: { id: freeJob.id } });
+    await CandidateProfile.destroy({ where: { id: freeCandidateProfile.id } });
+    await User.destroy({
+      where: { id: [freeRecruiter.id, freeCandidateUser.id] },
+    });
+    await Company.destroy({ where: { id: freeCompany.id } });
+  });
+
+  it("403s template listing and creation with an UPGRADE_REQUIRED code", async () => {
+    const list = await request(app)
+      .get("/api/scorecard-templates")
+      .set("Cookie", cookie(freeToken));
+    expect(list.status).toBe(403);
+    expect(list.body.code).toBe("UPGRADE_REQUIRED");
+
+    const create = await request(app)
+      .post("/api/scorecard-templates")
+      .set("Cookie", cookie(freeToken))
+      .send({ title: "Free plan loop", criteria: [{ label: "Technical" }] });
+    expect(create.status).toBe(403);
+    expect(create.body.code).toBe("UPGRADE_REQUIRED");
+  });
+
+  it("403s submitting and reading a scorecard with an UPGRADE_REQUIRED code", async () => {
+    const submit = await request(app)
+      .put(`/api/applications/${freeApplication.id}/scorecard`)
+      .set("Cookie", cookie(freeToken))
+      .send({
+        templateId,
+        ratings: [{ criterionId: criteria[0].id, rating: 3 }],
+      });
+    expect(submit.status).toBe(403);
+    expect(submit.body.code).toBe("UPGRADE_REQUIRED");
+
+    const read = await request(app)
+      .get(`/api/applications/${freeApplication.id}/scorecards`)
+      .set("Cookie", cookie(freeToken));
+    expect(read.status).toBe(403);
+    expect(read.body.code).toBe("UPGRADE_REQUIRED");
   });
 });

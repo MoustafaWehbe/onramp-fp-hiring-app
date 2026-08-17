@@ -220,6 +220,28 @@ export class JobService {
     );
   }
 
+  /** Free tier caps a company at one active OPEN job at a time. Pro is
+   * unlimited. Only checked when the job being saved would itself be OPEN;
+   * called before the status transition is persisted, so an existing OPEN
+   * job being re-saved never counts against itself. */
+  private async assertOpenJobAllowance(company: Company) {
+    if (company.subscriptionTier === "PRO") {
+      return;
+    }
+
+    const openCount = await Job.count({
+      where: { companyId: company.id, status: "OPEN" },
+    });
+
+    if (openCount >= 1) {
+      throw createError(
+        "Free plan allows 1 open job at a time. Upgrade to Pro for unlimited open jobs.",
+        403,
+        "UPGRADE_REQUIRED",
+      );
+    }
+  }
+
   async create(input: CreateJobInput) {
     const company = await Company.findByPk(input.companyId);
 
@@ -242,6 +264,10 @@ export class JobService {
 
     if (user.companyId !== company.id) {
       throw createError("Company not found", 404);
+    }
+
+    if (input.status === "OPEN") {
+      await this.assertOpenJobAllowance(company);
     }
 
     this.validateJobState(input);
@@ -377,6 +403,15 @@ export class JobService {
 
   async update(job: Job, input: JobUpdateInput) {
     const previousStatus = job.status;
+
+    if (input.status === "OPEN" && previousStatus !== "OPEN") {
+      const company = await Company.findByPk(job.companyId);
+      if (!company) {
+        throw createError("Company not found", 404);
+      }
+      await this.assertOpenJobAllowance(company);
+    }
+
     const nextRanges = {
       experienceMin: input.experienceMin ?? job.experienceMin,
       experienceMax: input.experienceMax ?? job.experienceMax,

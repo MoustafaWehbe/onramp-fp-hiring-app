@@ -91,13 +91,19 @@ beforeAll(async () => {
   databaseInitialized = true;
   const suffix = randomUUID();
 
+  // Both Pro: the talent pool/tags routes are a Pro feature end to end, and
+  // these fixtures predate subscription tiers — the gate itself, and the
+  // regression guard that candidate detail stays Free-accessible, have their
+  // own dedicated suite further down.
   company = await Company.create({
     name: "Talent Pool Company " + suffix,
     website: "https://talent-pool.example.com",
+    subscriptionTier: "PRO",
   });
   otherCompany = await Company.create({
     name: "Other Talent Pool Company " + suffix,
     website: "https://other-talent-pool.example.com",
+    subscriptionTier: "PRO",
   });
   companyIds.push(company.id, otherCompany.id);
 
@@ -532,5 +538,80 @@ describe("POST /api/recruiter/candidates/:candidateId/invite", () => {
       .set("Cookie", cookie(recruiterToken))
       .send({ jobId: otherCompanyJob.id });
     expect(otherCompany.status).toBe(404);
+  });
+});
+
+describe("Free-tier talent pool gating", () => {
+  let freeCompany: Company;
+  let freeRecruiter: User;
+  let freeToken: string;
+  let freeCompanyJob: Job;
+  let freeCompanyApplication: Application;
+
+  beforeAll(async () => {
+    const suffix = randomUUID();
+    freeCompany = await Company.create({
+      name: "Free Talent Pool Company " + suffix,
+      subscriptionTier: "FREE",
+    });
+    freeRecruiter = await User.create({
+      email: "talent-free-recruiter-" + suffix + "@example.com",
+      passwordHash: "unused",
+      name: "Free Talent Recruiter",
+      role: "RECRUITER",
+      companyId: freeCompany.id,
+    });
+    freeToken = tokenFor(freeRecruiter);
+
+    // The detail route only returns a candidate who has actually applied to
+    // this company (loadCandidates joins through Job.companyId), so the
+    // regression guard below needs a real relationship, not just a token.
+    freeCompanyJob = await Job.create({
+      companyId: freeCompany.id,
+      createdById: freeRecruiter.id,
+      title: "Free Talent Pool Job " + suffix,
+      description: "Fixture job for the Free-tier detail regression guard.",
+      location: "Remote",
+      status: "OPEN",
+    });
+    freeCompanyApplication = await Application.create({
+      jobId: freeCompanyJob.id,
+      candidateProfileId: profile.id,
+      stage: "APPLIED",
+      submittedAt: new Date(),
+      aiScoringStatus: "failed",
+    });
+  });
+
+  afterAll(async () => {
+    await Application.destroy({ where: { id: freeCompanyApplication.id } });
+    await Job.destroy({ where: { id: freeCompanyJob.id } });
+    await User.destroy({ where: { id: freeRecruiter.id } });
+    await Company.destroy({ where: { id: freeCompany.id } });
+  });
+
+  it("403s the candidate list and a pool mutation with an UPGRADE_REQUIRED code", async () => {
+    const list = await request(app)
+      .get("/api/recruiter/candidates")
+      .set("Cookie", cookie(freeToken));
+    expect(list.status).toBe(403);
+    expect(list.body.code).toBe("UPGRADE_REQUIRED");
+
+    const pool = await request(app)
+      .post("/api/recruiter/candidates/" + profile.id + "/pool")
+      .set("Cookie", cookie(freeToken))
+      .send({ notes: "Should be blocked." });
+    expect(pool.status).toBe(403);
+    expect(pool.body.code).toBe("UPGRADE_REQUIRED");
+  });
+
+  it("still allows a Free-tier recruiter to open a candidate's own detail page", async () => {
+    // Regression guard: candidate detail is reachable from a Free-tier
+    // recruiter's own pipeline (not just the gated Talent Pool list), so it
+    // must not be gated even though this recruiter's company is Free.
+    const res = await request(app)
+      .get("/api/recruiter/candidates/" + profile.id)
+      .set("Cookie", cookie(freeToken));
+    expect(res.status).toBe(200);
   });
 });

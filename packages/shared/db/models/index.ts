@@ -85,6 +85,10 @@ export {
   NOTIFICATION_TYPES,
   type NotificationType,
 } from "./Notification";
+export {
+  SUBSCRIPTION_TIERS,
+  type SubscriptionTier,
+} from "./Company";
 
 export function initModels(sequelize: Sequelize): void {
   User.initModel(sequelize);
