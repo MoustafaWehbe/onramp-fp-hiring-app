@@ -11,6 +11,12 @@ export const CARD_CLASS =
  */
 export const CARD_HOVER_CLASS =
   "transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_30px_-6px_rgba(79,70,229,0.18)] dark:hover:shadow-[0_10px_30px_-6px_rgba(129,140,248,0.22)]";
+
+/** Shared page measure and vertical rhythm used by app workspace content. */
+export const APP_CONTENT_CLASS =
+  "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8";
+export const PAGE_SECTION_SPACING = "space-y-6";
+
 export const ACCENT_GRADIENT =
   "bg-gradient-to-br from-indigo-500 to-violet-500 dark:from-indigo-400 dark:to-violet-400";
 export const ACCENT_TEXT = "text-indigo-600 dark:text-indigo-400";
@@ -25,6 +31,9 @@ export const TEXT_HEADING = "text-stone-900 dark:text-stone-100";
 export const TEXT_BODY = "text-stone-600 dark:text-stone-400";
 export const TEXT_META = "text-stone-500 dark:text-stone-400";
 export const TEXT_SUBTLE = "text-stone-400 dark:text-stone-500";
+export const IDENTITY_HEADING_CLASS =
+  "text-2xl font-bold tracking-tight sm:text-3xl";
+export const SECTION_HEADING_CLASS = "text-lg font-semibold";
  
 /** Borders/dividers that sit on top of CARD_CLASS's background. */
 export const BORDER_SUBTLE = "border-stone-200 dark:border-stone-800";

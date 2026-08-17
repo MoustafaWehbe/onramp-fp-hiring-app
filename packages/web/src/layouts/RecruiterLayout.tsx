@@ -4,6 +4,8 @@ import { RecruiterSidebar } from "../components/layout/RecruiterSidebar";
 import { RecruiterTopBar } from "../components/layout/RecruiterTopBar";
 import { RouteTransition } from "../components/shared/RouteTransition";
 import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
+import { APP_CONTENT_CLASS } from "../features/candidate/theme";
+import { cn } from "../lib/utils";
 
 /**
  * Recruiter-only shell: a persistent left sidebar (collapsible to an icon
@@ -44,7 +46,7 @@ export function RecruiterLayout() {
                 Kanban pipeline board stays inside it too — its columns
                 already scroll horizontally on their own (overflow-x-auto),
                 so there's no need to break out of the shared width. */}
-            <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+            <div className={cn(APP_CONTENT_CLASS, "py-8")}>
               <Outlet />
             </div>
           </RouteTransition>
