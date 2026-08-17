@@ -45,7 +45,7 @@ export function RecruiterSettingsPage() {
     // A single settings card reads better narrower than the shared 7xl
     // content frame — this inner wrapper doesn't fight that frame, it just
     // opts into a tighter reading width within it, same width as before.
-    <div className="max-w-3xl">
+    <div className="w-full">
       <p className="text-sm font-medium text-primary">Recruiter settings</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">
           Calendar connections

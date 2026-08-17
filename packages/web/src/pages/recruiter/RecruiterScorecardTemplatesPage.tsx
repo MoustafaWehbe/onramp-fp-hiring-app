@@ -188,7 +188,7 @@ export function RecruiterScorecardTemplatesPage() {
     // fighting it (this page previously supplied its own py-6 and had no
     // horizontal padding of its own at all; both now come from the shared
     // frame).
-    <div className="max-w-3xl space-y-6">
+    <div className="w-full space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Scorecard templates</h1>
         <p className="mt-1 text-sm text-muted-foreground">
