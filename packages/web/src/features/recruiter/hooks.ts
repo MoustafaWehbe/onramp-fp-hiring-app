@@ -46,6 +46,37 @@ export function useRecruiterCandidates(filters: RecruiterCandidateFilters = {}) 
   });
 }
 
+/** The filters RecruiterCandidatesPage requests on first load — exported so
+ * the sidebar's badge peek (below) reads the exact same cache entry rather
+ * than maintaining an independent copy that could drift out of sync. */
+export const DEFAULT_CANDIDATE_FILTERS: RecruiterCandidateFilters = {
+  poolStatus: "all",
+};
+
+/**
+ * Passive cache reads for the sidebar's nav badges — `enabled: false` means
+ * neither of these ever triggers its own fetch. They only surface whatever
+ * is already in the React Query cache from an actual visit to the owning
+ * page (Dashboard / Talent pool), so a badge is simply absent until that
+ * page has been opened once this session. That's deliberate: the sidebar
+ * must not add a new query just to populate a badge.
+ */
+export function usePeekRecruiterDashboard() {
+  return useQuery({
+    queryKey: recruiterKeys.dashboard,
+    queryFn: api.getRecruiterDashboard,
+    enabled: false,
+  }).data;
+}
+
+export function usePeekRecruiterCandidateCount() {
+  return useQuery({
+    queryKey: recruiterKeys.candidateList(DEFAULT_CANDIDATE_FILTERS),
+    queryFn: () => api.getRecruiterCandidates(DEFAULT_CANDIDATE_FILTERS),
+    enabled: false,
+  }).data?.length;
+}
+
 export function useRecruiterTags() {
   return useQuery({
     queryKey: recruiterKeys.tags,

@@ -30,9 +30,8 @@ export function RecruiterCalendarPage() {
   const interviews = calendarQuery.data ?? [];
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+    <>
+      <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-primary">Company calendar</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
@@ -153,7 +152,6 @@ export function RecruiterCalendarPage() {
             })}
           </div>
         )}
-      </section>
-    </div>
+    </>
   );
 }

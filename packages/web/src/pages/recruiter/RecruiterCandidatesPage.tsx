@@ -16,6 +16,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Skeleton } from "../../components/ui/skeleton";
 import {
+  DEFAULT_CANDIDATE_FILTERS,
   useRecruiterCandidates,
   useRecruiterTags,
 } from "../../features/recruiter/hooks";
@@ -36,7 +37,7 @@ export function RecruiterCandidatesPage() {
   const [minScorecardAverage, setMinScorecardAverage] = useState("");
   const [poolStatus, setPoolStatus] = useState<
     "all" | "in_pool" | "not_in_pool"
-  >("all");
+  >(DEFAULT_CANDIDATE_FILTERS.poolStatus ?? "all");
 
   const filters = useMemo<RecruiterCandidateFilters>(
     () => ({
@@ -164,9 +165,8 @@ export function RecruiterCandidatesPage() {
   }
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
+    <>
+      <div className="mb-8">
           <p className="text-sm font-medium text-primary">Recruiter CRM</p>
           <h1 className="mt-2 text-4xl font-bold">Talent pool & candidates</h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
@@ -444,7 +444,6 @@ export function RecruiterCandidatesPage() {
             ))}
           </div>
         )}
-      </section>
-    </div>
+    </>
   );
 }

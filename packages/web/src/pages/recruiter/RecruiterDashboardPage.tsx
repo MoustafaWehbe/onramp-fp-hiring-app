@@ -99,9 +99,8 @@ export function RecruiterDashboardPage() {
     : [];
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <>
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-medium text-primary">
               Recruiter dashboard
@@ -315,7 +314,6 @@ export function RecruiterDashboardPage() {
             </div>
           </>
         )}
-      </section>
-    </div>
+    </>
   );
 }

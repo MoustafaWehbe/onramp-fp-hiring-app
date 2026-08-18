@@ -49,8 +49,8 @@ export const roleConfig: Record<PlatformRole, RoleConfig> = {
     homePath: "/recruiter/dashboard",
     navItems: [
       { to: "/recruiter/dashboard", label: "Dashboard" },
-      { to: "/recruiter/pipeline", label: "Pipeline" },
       { to: "/recruiter/jobs", label: "Jobs" },
+      { to: "/recruiter/pipeline", label: "Pipeline" },
       { to: "/recruiter/candidates", label: "Talent pool" },
       { to: "/recruiter/calendar", label: "Calendar" },
       { to: "/recruiter/scorecard-templates", label: "Scorecards" },

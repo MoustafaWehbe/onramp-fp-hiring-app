@@ -5,6 +5,7 @@ import { Card, CardContent } from "../../../components/ui/card";
 import { cn } from "../../../lib/utils";
 import {
   CARD_CLASS,
+  SECTION_HEADING_CLASS,
   TEXT_HEADING,
   TEXT_META,
   ACCENT_HOVER,
@@ -54,7 +55,8 @@ export function ProfileSection({
           <div className="min-w-0">
             <h2
   className={cn(
-    "flex items-center gap-2 text-lg font-semibold",
+    "flex items-center gap-2",
+    SECTION_HEADING_CLASS,
     TEXT_HEADING,
   )}
 >

@@ -25,6 +25,7 @@ import {
   ACCENT_GRADIENT,
   ACCENT_CHIP,
   CARD_CLASS,
+  IDENTITY_HEADING_CLASS,
   TEXT_HEADING,
   TEXT_BODY,
   TEXT_META,
@@ -156,7 +157,7 @@ export function IdentityCard() {
           <div className="mt-4">
            <h1
             className={cn(
-              "text-2xl font-bold tracking-tight sm:text-3xl",
+              IDENTITY_HEADING_CLASS,
               TEXT_HEADING,
               )}
             >

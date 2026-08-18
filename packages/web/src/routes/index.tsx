@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "../layouts/AppLayout";
 import { AuthLayout } from "../layouts/AuthLayout";
+import { RecruiterLayout } from "../layouts/RecruiterLayout";
 import { Login } from "../pages/auth/Login";
 import { Register } from "../pages/auth/Register";
 import { OAuthCallback } from "../pages/auth/OAuthCallback";
@@ -54,7 +55,22 @@ export function AppRoutes() {
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
 
-        {/* Recruiter workspace */}
+        {/* Interviewer workspace */}
+        <Route element={<ProtectedRoute allowedRoles={["interviewer"]} />}>
+          <Route path="/interviewer" element={<InterviewerHomePage />} />
+          <Route
+            path="/interviewer/pipeline"
+            element={<InterviewerPipelinePage />}
+          />
+          <Route
+            path="/interviewer/schedule"
+            element={<InterviewerSchedulePage />}
+          />
+        </Route>
+      </Route>
+
+      {/* Recruiter workspace — its own sidebar shell, not AppLayout's top nav. */}
+      <Route element={<RecruiterLayout />}>
         <Route element={<ProtectedRoute allowedRoles={["recruiter"]} />}>
           <Route
             path="/recruiter"
@@ -69,52 +85,45 @@ export function AppRoutes() {
             element={<RecruiterPipelinePage />}
           />
           <Route path="/recruiter/jobs" element={<RecruiterJobsPage />} />
-          <Route path="/recruiter/calendar" element={<RecruiterCalendarPage />} />
-          <Route path="/recruiter/settings" element={<RecruiterSettingsPage />} />
+          <Route
+            path="/recruiter/calendar"
+            element={<RecruiterCalendarPage />}
+          />
+          <Route
+            path="/recruiter/settings"
+            element={<RecruiterSettingsPage />}
+          />
           <Route
             path="/recruiter/candidates"
             element={<RecruiterCandidatesPage />}
           />
           <Route
-  path="/recruiter/candidates/:id"
-  element={<RecruiterCandidateDetailsPage />}
-/>
-<Route
-  path="/recruiter/company/create"
-  element={<RecruiterCreateCompanyPage />}
-/>
-<Route
-  path="/recruiter/jobs/create"
-  element={<RecruiterCreateJobPage />}
-/>
-<Route
-  path="/recruiter/jobs/:id"
-  element={<RecruiterJobDetailsPage />}
-/>
-<Route
-  path="/recruiter/jobs/:id/edit"
-  element={<RecruiterEditJobPage />}
-/>
-<Route
-  path="/recruiter/pipeline/:jobId"
-  element={<RecruiterPipelinePage />}
-/>
-<Route
-  path="/recruiter/scorecard-templates"
-  element={<RecruiterScorecardTemplatesPage />}
-/>
-        </Route>
-          
-        {/* Interviewer workspace */}
-        <Route element={<ProtectedRoute allowedRoles={["interviewer"]} />}>
-          <Route path="/interviewer" element={<InterviewerHomePage />} />
-          <Route
-            path="/interviewer/pipeline"
-            element={<InterviewerPipelinePage />}
+            path="/recruiter/candidates/:id"
+            element={<RecruiterCandidateDetailsPage />}
           />
           <Route
-            path="/interviewer/schedule"
-            element={<InterviewerSchedulePage />}
+            path="/recruiter/company/create"
+            element={<RecruiterCreateCompanyPage />}
+          />
+          <Route
+            path="/recruiter/jobs/create"
+            element={<RecruiterCreateJobPage />}
+          />
+          <Route
+            path="/recruiter/jobs/:id"
+            element={<RecruiterJobDetailsPage />}
+          />
+          <Route
+            path="/recruiter/jobs/:id/edit"
+            element={<RecruiterEditJobPage />}
+          />
+          <Route
+            path="/recruiter/pipeline/:jobId"
+            element={<RecruiterPipelinePage />}
+          />
+          <Route
+            path="/recruiter/scorecard-templates"
+            element={<RecruiterScorecardTemplatesPage />}
           />
         </Route>
       </Route>

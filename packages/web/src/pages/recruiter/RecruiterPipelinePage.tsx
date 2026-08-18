@@ -348,9 +348,8 @@ export function RecruiterPipelinePage() {
   }
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
+    <>
+      <div className="mb-8">
           <p className="text-sm font-medium text-primary">Recruiter pipeline</p>
           <h1 className="mt-2 text-4xl font-bold">
             Move candidates, not spreadsheets.
@@ -360,6 +359,11 @@ export function RecruiterPipelinePage() {
             appear for everyone else on the job.
           </p>
         </div>
+
+        {/* The board's columns already scroll horizontally on their own
+            (overflow-x-auto in PipelineBoard) — it stays inside the shared
+            max-w-7xl content container like every other recruiter page
+            rather than breaking out of it. */}
 
         {!jobId && <PipelineJobSelector />}
 
@@ -504,7 +508,6 @@ export function RecruiterPipelinePage() {
             )}
           </div>
         )}
-      </section>
-    </div>
+    </>
   );
 }

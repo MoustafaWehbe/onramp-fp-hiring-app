@@ -19,6 +19,7 @@ import { Label } from "../../components/ui/label";
 import { Skeleton } from "../../components/ui/skeleton";
 import { Textarea } from "../../components/ui/textarea";
 import { CompanyLogo } from "../../components/shared/CompanyLogo";
+import { CareersPageLink } from "../../features/company/components/CareersPageLink";
 import {
   useCompanyProfile,
   useCreateCompanyProfile,
@@ -184,9 +185,10 @@ export function RecruiterCreateCompanyPage() {
   const previewLogoUrl = form.watch("logoUrl");
 
   return (
-    <div className="bg-muted/30">
-      <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
+    // Single-form page — narrower than the shared 7xl frame, same width as
+    // before, just anchored inside it instead of independently centered.
+    <div className="w-full">
+      <div className="mb-8">
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Building2 className="h-5 w-5" aria-hidden="true" />
           </div>
@@ -242,7 +244,15 @@ export function RecruiterCreateCompanyPage() {
               </div>
             </Card>
 
-            <Card>
+            {/* Relocated here from the recruiter jobs page — company
+                identity/branding is where "here's your public careers page"
+                belongs conceptually, and now that navigation moved into the
+                sidebar, the jobs page isn't a discoverable home for it.
+                Renders nothing until a company profile actually exists,
+                same as the form below. */}
+            <CareersPageLink />
+
+            <Card className="mt-6">
               <CardHeader>
                 <CardTitle>
                   {profileQuery.data
@@ -387,7 +397,6 @@ export function RecruiterCreateCompanyPage() {
             </Card>
           </>
         )}
-      </section>
     </div>
   );
 }
