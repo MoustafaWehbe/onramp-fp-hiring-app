@@ -25,6 +25,7 @@ import {
 import { scheduleApplicationFitScore } from "./application-scoring-queue.service";
 import { notificationService } from "./notifications.service";
 import { calendarService } from "./calendar.service";
+import { isCompanyPro } from "../lib/company-membership";
 
 /**
  * Notifications and realtime pushes are a side channel on data that is
@@ -288,7 +289,12 @@ export class ApplicationService {
         submittedAt: existing.submittedAt,
       });
 
-      scheduleApplicationFitScore(existing);
+      // AI fit scoring is a Pro feature. Skipped silently on Free — the
+      // candidate's apply flow must never fail or warn because of the
+      // company's plan.
+      if (await isCompanyPro(job.companyId)) {
+        scheduleApplicationFitScore(existing);
+      }
       emit(
         notificationService.recordNewApplication(existing.id),
         `new application ${existing.id}`,
@@ -338,7 +344,10 @@ export class ApplicationService {
         submittedAt: application.submittedAt,
       });
 
-      scheduleApplicationFitScore(application);
+      // AI fit scoring is a Pro feature — see the equivalent comment above.
+      if (await isCompanyPro(job.companyId)) {
+        scheduleApplicationFitScore(application);
+      }
       emit(
         notificationService.recordNewApplication(application.id),
         `new application ${application.id}`,
@@ -516,6 +525,11 @@ export class ApplicationService {
           attributes: ["id", "userId"],
           required: true,
         },
+        {
+          model: Job,
+          as: "job",
+          attributes: ["companyId"],
+        },
       ],
     }) as ResumeAccessApplication | null;
 
@@ -550,7 +564,10 @@ export class ApplicationService {
       await applicationResumeService.delete(previousStorageKey);
     }
 
-    if (application.stage !== "DRAFT") {
+    if (
+      application.stage !== "DRAFT" &&
+      (await isCompanyPro(application.job?.companyId))
+    ) {
       scheduleApplicationFitScore(application);
     }
 

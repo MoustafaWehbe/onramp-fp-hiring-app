@@ -23,3 +23,14 @@ export const updateCompanySchema = createCompanySchema.partial();
 export const companyIdParamSchema = z.object({
   companyId: z.string().uuid("companyId must be a valid UUID"),
 });
+
+// For routes shaped /companies/:id/..., where the param is named "id" rather
+// than "companyId" (that name is reserved for the public careers route
+// above). Do not reuse companyIdParamSchema against an :id route.
+export const companyIdPathParamSchema = z.object({
+  id: z.string().uuid("id must be a valid UUID"),
+});
+
+export const updateSubscriptionSchema = z.object({
+  tier: z.enum(["FREE", "PRO"]),
+});

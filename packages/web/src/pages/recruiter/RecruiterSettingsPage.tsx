@@ -1,6 +1,13 @@
-import { CalendarDays, CheckCircle2, ExternalLink, Unplug } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import {
+  CalendarDays,
+  CheckCircle2,
+  ExternalLink,
+  Sparkles,
+  Unplug,
+} from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { Badge } from "../../components/ui/badge";
 import { Button, buttonVariants } from "../../components/ui/button";
 import {
   Card,
@@ -14,7 +21,9 @@ import {
   useCalendarConnection,
   useDisconnectCalendar,
 } from "../../features/calendar/hooks";
+import { useCompanyProfile } from "../../features/company/hooks";
 import { getApiErrorMessage } from "../../lib/api-errors";
+import { cn } from "../../lib/utils";
 
 const calendarErrors: Record<string, string> = {
   not_configured:
@@ -30,6 +39,8 @@ export function RecruiterSettingsPage() {
   const [searchParams] = useSearchParams();
   const connectionQuery = useCalendarConnection();
   const disconnect = useDisconnectCalendar();
+  const companyQuery = useCompanyProfile();
+  const isPro = companyQuery.data?.subscriptionTier === "PRO";
   const callbackConnected = searchParams.get("calendar") === "connected";
   const errorCode = searchParams.get("calendar_error");
 
@@ -149,6 +160,45 @@ export function RecruiterSettingsPage() {
                   </p>
                 )}
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-start gap-3">
+              <span className="rounded-md bg-primary/10 p-2 text-primary">
+                <Sparkles className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  Plan
+                  {companyQuery.isSuccess && (
+                    <Badge variant={isPro ? "success" : "muted"}>
+                      {isPro ? "Pro" : "Free"}
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  {isPro
+                    ? "AI fit scoring, the talent pool, and interview scorecards are all unlocked."
+                    : "Unlimited open jobs, AI fit scoring, the talent pool, and interview scorecards are Pro features."}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {companyQuery.isLoading ? (
+              <Skeleton className="h-10 w-40" />
+            ) : (
+              <Link
+                to="/recruiter/upgrade"
+                className={cn(
+                  buttonVariants({ variant: isPro ? "outline" : "default" }),
+                )}
+              >
+                {isPro ? "Manage plan" : "Upgrade to Pro"}
+              </Link>
             )}
           </CardContent>
         </Card>

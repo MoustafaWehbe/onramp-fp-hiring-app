@@ -20,6 +20,15 @@ function appWithOperationalError() {
   return app;
 }
 
+function appWithCodedError() {
+  const app = express();
+  app.get("/upgrade", (_req, _res, next) => {
+    next(createError("Upgrade required", 403, "UPGRADE_REQUIRED"));
+  });
+  app.use(errorHandler);
+  return app;
+}
+
 describe("errorHandler", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   let consoleErrorSpy: jest.SpyInstance;
@@ -63,5 +72,21 @@ describe("errorHandler", () => {
     expect(res.status).toBe(401);
     expect(res.body.error).toBe("Expected failure");
     expect(res.body).not.toHaveProperty("stack");
+  });
+
+  it("includes the optional machine-readable code when createError sets one", async () => {
+    const res = await request(appWithCodedError()).get("/upgrade");
+
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({
+      error: "Upgrade required",
+      code: "UPGRADE_REQUIRED",
+    });
+  });
+
+  it("omits code entirely when createError is not given one", async () => {
+    const res = await request(appWithOperationalError()).get("/expected");
+
+    expect(res.body).not.toHaveProperty("code");
   });
 });

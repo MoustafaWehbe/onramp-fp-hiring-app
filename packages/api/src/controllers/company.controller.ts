@@ -94,4 +94,23 @@ export const companyController = {
       next(err);
     }
   },
+
+  async updateSubscription(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const company = await companyService.updateSubscription(
+        req.params.id as string,
+        req.body.tier,
+      );
+
+      res.json({
+        data: company,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

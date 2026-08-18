@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ClipboardList, Plus, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
   Card,
@@ -11,6 +11,8 @@ import {
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { LockedFeatureState } from "../../components/shared/LockedFeatureState";
+import { useCompanyProfile } from "../../features/company/hooks";
 import {
   useCreateScorecardTemplate,
   useDeleteScorecardTemplate,
@@ -70,7 +72,9 @@ function draftFrom(template: ScorecardTemplate): Draft {
  * every rating already given against it.
  */
 export function RecruiterScorecardTemplatesPage() {
-  const templatesQuery = useScorecardTemplates();
+  const companyQuery = useCompanyProfile();
+  const isPro = companyQuery.data?.subscriptionTier === "PRO";
+  const templatesQuery = useScorecardTemplates({ enabled: isPro });
   const createTemplate = useCreateScorecardTemplate();
   const updateTemplate = useUpdateScorecardTemplate();
   const deleteTemplate = useDeleteScorecardTemplate();
@@ -158,6 +162,26 @@ export function RecruiterScorecardTemplatesPage() {
       setError(getApiErrorMessage(err, "Couldn't delete the template."));
     }
   };
+
+  if (companyQuery.isSuccess && !isPro) {
+    return (
+      <div className="w-full space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Scorecard templates</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The criteria your team scores candidates against. Every
+            interviewer fills in the same set, so their ratings can be
+            compared.
+          </p>
+        </div>
+        <LockedFeatureState
+          icon={ClipboardList}
+          title="Scorecard templates are a Pro feature"
+          description="Build your own interview criteria and collect structured, comparable ratings from every interviewer."
+        />
+      </div>
+    );
+  }
 
   if (templatesQuery.isLoading) {
     return (

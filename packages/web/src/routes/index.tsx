@@ -29,6 +29,7 @@ import { RecruiterJobDetailsPage } from "../pages/recruiter/RecruiterJobDetailsP
 import { RecruiterEditJobPage } from "../pages/recruiter/RecruiterEditJobPage";
 import { RecruiterCalendarPage } from "../pages/recruiter/RecruiterCalendarPage";
 import { RecruiterSettingsPage } from "../pages/recruiter/RecruiterSettingsPage";
+import { RecruiterUpgradePage } from "../pages/recruiter/RecruiterUpgradePage";
 import { PublicCareerPage } from "../pages/PublicCareerPage";
 export function AppRoutes() {
   return (
@@ -124,6 +125,10 @@ export function AppRoutes() {
           <Route
             path="/recruiter/scorecard-templates"
             element={<RecruiterScorecardTemplatesPage />}
+          />
+          <Route
+            path="/recruiter/upgrade"
+            element={<RecruiterUpgradePage />}
           />
         </Route>
       </Route>

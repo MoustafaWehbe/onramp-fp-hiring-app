@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "../../../components/ui/badge";
+import { LockedBadge } from "../../../components/shared/LockedFeatureState";
 import { cn } from "../../../lib/utils";
 import { CARD_CLASS, CARD_HOVER_CLASS } from "../../candidate/theme";
 import type { RecruiterPipelineApplication } from "../../../types/applications";
@@ -16,14 +17,16 @@ import { formatInterviewDate } from "../interview-date";
 
 function FitScoreBadge({
   application,
+  isPro,
 }: {
   application: RecruiterPipelineApplication;
+  isPro: boolean;
 }) {
   if (
     application.aiScoringStatus === "completed" &&
     application.fitScore !== null
   ) {
-    return (
+    const badge = (
       <Badge
         variant={
           application.fitScore >= 75
@@ -36,6 +39,18 @@ function FitScoreBadge({
         <Sparkles className="mr-1 h-3 w-3" aria-hidden="true" />
         {application.fitScore}% fit
       </Badge>
+    );
+
+    // AI fit scoring is a Pro feature. The score already exists on this
+    // application (Free companies just never had it scheduled) — locking it
+    // visually rather than hiding the badge keeps this honest about what's
+    // actually gated.
+    return isPro ? (
+      badge
+    ) : (
+      <LockedBadge label="Fit score — upgrade to Pro to view">
+        {badge}
+      </LockedBadge>
     );
   }
 
@@ -61,8 +76,10 @@ function FitScoreBadge({
  */
 function ScorecardBadge({
   summary,
+  isPro,
 }: {
   summary: RecruiterPipelineApplication["scorecardSummary"];
+  isPro: boolean;
 }) {
   if (!summary || summary.scorecardCount === 0 || summary.averageRating === null) {
     return (
@@ -73,7 +90,7 @@ function ScorecardBadge({
     );
   }
 
-  return (
+  const badge = (
     <Badge
       variant={summary.averageRating >= 4 ? "success" : "secondary"}
       title={`Average of ${summary.scorecardCount} scorecard${
@@ -84,14 +101,26 @@ function ScorecardBadge({
       {summary.averageRating.toFixed(1)}/5 · {summary.scorecardCount}
     </Badge>
   );
+
+  // Interview scorecards are a Pro feature — see the equivalent comment on
+  // FitScoreBadge above.
+  return isPro ? (
+    badge
+  ) : (
+    <LockedBadge label="Scorecard average — upgrade to Pro to view">
+      {badge}
+    </LockedBadge>
+  );
 }
 
 export function PipelineCard({
   application,
   isMoving,
+  isPro,
 }: {
   application: RecruiterPipelineApplication;
   isMoving: boolean;
+  isPro: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -150,8 +179,8 @@ export function PipelineCard({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <FitScoreBadge application={application} />
-        <ScorecardBadge summary={application.scorecardSummary} />
+        <FitScoreBadge application={application} isPro={isPro} />
+        <ScorecardBadge summary={application.scorecardSummary} isPro={isPro} />
         {application.interviewDate && (
           <Badge
             variant="outline"

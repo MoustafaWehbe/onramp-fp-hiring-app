@@ -3,14 +3,20 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RecruiterSettingsPage } from "@/pages/recruiter/RecruiterSettingsPage";
 
-const { useCalendarConnection, useDisconnectCalendar } = vi.hoisted(() => ({
-  useCalendarConnection: vi.fn(),
-  useDisconnectCalendar: vi.fn(),
-}));
+const { useCalendarConnection, useDisconnectCalendar, useCompanyProfile } =
+  vi.hoisted(() => ({
+    useCalendarConnection: vi.fn(),
+    useDisconnectCalendar: vi.fn(),
+    useCompanyProfile: vi.fn(),
+  }));
 
 vi.mock("@/features/calendar/hooks", () => ({
   useCalendarConnection: () => useCalendarConnection(),
   useDisconnectCalendar: () => useDisconnectCalendar(),
+}));
+
+vi.mock("@/features/company/hooks", () => ({
+  useCompanyProfile: () => useCompanyProfile(),
 }));
 
 beforeEach(() => {
@@ -26,6 +32,11 @@ beforeEach(() => {
     isLoading: false,
     isError: false,
     refetch: vi.fn(),
+  });
+  useCompanyProfile.mockReturnValue({
+    data: { subscriptionTier: "FREE" },
+    isSuccess: true,
+    isLoading: false,
   });
 });
 
@@ -88,5 +99,37 @@ describe("RecruiterSettingsPage", () => {
     expect(
       screen.queryByRole("link", { name: /Connect Google Calendar/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows the Free plan with an upgrade link", () => {
+    render(
+      <MemoryRouter>
+        <RecruiterSettingsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Free")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Upgrade to Pro" }),
+    ).toHaveAttribute("href", "/recruiter/upgrade");
+  });
+
+  it("shows the Pro plan with a manage-plan link", () => {
+    useCompanyProfile.mockReturnValue({
+      data: { subscriptionTier: "PRO" },
+      isSuccess: true,
+      isLoading: false,
+    });
+
+    render(
+      <MemoryRouter>
+        <RecruiterSettingsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Pro")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Manage plan" }),
+    ).toHaveAttribute("href", "/recruiter/upgrade");
   });
 });

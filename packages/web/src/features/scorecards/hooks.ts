@@ -11,13 +11,17 @@ export const scorecardKeys = {
     ["scorecards", "application", applicationId] as const,
 };
 
-export function useScorecardTemplates() {
+export function useScorecardTemplates(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: scorecardKeys.templates,
     queryFn: api.getScorecardTemplates,
     // A company with no templates is a normal state the UI renders as
     // guidance, not a failure worth retrying.
     retry: false,
+    // Scorecard templates are Pro-only server-side. RecruiterScorecardTemplatesPage
+    // passes enabled: isPro so a Free company never fires a request that's
+    // guaranteed to 403.
+    enabled: options.enabled ?? true,
   });
 }
 

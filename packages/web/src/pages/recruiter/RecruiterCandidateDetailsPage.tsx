@@ -2,12 +2,14 @@ import { isAxiosError } from "axios";
 import {
   ArrowLeft,
   CalendarCheck,
+  ClipboardList,
   FileText,
   Loader2,
   Mail,
   MapPin,
   Phone,
   Sparkles,
+  Star,
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Badge } from "../../components/ui/badge";
@@ -19,8 +21,10 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
+import { LockedBadge, LockedFeatureState } from "../../components/shared/LockedFeatureState";
 import { InterviewDetailsForm } from "../../features/applications/components/InterviewDetailsForm";
 import { formatInterviewDate } from "../../features/applications/interview-date";
+import { useCompanyProfile } from "../../features/company/hooks";
 import { useRecruiterCandidate } from "../../features/recruiter/hooks";
 import { ScorecardPanel } from "../../features/scorecards/components/ScorecardPanel";
 import { TalentPoolSection } from "../../features/recruiter/components/TalentPoolSection";
@@ -30,6 +34,8 @@ import { cn, formatDate } from "../../lib/utils";
 export function RecruiterCandidateDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const candidateQuery = useRecruiterCandidate(id);
+  const companyQuery = useCompanyProfile();
+  const isPro = companyQuery.data?.subscriptionTier === "PRO";
 
   if (candidateQuery.isLoading) {
     return (
@@ -143,7 +149,15 @@ export function RecruiterCandidateDetailsPage() {
             <div className="border-t pt-6">
               <h2 className="font-semibold">Talent pool & outreach</h2>
               <div className="mt-3">
-                <TalentPoolSection candidate={candidate} />
+                {isPro ? (
+                  <TalentPoolSection candidate={candidate} />
+                ) : (
+                  <LockedFeatureState
+                    icon={Star}
+                    title="Talent pool is a Pro feature"
+                    description="Add private notes and tags, or invite this candidate to a new role — all part of the Pro talent pool."
+                  />
+                )}
               </div>
             </div>
 
@@ -171,16 +185,30 @@ export function RecruiterCandidateDetailsPage() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="outline">{application.stage}</Badge>
-                        {application.fitScore !== null && (
-                          <Badge variant="secondary">
-                            {application.fitScore}% fit
-                          </Badge>
-                        )}
-                        {application.scorecardAverage != null && (
-                          <Badge variant="secondary">
-                            Scorecard {application.scorecardAverage.toFixed(1)}/5
-                          </Badge>
-                        )}
+                        {application.fitScore !== null &&
+                          (isPro ? (
+                            <Badge variant="secondary">
+                              {application.fitScore}% fit
+                            </Badge>
+                          ) : (
+                            <LockedBadge label="Fit score — upgrade to Pro to view">
+                              <Badge variant="secondary">
+                                {application.fitScore}% fit
+                              </Badge>
+                            </LockedBadge>
+                          ))}
+                        {application.scorecardAverage != null &&
+                          (isPro ? (
+                            <Badge variant="secondary">
+                              Scorecard {application.scorecardAverage.toFixed(1)}/5
+                            </Badge>
+                          ) : (
+                            <LockedBadge label="Scorecard average — upgrade to Pro to view">
+                              <Badge variant="secondary">
+                                Scorecard {application.scorecardAverage.toFixed(1)}/5
+                              </Badge>
+                            </LockedBadge>
+                          ))}
                       </div>
                     </div>
                   ))}
@@ -242,7 +270,15 @@ export function RecruiterCandidateDetailsPage() {
 
             <div className="border-t pt-6">
               <h2 className="font-semibold">Interview scorecards</h2>
-              {(candidate.applicationInsights?.length ?? 0) > 0 ? (
+              {!isPro ? (
+                <div className="mt-3">
+                  <LockedFeatureState
+                    icon={ClipboardList}
+                    title="Interview scorecards are a Pro feature"
+                    description="Collect structured ratings from every interviewer against your team's own criteria."
+                  />
+                </div>
+              ) : (candidate.applicationInsights?.length ?? 0) > 0 ? (
                 <div className="mt-3 grid gap-4">
                   {candidate.applicationInsights?.map((application) => (
                     <div
@@ -269,7 +305,15 @@ export function RecruiterCandidateDetailsPage() {
 
             <div className="border-t pt-6">
               <h2 className="font-semibold">AI fit insights</h2>
-              {(candidate.applicationInsights?.length ?? 0) > 0 ? (
+              {!isPro ? (
+                <div className="mt-3">
+                  <LockedFeatureState
+                    icon={Sparkles}
+                    title="AI fit insights are a Pro feature"
+                    description="See an AI-generated summary, strengths, and gaps for every application against this role."
+                  />
+                </div>
+              ) : (candidate.applicationInsights?.length ?? 0) > 0 ? (
                 <div className="mt-3 grid gap-4">
                   {candidate.applicationInsights?.map((application) => (
                     <div

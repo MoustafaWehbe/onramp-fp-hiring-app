@@ -3,6 +3,7 @@ import {
   createCompanyProfile,
   getCompanyProfile,
   updateCompanyProfile,
+  updateCompanySubscription,
 } from "@/features/company/api";
 import type {
   CompanyProfile,
@@ -39,6 +40,9 @@ const profile: CompanyProfile = {
   description: null,
   logoUrl: null,
   profileComplete: true,
+  subscriptionTier: "FREE",
+  subscriptionStartedAt: null,
+  subscriptionUpdatedAt: null,
 };
 
 beforeEach(() => {
@@ -67,5 +71,23 @@ describe("company profile API", () => {
       updateCompanyProfile({ id: profile.id, input }),
     ).resolves.toEqual(profile);
     expect(apiPut).toHaveBeenCalledWith(`/companies/${profile.id}`, input);
+  });
+
+  it("updates the caller-owned company's subscription tier", async () => {
+    const proProfile: CompanyProfile = {
+      ...profile,
+      subscriptionTier: "PRO",
+      subscriptionStartedAt: "2026-08-17T00:00:00.000Z",
+      subscriptionUpdatedAt: "2026-08-17T00:00:00.000Z",
+    };
+    apiPost.mockResolvedValue({ data: { data: proProfile } });
+
+    await expect(
+      updateCompanySubscription({ id: profile.id, tier: "PRO" }),
+    ).resolves.toEqual(proProfile);
+    expect(apiPost).toHaveBeenCalledWith(
+      `/companies/${profile.id}/subscription`,
+      { tier: "PRO" },
+    );
   });
 });

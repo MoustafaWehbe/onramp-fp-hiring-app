@@ -3,7 +3,10 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import type { CompanyProfileInput } from "../../types/company";
+import type {
+  CompanyProfileInput,
+  SubscriptionTier,
+} from "../../types/company";
 import * as api from "./api";
 
 export const companyKeys = {
@@ -56,6 +59,22 @@ export function useUpdateCompanyProfile() {
       input: CompanyProfileInput;
     }) => api.updateCompanyProfile({ id, input }),
     onSuccess: (profile) => {
+      queryClient.setQueryData(companyKeys.profile, profile);
+    },
+  });
+}
+
+export function useUpdateCompanySubscription() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, tier }: { id: string; tier: SubscriptionTier }) =>
+      api.updateCompanySubscription({ id, tier }),
+    onSuccess: (profile) => {
+      // Same cache-write pattern as useUpdateCompanyProfile: every reader of
+      // companyKeys.profile (sidebar, settings, locked-feature checks)
+      // re-renders with the new tier in this same pass — no re-login, no
+      // extra fetch.
       queryClient.setQueryData(companyKeys.profile, profile);
     },
   });

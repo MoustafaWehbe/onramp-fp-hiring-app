@@ -3,8 +3,10 @@ import { Company } from "@starter-kit/shared/db";
 import { companyController } from "../controllers/company.controller";
 import { validate } from "../middleware/validate";
 import {
+  companyIdPathParamSchema,
   createCompanySchema,
   updateCompanySchema,
+  updateSubscriptionSchema,
 } from "../schemas/company.schemas";
 import { authenticate } from "../middleware/authenticate";
 import { authorize } from "../middleware/authorize";
@@ -60,5 +62,15 @@ router.put(
   validate(updateCompanySchema),
   ownCompanyGuard,
   companyController.update,
+);
+// No payment step this phase — see the PAYMENT INTEGRATION SEAM comment in
+// company.service.ts's updateSubscription.
+router.post(
+  "/:id/subscription",
+  ...requireRecruiter,
+  validate(companyIdPathParamSchema, "params"),
+  validate(updateSubscriptionSchema),
+  ownCompanyGuard,
+  companyController.updateSubscription,
 );
 export { router as companyRouter };

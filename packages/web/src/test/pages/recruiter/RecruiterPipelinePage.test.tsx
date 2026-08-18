@@ -14,6 +14,7 @@ const {
   toastError,
   toastSuccess,
   useApplicationsByJob,
+  useCompanyProfile,
   useRealtime,
   useRecruiterJobs,
   useRescoreApplication,
@@ -24,6 +25,7 @@ const {
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   useApplicationsByJob: vi.fn(),
+  useCompanyProfile: vi.fn(),
   useRealtime: vi.fn(),
   useRecruiterJobs: vi.fn(),
   useRescoreApplication: vi.fn(),
@@ -79,6 +81,13 @@ vi.mock("@/features/calendar/hooks", () => ({
 
 vi.mock("@/providers/RealtimeProvider", () => ({
   useRealtime: () => useRealtime(),
+}));
+
+// The bulk rescore action and the fit/scorecard badges on each card are
+// Pro-gated. These tests exercise the unlocked (Pro) behaviour that
+// predates subscription tiers.
+vi.mock("@/features/company/hooks", () => ({
+  useCompanyProfile: () => useCompanyProfile(),
 }));
 
 vi.mock("sonner", () => ({
@@ -232,6 +241,11 @@ beforeEach(() => {
   useUpdateApplicationInterview.mockReturnValue(mutationState());
   useUpdateApplicationStage.mockReturnValue(mutationState());
   useRealtime.mockReturnValue({ status: "open", isDegraded: false });
+  useCompanyProfile.mockReturnValue({
+    data: { subscriptionTier: "PRO" },
+    isSuccess: true,
+    isLoading: false,
+  });
 });
 
 describe("RecruiterPipelinePage", () => {
@@ -498,6 +512,22 @@ describe("RecruiterPipelinePage", () => {
     expect(toastSuccess).toHaveBeenCalledWith(
       "Jordan Lee's fit score was queued.",
     );
+  });
+
+  it("locks the bulk rescore action for a Free-tier company instead of leaving it clickable-but-broken", () => {
+    useCompanyProfile.mockReturnValue({
+      data: { subscriptionTier: "FREE" },
+      isSuccess: true,
+      isLoading: false,
+    });
+    useApplicationsByJob.mockReturnValue(
+      queryState({ data: [amaraApplication, unscoredApplication] }),
+    );
+
+    renderPage("job-1");
+
+    const button = screen.getByRole("button", { name: /Rescore 1 unscored/ });
+    expect(button).toBeDisabled();
   });
 
   it("warns when live updates are disconnected", () => {

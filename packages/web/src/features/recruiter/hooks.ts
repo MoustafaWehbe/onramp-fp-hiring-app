@@ -38,11 +38,19 @@ export function useRecruiterAnalytics() {
   });
 }
 
-export function useRecruiterCandidates(filters: RecruiterCandidateFilters = {}) {
+export function useRecruiterCandidates(
+  filters: RecruiterCandidateFilters = {},
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: recruiterKeys.candidateList(filters),
     queryFn: () => api.getRecruiterCandidates(filters),
     refetchOnWindowFocus: "always",
+    // Talent pool listing is Pro-only server-side. The page passes
+    // enabled: isPro so a Free company never fires a request that's
+    // guaranteed to 403 — the locked state renders from the company
+    // profile's tier instead of from a failed fetch.
+    enabled: options.enabled ?? true,
   });
 }
 
@@ -77,10 +85,12 @@ export function usePeekRecruiterCandidateCount() {
   }).data?.length;
 }
 
-export function useRecruiterTags() {
+export function useRecruiterTags(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: recruiterKeys.tags,
     queryFn: api.getRecruiterTags,
+    // Tags are Pro-only server-side, same reasoning as useRecruiterCandidates.
+    enabled: options.enabled ?? true,
   });
 }
 

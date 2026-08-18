@@ -1,5 +1,7 @@
 import type { PublicJobRecord } from "./jobs";
 
+export type SubscriptionTier = "FREE" | "PRO";
+
 export interface CompanyProfile {
   id: string;
   name: string;
@@ -11,6 +13,9 @@ export interface CompanyProfile {
   description: string | null;
   logoUrl: string | null;
   profileComplete: boolean;
+  subscriptionTier: SubscriptionTier;
+  subscriptionStartedAt: string | null;
+  subscriptionUpdatedAt: string | null;
 }
 
 /**

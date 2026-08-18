@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, X } from "lucide-react";
+import { BriefcaseBusiness, Sparkles, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { cn } from "../../lib/utils";
@@ -10,7 +10,8 @@ import {
   usePeekRecruiterCandidateCount,
   usePeekRecruiterDashboard,
 } from "../../features/recruiter/hooks";
-import { ACCENT_RING } from "../../features/candidate/theme";
+import { useCompanyProfile } from "../../features/company/hooks";
+import { ACCENT_GRADIENT, ACCENT_RING } from "../../features/candidate/theme";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -66,6 +67,8 @@ export function RecruiterSidebar({
 }: RecruiterSidebarProps) {
   const { pathname } = useLocation();
   const badges = useRecruiterNavBadges();
+  const companyQuery = useCompanyProfile();
+  const isFree = companyQuery.data?.subscriptionTier === "FREE";
   const navRef = useRef<HTMLElement | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
@@ -237,6 +240,30 @@ export function RecruiterSidebar({
             );
           })}
         </nav>
+
+        {/* Absent entirely for Pro companies — not just hidden — so a Pro
+            recruiter never sees an upsell for something they already have.
+            Kept out of RECRUITER_NAV_ITEMS since that array is also
+            consumed by the public-facing Header, where per-tier
+            conditionality doesn't apply. */}
+        {isFree && (
+          <div className="shrink-0 border-t p-3">
+            <Link
+              to="/recruiter/upgrade"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2",
+                ACCENT_RING,
+                ACCENT_GRADIENT,
+              )}
+              title={collapsed ? "Upgrade to Pro" : undefined}
+            >
+              <Sparkles className="h-5 w-5 shrink-0" aria-hidden="true" />
+              {!collapsed && (
+                <span className="min-w-0 flex-1 truncate">Upgrade to Pro</span>
+              )}
+            </Link>
+          </div>
+        )}
       </aside>
     </>
   );

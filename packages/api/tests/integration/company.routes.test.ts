@@ -266,3 +266,75 @@ describe("PUT /api/companies/:id profile completeness", () => {
     });
   });
 });
+
+describe("POST /api/companies/:id/subscription", () => {
+  it("defaults new companies to Free", async () => {
+    const res = await request(app)
+      .get("/api/companies/me")
+      .set("Cookie", cookie(recruiterToken));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.subscriptionTier).toBe("FREE");
+    expect(res.body.data.subscriptionStartedAt).toBeNull();
+  });
+
+  it("upgrades instantly and reflects on the very next read, setting subscriptionStartedAt", async () => {
+    const upgrade = await request(app)
+      .post(`/api/companies/${ownCompany.id}/subscription`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ tier: "PRO" });
+
+    expect(upgrade.status).toBe(200);
+    expect(upgrade.body.data.subscriptionTier).toBe("PRO");
+    expect(upgrade.body.data.subscriptionStartedAt).not.toBeNull();
+
+    const me = await request(app)
+      .get("/api/companies/me")
+      .set("Cookie", cookie(recruiterToken));
+    expect(me.body.data.subscriptionTier).toBe("PRO");
+  });
+
+  it("downgrades without touching subscriptionStartedAt again", async () => {
+    const firstStartedAt = (
+      await request(app)
+        .get("/api/companies/me")
+        .set("Cookie", cookie(recruiterToken))
+    ).body.data.subscriptionStartedAt;
+
+    const downgrade = await request(app)
+      .post(`/api/companies/${ownCompany.id}/subscription`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ tier: "FREE" });
+
+    expect(downgrade.status).toBe(200);
+    expect(downgrade.body.data.subscriptionTier).toBe("FREE");
+    expect(downgrade.body.data.subscriptionStartedAt).toBe(firstStartedAt);
+  });
+
+  it("404s a cross-company subscription change (ownership guard, not the tier gate)", async () => {
+    const res = await request(app)
+      .post(`/api/companies/${otherCompany.id}/subscription`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ tier: "PRO" });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("403s a candidate", async () => {
+    const res = await request(app)
+      .post(`/api/companies/${ownCompany.id}/subscription`)
+      .set("Cookie", cookie(candidateToken))
+      .send({ tier: "PRO" });
+
+    expect(res.status).toBe(403);
+  });
+
+  it("422s an invalid tier value", async () => {
+    const res = await request(app)
+      .post(`/api/companies/${ownCompany.id}/subscription`)
+      .set("Cookie", cookie(recruiterToken))
+      .send({ tier: "ENTERPRISE" });
+
+    expect(res.status).toBe(422);
+  });
+});
