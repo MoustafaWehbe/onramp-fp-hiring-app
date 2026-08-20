@@ -68,6 +68,16 @@ vi.mock("@/features/jobs/hooks", () => ({
   useRecruiterJobs: () => useRecruiterJobs(),
 }));
 
+/**
+ * The page joins talent-pool membership onto the board's cards from the
+ * recruiter candidate listing. These tests are about move wiring, not markers,
+ * so it stands in as an empty result — which is also what a Free-tier company
+ * gets, since the real hook is disabled for them.
+ */
+vi.mock("@/features/recruiter/hooks", () => ({
+  useRecruiterCandidates: () => ({ data: undefined }),
+}));
+
 vi.mock("@/features/calendar/hooks", () => ({
   useCalendarConnection: () => ({
     data: {

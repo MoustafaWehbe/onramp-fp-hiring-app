@@ -6,6 +6,7 @@ import { RouteTransition } from "../components/shared/RouteTransition";
 import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
 import { APP_CONTENT_CLASS } from "../features/candidate/theme";
 import { cn } from "../lib/utils";
+import { FullBleedContext } from "./full-bleed";
 
 /**
  * Recruiter-only shell: a persistent left sidebar (collapsible to an icon
@@ -22,6 +23,7 @@ import { cn } from "../lib/utils";
 export function RecruiterLayout() {
   const [collapsed, toggleCollapsed] = useSidebarCollapsed();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [fullBleed, setFullBleed] = useState(false);
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background lg:flex-row">
@@ -42,13 +44,26 @@ export function RecruiterLayout() {
             {/* The one shared content max-width for every recruiter page,
                 matching what the dashboard already used. Individual pages
                 that need a narrower reading width (a single form/card) add
-                their own inner wrapper rather than fighting this one; the
-                Kanban pipeline board stays inside it too — its columns
-                already scroll horizontally on their own (overflow-x-auto),
-                so there's no need to break out of the shared width. */}
-            <div className={cn(APP_CONTENT_CLASS, "py-8")}>
-              <Outlet />
-            </div>
+                their own inner wrapper rather than fighting this one.
+
+                The exception is the Kanban pipeline board, which calls
+                `useFullBleedContent()` to drop the cap: six columns of cards
+                are the one recruiter surface that wants every pixel of a wide
+                monitor, and capping it at max-w-7xl left the board scrolling
+                sideways inside a well while empty gutters sat either side.
+                That page re-constrains its own header and filters. */}
+            <FullBleedContext.Provider value={setFullBleed}>
+              <div
+                className={cn(
+                  "py-8",
+                  fullBleed
+                    ? "w-full px-4 sm:px-6 lg:px-8"
+                    : APP_CONTENT_CLASS,
+                )}
+              >
+                <Outlet />
+              </div>
+            </FullBleedContext.Provider>
           </RouteTransition>
         </main>
       </div>
