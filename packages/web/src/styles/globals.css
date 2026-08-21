@@ -84,9 +84,19 @@
     font-feature-settings: 'rlig' 1, 'calt' 1;
   }
 
+  /* overflow-x: clip, not the Tailwind `overflow-x-hidden` (overflow:
+     hidden) utility: setting only one axis to `hidden` makes the UA compute
+     the other axis as `auto` (CSS Overflow §3), turning both html and body
+     into scroll containers of their own. That silently breaks
+     `position: sticky` for every descendant on every page, since sticky's
+     containing block becomes ambiguous between them. `clip` suppresses the
+     horizontal overflow the same way without establishing a scroll
+     container, so sticky sidebars (e.g. the profile page's pipeline card)
+     work correctly while wide content still can't force a horizontal
+     scrollbar. */
   html,
   body {
-    @apply overflow-x-hidden;
+    overflow-x: clip;
   }
 }
 
