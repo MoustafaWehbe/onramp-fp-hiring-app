@@ -146,7 +146,10 @@ export async function computeCandidateRecommendations(
 
   if (openJobs.length === 0) {
     // Nothing to recommend is not a failure; clear stale rows and say so.
+    // Still marks the pass as complete — a candidate applied to every open
+    // job is a real "ready, nothing left" outcome, not "never scored".
     await CandidateJobRecommendation.destroy({ where: { candidateProfileId } });
+    await profile.update({ recommendationsComputedAt: new Date() });
     return { status: "no-open-jobs", scored: 0 };
   }
 
@@ -202,6 +205,8 @@ export async function computeCandidateRecommendations(
   if (scored.length > 0) {
     await CandidateJobRecommendation.bulkCreate(scored);
   }
+
+  await profile.update({ recommendationsComputedAt: computedAt });
 
   return { status: "completed", scored: scored.length };
 }

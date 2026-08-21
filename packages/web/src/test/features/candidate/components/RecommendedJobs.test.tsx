@@ -25,10 +25,13 @@ function recommendation(
       location: "Remote",
       isRemote: true,
       employmentType: "FULL_TIME",
+      experienceMin: 4,
+      experienceMax: 8,
       salaryMin: 90_000,
       salaryMax: 140_000,
       salaryCurrency: "USD",
       skills: ["React", "TypeScript", "Go"],
+      createdAt: "2026-07-20T10:00:00.000Z",
       company: { id: "company-1", name: "Northwind Labs", logoUrl: null },
     },
     ...overrides,
@@ -126,6 +129,28 @@ describe("RecommendedJobs", () => {
     );
 
     expect(screen.getByText("No new matches right now")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Browse all jobs" }),
+    ).toHaveAttribute("href", "/jobs");
+  });
+
+  it("gives up on a stuck computing state and shows the empty state instead of spinning forever", () => {
+    mockQuery(
+      { status: "computing", recommendations: [] },
+      { timedOut: true },
+    );
+
+    render(
+      <MemoryRouter>
+        <RecommendedJobs />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText("Finding your matches")).not.toBeInTheDocument();
+    expect(screen.getByText("No new matches right now")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Browse all jobs" }),
+    ).toHaveAttribute("href", "/jobs");
   });
 
   it("stays out of the way for a candidate with no profile", () => {

@@ -502,6 +502,78 @@ describe("job recommendations", () => {
     ).not.toContain(openJob.id);
   });
 
+  it("resolves to ready with zero results once applied to every open job, instead of computing forever", async () => {
+    const suffix = randomUUID();
+    const fullyAppliedCandidate = await User.create({
+      email: `profile-fully-applied-${suffix}@example.com`,
+      passwordHash: "unused",
+      name: "Fully Applied Candidate",
+      role: "CANDIDATE",
+    });
+    createdUserIds.push(fullyAppliedCandidate.id);
+    // Headline + bio: two signals, enough for hasEnoughProfileToScore to
+    // treat this as a real profile worth scoring (a bare profile with
+    // nothing set is correctly judged "insufficient-profile" instead, which
+    // isn't the state this test is about).
+    const fullyAppliedProfile = await CandidateProfile.create({
+      userId: fullyAppliedCandidate.id,
+      headline: "Backend Engineer",
+      bio: "Five years building APIs.",
+    });
+    createdProfileIds.push(fullyAppliedProfile.id);
+    const fullyAppliedToken = tokenFor(fullyAppliedCandidate);
+
+    // A job of its own, plus every other currently-open job, so the
+    // candidate has genuinely nothing left to score regardless of what
+    // other fixtures exist in the shared test database.
+    await createJob(`Fully Applied Own Job ${randomUUID()}`);
+    const allOpenJobs = await Job.findAll({
+      where: { status: "OPEN" },
+      attributes: ["id"],
+    });
+    await Application.bulkCreate(
+      allOpenJobs.map((job) => ({
+        jobId: job.id,
+        candidateProfileId: fullyAppliedProfile.id,
+        stage: "APPLIED",
+        submittedAt: new Date(),
+        aiScoringStatus: "failed",
+      })),
+    );
+
+    // Genuinely never scored yet: the spinner state is correct here.
+    const before = await request(app)
+      .get("/api/candidate/recommendations")
+      .set("Cookie", cookie(fullyAppliedToken));
+    expect(before.body.data.status).toBe("computing");
+
+    // What the background worker does: a real pass that finds nothing
+    // eligible, exactly as it would for a candidate who applied to
+    // everything.
+    const computed = await computeCandidateRecommendations(
+      fullyAppliedProfile.id,
+    );
+    expect(computed.status).toBe("no-open-jobs");
+    expect(computed.scored).toBe(0);
+
+    // The bug: candidate_job_recommendations has zero rows for this profile
+    // both before and after scoring, so row presence alone can't tell
+    // "never scored" apart from "scored, nothing eligible" — this must
+    // resolve to "ready" with an empty list, not loop back to "computing".
+    const after = await request(app)
+      .get("/api/candidate/recommendations")
+      .set("Cookie", cookie(fullyAppliedToken));
+    expect(after.status).toBe(200);
+    expect(after.body.data.status).toBe("ready");
+    expect(after.body.data.recommendations).toEqual([]);
+
+    // Stays stable on a second read rather than re-queuing another pass.
+    const again = await request(app)
+      .get("/api/candidate/recommendations")
+      .set("Cookie", cookie(fullyAppliedToken));
+    expect(again.body.data.status).toBe("ready");
+  });
+
   it("reports a sparse profile instead of a meaningless score", async () => {
     const res = await request(app)
       .get("/api/candidate/recommendations")

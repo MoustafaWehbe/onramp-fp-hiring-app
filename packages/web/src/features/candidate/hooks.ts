@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import * as api from "./api";
 import type {
   EducationInput,
@@ -232,18 +233,67 @@ export function useEasyApply() {
 
 // ─── Recommendations ─────────────────────────────────────────────────────────
 
+const RECOMMENDATIONS_POLL_INTERVAL_MS = 4_000;
+/**
+ * Upper bound on how long to keep polling a "computing" response. Normally
+ * the background scoring job lands well before this — this exists so a
+ * stuck/failed job (worker down, queue backed up) can't leave the candidate
+ * watching a spinner forever; the caller is expected to show a "no matches
+ * yet" state once `timedOut` is true rather than keep waiting.
+ */
+const RECOMMENDATIONS_MAX_COMPUTING_MS = 16_000;
+
 export function useRecommendations(limit?: number, enabled = true) {
-  return useQuery({
+  const computingSinceRef = useRef<number | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
+
+  const query = useQuery({
     queryKey: [...candidateKeys.recommendations, limit ?? null],
     queryFn: () => api.getRecommendations(limit),
     enabled,
     retry: false,
     // A first visit queues the scoring job, so poll briefly until it lands
     // rather than leaving the candidate on an empty panel. Stops as soon as
-    // there is something to show.
-    refetchInterval: (query) =>
-      query.state.data?.status === "computing" ? 4_000 : false,
+    // there is something to show, or once RECOMMENDATIONS_MAX_COMPUTING_MS
+    // has elapsed since polling started.
+    refetchInterval: (currentQuery) => {
+      if (currentQuery.state.data?.status !== "computing") {
+        computingSinceRef.current = null;
+        return false;
+      }
+
+      if (computingSinceRef.current === null) {
+        computingSinceRef.current = Date.now();
+      }
+
+      const elapsed = Date.now() - computingSinceRef.current;
+      return elapsed < RECOMMENDATIONS_MAX_COMPUTING_MS
+        ? RECOMMENDATIONS_POLL_INTERVAL_MS
+        : false;
+    },
   });
+
+  const status = query.data?.status;
+  useEffect(() => {
+    if (status !== "computing") {
+      setTimedOut(false);
+      return;
+    }
+
+    const since = computingSinceRef.current ?? Date.now();
+    const remaining = RECOMMENDATIONS_MAX_COMPUTING_MS - (Date.now() - since);
+    if (remaining <= 0) {
+      setTimedOut(true);
+      return;
+    }
+
+    const timer = setTimeout(() => setTimedOut(true), remaining);
+    return () => clearTimeout(timer);
+    // Re-arms whenever a fresh "computing" response lands (dataUpdatedAt
+    // changes on every poll, even while status stays "computing").
+  }, [status, query.dataUpdatedAt]);
+
+  return { ...query, timedOut: status === "computing" && timedOut };
 }
 
 // ─── AI resume review ────────────────────────────────────────────────────────
