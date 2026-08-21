@@ -1,7 +1,7 @@
 "use strict";
 
 require("dotenv").config({
-  path: require("path").resolve(__dirname, "../../../.env"),
+  path: require("path").resolve(__dirname, "../../../../.env"),
 });
 
 const url = require("url");
@@ -20,15 +20,21 @@ function parseDbUrl(dbUrl) {
   };
 }
 
-const dbUrl =
+const developmentDbUrl =
+  process.env.DEMO_DATABASE_URL ||
   process.env.DATABASE_URL ||
   "postgresql://postgres:postgres@localhost:5432/starter_kit";
+const testDbUrl =
+  process.env.DEMO_DATABASE_URL ||
+  process.env.TEST_DATABASE_URL ||
+  "postgresql://postgres:postgres@localhost:5432/starter_kit_test";
 
 module.exports = {
-  development: parseDbUrl(dbUrl),
-  test: parseDbUrl(
-    process.env.DATABASE_URL ||
-      "postgresql://postgres:postgres@localhost:5432/starter_kit_test",
+  development: parseDbUrl(developmentDbUrl),
+  test: parseDbUrl(testDbUrl),
+  production: parseDbUrl(
+    process.env.DEMO_DATABASE_URL ||
+      process.env.DATABASE_URL ||
+      developmentDbUrl,
   ),
-  production: parseDbUrl(process.env.DATABASE_URL || dbUrl),
 };

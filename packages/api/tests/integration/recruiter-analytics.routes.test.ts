@@ -361,3 +361,79 @@ describe("GET /api/recruiter/analytics", () => {
     expect(theirs.body.data.scoreDistribution.scoredCount).toBe(0);
   });
 });
+
+describe("GET /api/recruiter/reports", () => {
+  const reportRange = () => ({
+    from: new Date(Date.now() - 365 * DAY_MS).toISOString().slice(0, 10),
+    to: new Date().toISOString().slice(0, 10),
+  });
+
+  it("returns UPGRADE_REQUIRED before running report validation for a Free company", async () => {
+    const res = await request(app)
+      .get("/api/recruiter/reports")
+      .query(reportRange())
+      .set("Cookie", cookie(recruiterToken));
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("UPGRADE_REQUIRED");
+  });
+
+  it("generates SQL-aggregated company and single-job reports for Pro companies", async () => {
+    await company.update({ subscriptionTier: "PRO" });
+    const range = reportRange();
+
+    const companyReport = await request(app)
+      .get("/api/recruiter/reports")
+      .query(range)
+      .set("Cookie", cookie(recruiterToken));
+
+    expect(companyReport.status).toBe(200);
+    expect(companyReport.body.data.summary.totalApplications).toBe(7);
+    expect(companyReport.body.data.funnel.stages[0]).toMatchObject({
+      stage: "APPLIED",
+      reached: 7,
+    });
+    expect(companyReport.body.data.timeToHire).toMatchObject({
+      hiredCount: 2,
+      averageDays: 15,
+      medianDays: 15,
+    });
+    expect(companyReport.body.data.jobs).toHaveLength(7);
+
+    const selectedJobId = createdJobIds[0];
+    const jobReport = await request(app)
+      .get("/api/recruiter/reports")
+      .query({ ...range, jobId: selectedJobId })
+      .set("Cookie", cookie(recruiterToken));
+
+    expect(jobReport.status).toBe(200);
+    expect(jobReport.body.data.summary.totalApplications).toBe(1);
+    expect(jobReport.body.data.jobs).toHaveLength(1);
+    expect(jobReport.body.data.jobs[0].jobId).toBe(selectedJobId);
+  });
+
+  it("exports funnel and job rows as spreadsheet-safe CSV", async () => {
+    const res = await request(app)
+      .get("/api/recruiter/reports")
+      .query({ ...reportRange(), format: "csv" })
+      .set("Cookie", cookie(recruiterToken));
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/csv");
+    expect(res.headers["content-disposition"]).toContain("hiring-report-company");
+    expect(res.text).toContain('"Section","Job / stage"');
+    expect(res.text).toContain('"Funnel","APPLIED"');
+    expect(res.text).toContain('"Job","Analytics Job');
+  });
+
+  it("does not expose a job owned by another company", async () => {
+    const otherJob = await createJob(emptyCompany.id, emptyCompanyRecruiter.id);
+    const res = await request(app)
+      .get("/api/recruiter/reports")
+      .query({ ...reportRange(), jobId: otherJob.id })
+      .set("Cookie", cookie(recruiterToken));
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe("Job not found");
+  });
+});

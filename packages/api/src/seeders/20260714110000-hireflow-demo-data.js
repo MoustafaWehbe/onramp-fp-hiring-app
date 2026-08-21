@@ -1,621 +1,918 @@
 "use strict";
 
+const path = require("path");
+const { promises: fs } = require("fs");
 const bcrypt = require("bcryptjs");
+const { Op, QueryTypes } = require("sequelize");
+const {
+  DEMO_PASSWORD,
+  IDENTITIES,
+  LEGACY_HEX_SKILL_IDS,
+  SKILLS,
+  buildDemoData,
+} = require("./demo-data/build-demo-data");
+
+const FIXTURE_ROOT = path.resolve(__dirname, "fixtures");
+const PUBLIC_UPLOADS_ROOT = path.resolve(__dirname, "../../uploads");
+const PRIVATE_UPLOADS_ROOT = path.resolve(__dirname, "../../private-uploads");
+const PUBLIC_DEMO_ROOT = path.join(PUBLIC_UPLOADS_ROOT, "demo");
+const PUBLIC_USER_RESUMES_ROOT = path.join(PUBLIC_UPLOADS_ROOT, "resumes");
+const PRIVATE_APPLICATION_RESUMES_ROOT = path.join(
+  PRIVATE_UPLOADS_ROOT,
+  "application-resumes",
+);
+const PRIVATE_DEMO_ROOT = path.join(PRIVATE_APPLICATION_RESUMES_ROOT, "demo");
+const PUBLIC_UPLOAD_PREFIX = "/uploads/";
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function isPathInside(root, target) {
+  const relative = path.relative(path.resolve(root), path.resolve(target));
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative))
+  );
+}
+
+function resolveChildPath(root, relativePath, label) {
+  if (typeof relativePath !== "string" || relativePath.trim().length === 0) {
+    throw new Error(`Invalid ${label}`);
+  }
+
+  const resolvedRoot = path.resolve(root);
+  const target = path.resolve(resolvedRoot, relativePath);
+  if (target === resolvedRoot || !isPathInside(resolvedRoot, target)) {
+    throw new Error(`Refusing to access ${label} outside ${resolvedRoot}`);
+  }
+  return target;
+}
+
+async function selectRows(
+  queryInterface,
+  sql,
+  replacements,
+  transaction,
+) {
+  return queryInterface.sequelize.query(sql, {
+    replacements,
+    type: QueryTypes.SELECT,
+    transaction,
+  });
+}
+
+async function selectIds(
+  queryInterface,
+  sql,
+  replacements,
+  transaction,
+) {
+  const rows = await selectRows(
+    queryInterface,
+    sql,
+    replacements,
+    transaction,
+  );
+  return rows.map((row) => row.id);
+}
+
+async function deleteWhere(queryInterface, table, where, transaction) {
+  if (!where) {
+    return;
+  }
+  await queryInterface.bulkDelete(table, where, { transaction });
+}
+
+async function deleteByIds(queryInterface, table, ids, transaction) {
+  if (ids.length > 0) {
+    await deleteWhere(queryInterface, table, { id: ids }, transaction);
+  }
+}
+
+function orWhere(conditions) {
+  const present = conditions.filter(Boolean);
+  return present.length > 0 ? { [Op.or]: present } : null;
+}
+
+function inCondition(column, ids) {
+  return ids.length > 0 ? { [column]: ids } : null;
+}
 
 /**
- * Demo-ready HireFlow dataset: one company, internal users, candidates with
- * profiles/experience/skills, jobs with tech stacks, and applications spread
- * across pipeline stages so the Kanban board has content.
- *
- * All rows use fixed UUIDs (namespaced by leading octet) so the seeder is
- * predictable and re-runnable: `up` removes any previous copy of the demo
- * data before inserting.
+ * Remove the full demo workspace, including rows created interactively while
+ * using a demo account. Children come first because jobs.created_by_id,
+ * application_notes.author_id, scorecard_templates.created_by, and submitted
+ * scorecards intentionally block deleting their authors.
  */
+async function removeDemoData(queryInterface, transaction) {
+  const companyIds = IDENTITIES.companies;
+  const staffIds = IDENTITIES.staff;
+  const candidateUserIds = IDENTITIES.candidateUsers;
+  const userIds = [...staffIds, ...candidateUserIds];
 
-const COMPANY_ID = "10000000-0000-4000-8000-000000000001";
+  const profileIds = unique([
+    ...IDENTITIES.candidateProfiles,
+    ...(await selectIds(
+      queryInterface,
+      "SELECT id FROM candidate_profiles WHERE user_id IN (:candidateUserIds)",
+      { candidateUserIds },
+      transaction,
+    )),
+  ]);
+  const jobIds = unique([
+    ...IDENTITIES.jobs,
+    ...(await selectIds(
+      queryInterface,
+      `SELECT id FROM jobs
+       WHERE company_id IN (:companyIds) OR created_by_id IN (:staffIds)`,
+      { companyIds, staffIds },
+      transaction,
+    )),
+  ]);
+  const applicationIds = unique([
+    ...IDENTITIES.applications,
+    ...(await selectIds(
+      queryInterface,
+      `SELECT id FROM applications
+       WHERE job_id IN (:jobIds) OR candidate_profile_id IN (:profileIds)`,
+      { jobIds, profileIds },
+      transaction,
+    )),
+  ]);
+  // Capture storage references before deleting their owning rows. Database
+  // transactions cannot include filesystem work, so callers remove these
+  // files only after this transaction commits successfully.
+  const profileAssetRows = await selectRows(
+    queryInterface,
+    `SELECT resume_url
+       FROM candidate_profiles
+      WHERE id IN (:profileIds)`,
+    { profileIds },
+    transaction,
+  );
+  const applicationAssetRows = await selectRows(
+    queryInterface,
+    `SELECT resume_file_url
+       FROM applications
+      WHERE id IN (:applicationIds)`,
+    { applicationIds },
+    transaction,
+  );
+  const templateIds = await selectIds(
+    queryInterface,
+    `SELECT id FROM scorecard_templates
+     WHERE company_id IN (:companyIds) OR created_by IN (:staffIds)`,
+    { companyIds, staffIds },
+    transaction,
+  );
+  const scorecardIds = await selectIds(
+    queryInterface,
+    `SELECT id FROM interview_scorecards
+     WHERE application_id IN (:applicationIds)
+        OR interviewer_id IN (:staffIds)
+        OR template_id IN (:templateIds)`,
+    {
+      applicationIds,
+      staffIds,
+      // Sequelize cannot expand an empty array in an IN replacement.
+      templateIds:
+        templateIds.length > 0
+          ? templateIds
+          : ["00000000-0000-0000-0000-000000000000"],
+    },
+    transaction,
+  );
+  const poolEntryIds = await selectIds(
+    queryInterface,
+    `SELECT id FROM candidate_pool_entries
+     WHERE company_id IN (:companyIds) OR candidate_id IN (:profileIds)`,
+    { companyIds, profileIds },
+    transaction,
+  );
+  const tagIds = await selectIds(
+    queryInterface,
+    "SELECT id FROM candidate_tags WHERE company_id IN (:companyIds)",
+    { companyIds },
+    transaction,
+  );
 
-const USERS = {
-  recruiter: "20000000-0000-4000-8000-000000000001",
-  interviewer: "20000000-0000-4000-8000-000000000002",
-  // A second recruiter at the same company. Scorecards are per-interviewer,
-  // so demonstrating an aggregate across two people — and that a resubmission
-  // updates one of them rather than adding a third — needs two accounts that
-  // can both reach the same application.
-  recruiter2: "20000000-0000-4000-8000-000000000003",
-  candidate1: "20000000-0000-4000-8000-000000000101",
-  candidate2: "20000000-0000-4000-8000-000000000102",
-  candidate3: "20000000-0000-4000-8000-000000000103",
-  candidate4: "20000000-0000-4000-8000-000000000104",
-};
+  await deleteWhere(
+    queryInterface,
+    "notifications",
+    orWhere([
+      inCondition("user_id", userIds),
+      inCondition("related_application_id", applicationIds),
+      inCondition("related_job_id", jobIds),
+    ]),
+    transaction,
+  );
 
-const PROFILES = {
-  candidate1: "30000000-0000-4000-8000-000000000001",
-  candidate2: "30000000-0000-4000-8000-000000000002",
-  candidate3: "30000000-0000-4000-8000-000000000003",
-  candidate4: "30000000-0000-4000-8000-000000000004",
-};
+  if (scorecardIds.length > 0) {
+    await deleteWhere(
+      queryInterface,
+      "scorecard_ratings",
+      { scorecard_id: scorecardIds },
+      transaction,
+    );
+    await deleteByIds(
+      queryInterface,
+      "interview_scorecards",
+      scorecardIds,
+      transaction,
+    );
+  }
 
-const EXPERIENCES = [
-  "40000000-0000-4000-8000-000000000001",
-  "40000000-0000-4000-8000-000000000002",
-  "40000000-0000-4000-8000-000000000003",
-  "40000000-0000-4000-8000-000000000004",
-  "40000000-0000-4000-8000-000000000005",
-  "40000000-0000-4000-8000-000000000006",
-  "40000000-0000-4000-8000-000000000007",
-  "40000000-0000-4000-8000-000000000008",
-];
+  await deleteWhere(
+    queryInterface,
+    "application_stage_history",
+    orWhere([
+      inCondition("application_id", applicationIds),
+      inCondition("changed_by", staffIds),
+    ]),
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "application_notes",
+    orWhere([
+      inCondition("application_id", applicationIds),
+      inCondition("author_id", staffIds),
+    ]),
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "interview_assignments",
+    orWhere([
+      inCondition("application_id", applicationIds),
+      inCondition("interviewer_id", staffIds),
+    ]),
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "ai_screenings",
+    orWhere([
+      inCondition("application_id", applicationIds),
+      inCondition("generated_by_id", staffIds),
+    ]),
+    transaction,
+  );
+  await deleteByIds(
+    queryInterface,
+    "applications",
+    applicationIds,
+    transaction,
+  );
 
-const SKILLS = {
-  react: "50000000-0000-4000-8000-000000000001",
-  typescript: "50000000-0000-4000-8000-000000000002",
-  postgresql: "50000000-0000-4000-8000-000000000003",
-  nodejs: "50000000-0000-4000-8000-000000000004",
-  docker: "50000000-0000-4000-8000-000000000005",
-  graphql: "50000000-0000-4000-8000-000000000006",
-  aws: "50000000-0000-4000-8000-000000000007",
-  redis: "50000000-0000-4000-8000-000000000008",
-  python: "50000000-0000-4000-8000-000000000009",
-  kubernetes: "50000000-0000-4000-8000-000000000010",
-};
+  if (templateIds.length > 0) {
+    await deleteWhere(
+      queryInterface,
+      "scorecard_criteria",
+      { template_id: templateIds },
+      transaction,
+    );
+    await deleteByIds(
+      queryInterface,
+      "scorecard_templates",
+      templateIds,
+      transaction,
+    );
+  }
 
-const JOBS = {
-  fullstack: "60000000-0000-4000-8000-000000000001",
-  platform: "60000000-0000-4000-8000-000000000002",
-  frontend: "60000000-0000-4000-8000-000000000003",
-};
+  if (poolEntryIds.length > 0 || tagIds.length > 0) {
+    await deleteWhere(
+      queryInterface,
+      "candidate_pool_tags",
+      orWhere([
+        inCondition("pool_entry_id", poolEntryIds),
+        inCondition("tag_id", tagIds),
+      ]),
+      transaction,
+    );
+  }
+  await deleteByIds(
+    queryInterface,
+    "candidate_pool_entries",
+    poolEntryIds,
+    transaction,
+  );
+  await deleteByIds(queryInterface, "candidate_tags", tagIds, transaction);
 
-const APPLICATIONS = [
-  "70000000-0000-4000-8000-000000000001",
-  "70000000-0000-4000-8000-000000000002",
-  "70000000-0000-4000-8000-000000000003",
-  "70000000-0000-4000-8000-000000000004",
-  "70000000-0000-4000-8000-000000000005",
-  "70000000-0000-4000-8000-000000000006",
-];
+  await deleteWhere(
+    queryInterface,
+    "saved_jobs",
+    orWhere([
+      inCondition("candidate_profile_id", profileIds),
+      inCondition("job_id", jobIds),
+    ]),
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "candidate_job_recommendations",
+    orWhere([
+      inCondition("candidate_profile_id", profileIds),
+      inCondition("job_id", jobIds),
+    ]),
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "job_skills",
+    { job_id: jobIds },
+    transaction,
+  );
+  await deleteByIds(queryInterface, "jobs", jobIds, transaction);
 
-const NOTES = [
-  "80000000-0000-4000-8000-000000000001",
-  "80000000-0000-4000-8000-000000000002",
-  "80000000-0000-4000-8000-000000000003",
-];
+  await deleteWhere(
+    queryInterface,
+    "candidate_skills",
+    { candidate_profile_id: profileIds },
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "candidate_education",
+    { candidate_profile_id: profileIds },
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "work_experiences",
+    { candidate_profile_id: profileIds },
+    transaction,
+  );
+  await deleteByIds(
+    queryInterface,
+    "candidate_profiles",
+    profileIds,
+    transaction,
+  );
 
-const INTERVIEW_ASSIGNMENT_ID = "90000000-0000-4000-8000-000000000001";
-const AI_SCREENING_ID = "a0000000-0000-4000-8000-000000000001";
-const SAVED_JOBS = [
-  "b0000000-0000-4000-8000-000000000001",
-  "b0000000-0000-4000-8000-000000000002",
-];
+  // Skills are global. Remove only seed-owned rows that no unrelated profile
+  // or job still references; shared rows survive and are reused on insert.
+  await queryInterface.sequelize.query(
+    `DELETE FROM skills AS skill
+      WHERE skill.id IN (:skillIds)
+        AND NOT EXISTS (
+          SELECT 1 FROM candidate_skills link WHERE link.skill_id = skill.id
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM job_skills link WHERE link.skill_id = skill.id
+        )`,
+    {
+      replacements: {
+        skillIds: unique([...IDENTITIES.skills, ...LEGACY_HEX_SKILL_IDS]),
+      },
+      transaction,
+    },
+  );
+
+  await deleteWhere(
+    queryInterface,
+    "recruiter_calendar_connections",
+    { recruiter_id: staffIds },
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "oauth_identities",
+    { user_id: userIds },
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "refresh_tokens",
+    { user_id: userIds },
+    transaction,
+  );
+  await deleteWhere(
+    queryInterface,
+    "sessions",
+    { user_id: userIds },
+    transaction,
+  );
+  await deleteByIds(queryInterface, "users", userIds, transaction);
+  await deleteByIds(queryInterface, "companies", companyIds, transaction);
+
+  return {
+    publicUploadUrls: unique(profileAssetRows.map((row) => row.resume_url)),
+    privateUploadKeys: unique(
+      applicationAssetRows.map((row) => row.resume_file_url),
+    ),
+    // These are the exact fixed users deleted above. Their user-scoped upload
+    // directories may contain older files no longer referenced by a row.
+    deletedUserIds: userIds,
+  };
+}
+
+async function bulkInsert(queryInterface, table, rows, transaction) {
+  if (rows.length > 0) {
+    await queryInterface.bulkInsert(table, rows, { transaction });
+  }
+}
+
+async function ensureDemoSkills(queryInterface, data, transaction) {
+  const existing = await queryInterface.sequelize.query(
+    `SELECT id, name
+       FROM skills
+      WHERE id IN (:skillIds) OR LOWER(name) IN (:skillNames)`,
+    {
+      replacements: {
+        skillIds: unique([
+          ...IDENTITIES.skills,
+          ...LEGACY_HEX_SKILL_IDS,
+        ]),
+        skillNames: data.skills.map((skill) => skill.name.toLowerCase()),
+      },
+      type: QueryTypes.SELECT,
+      transaction,
+    },
+  );
+  const byName = new Map(
+    existing.map((skill) => [skill.name.toLowerCase(), skill.id]),
+  );
+  const byId = new Map(existing.map((skill) => [skill.id, skill.name]));
+  const resolvedIds = new Map();
+  const missing = [];
+
+  data.skills.forEach((skill) => {
+    const existingId = byName.get(skill.name.toLowerCase());
+    if (existingId) {
+      resolvedIds.set(skill.id, existingId);
+      return;
+    }
+
+    const collidingName = byId.get(skill.id);
+    if (collidingName) {
+      throw new Error(
+        `Demo skill ID ${skill.id} is already used by ${collidingName}`,
+      );
+    }
+    resolvedIds.set(skill.id, skill.id);
+    missing.push(skill);
+  });
+
+  for (const link of [...data.candidateSkills, ...data.jobSkills]) {
+    link.skill_id = resolvedIds.get(link.skill_id);
+  }
+  await bulkInsert(queryInterface, "skills", missing, transaction);
+}
+
+async function lstatIfPresent(target) {
+  try {
+    return await fs.lstat(target);
+  } catch (error) {
+    if (error && typeof error === "object" && error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
 
 /**
- * Remove every demo row by its fixed ID, children before parents so no FK
- * (CASCADE or NO ACTION) gets in the way. Shared by `up` (idempotency) and
- * `down`.
+ * Remove one already-resolved child without following a parent symlink out of
+ * the storage root. Recursive deletion is reserved for fixed, user-scoped or
+ * demo-only directories; database-provided paths are always treated as files.
  */
-async function removeDemoData(queryInterface) {
-  const profileIds = Object.values(PROFILES);
-  const jobIds = Object.values(JOBS);
+async function removeContainedEntry(
+  root,
+  target,
+  { recursive = false } = {},
+) {
+  const resolvedRoot = path.resolve(root);
+  const resolvedTarget = path.resolve(target);
+  if (
+    resolvedTarget === resolvedRoot ||
+    !isPathInside(resolvedRoot, resolvedTarget)
+  ) {
+    throw new Error(`Refusing to remove a path outside ${resolvedRoot}`);
+  }
 
-  await queryInterface.bulkDelete("saved_jobs", { id: SAVED_JOBS });
-  await queryInterface.bulkDelete("ai_screenings", { id: [AI_SCREENING_ID] });
-  await queryInterface.bulkDelete("interview_assignments", {
-    id: [INTERVIEW_ASSIGNMENT_ID],
+  const entry = await lstatIfPresent(resolvedTarget);
+  if (!entry) {
+    return;
+  }
+
+  const [canonicalRoot, canonicalParent] = await Promise.all([
+    fs.realpath(resolvedRoot),
+    fs.realpath(path.dirname(resolvedTarget)),
+  ]);
+  if (!isPathInside(canonicalRoot, canonicalParent)) {
+    throw new Error(
+      `Refusing to follow an upload-directory link outside ${resolvedRoot}`,
+    );
+  }
+
+  if (entry.isDirectory() && !entry.isSymbolicLink()) {
+    if (!recursive) {
+      return;
+    }
+    const canonicalTarget = await fs.realpath(resolvedTarget);
+    if (
+      canonicalTarget === canonicalRoot ||
+      !isPathInside(canonicalRoot, canonicalTarget)
+    ) {
+      throw new Error(`Refusing to remove a directory outside ${resolvedRoot}`);
+    }
+    await fs.rm(resolvedTarget, { recursive: true, force: true });
+    return;
+  }
+
+  await fs.rm(resolvedTarget, { force: true });
+}
+
+function localPublicUploadTarget(value) {
+  if (typeof value !== "string" || !value.startsWith(PUBLIC_UPLOAD_PREFIX)) {
+    return null;
+  }
+
+  try {
+    // URL parsing normalizes slash and dot-segment tricks before the lexical
+    // containment check. Absolute/host-relative URLs are intentionally not
+    // treated as files owned by this local storage provider.
+    const base = new URL("http://demo-upload.local");
+    const parsed = new URL(value, base);
+    if (
+      parsed.origin !== base.origin ||
+      !parsed.pathname.startsWith(PUBLIC_UPLOAD_PREFIX)
+    ) {
+      return null;
+    }
+    return resolveChildPath(
+      PUBLIC_UPLOADS_ROOT,
+      parsed.pathname.slice(PUBLIC_UPLOAD_PREFIX.length),
+      "public upload path",
+    );
+  } catch {
+    return null;
+  }
+}
+
+function localPrivateUploadTarget(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  try {
+    return resolveChildPath(PRIVATE_UPLOADS_ROOT, value, "private upload path");
+  } catch {
+    return null;
+  }
+}
+
+async function cleanupRemovedUploads(
+  removed,
+  { preserveInstalledDemoAssets = false } = {},
+) {
+  const publicTargets = unique(
+    removed.publicUploadUrls.map(localPublicUploadTarget),
+  ).filter(
+    (target) =>
+      !preserveInstalledDemoAssets || !isPathInside(PUBLIC_DEMO_ROOT, target),
+  );
+  const privateTargets = unique(
+    removed.privateUploadKeys.map(localPrivateUploadTarget),
+  ).filter(
+    (target) =>
+      !preserveInstalledDemoAssets || !isPathInside(PRIVATE_DEMO_ROOT, target),
+  );
+
+  await Promise.all([
+    ...publicTargets.map((target) =>
+      removeContainedEntry(PUBLIC_UPLOADS_ROOT, target),
+    ),
+    ...privateTargets.map((target) =>
+      removeContainedEntry(PRIVATE_UPLOADS_ROOT, target),
+    ),
+  ]);
+
+  // Updating a profile can leave an older public resume with no database row.
+  // The fixed demo users are deleted by reset, so their entire UUID-scoped
+  // directories are owned by the reset and are safe to remove recursively.
+  for (const userId of unique(removed.deletedUserIds)) {
+    if (!UUID_PATTERN.test(userId)) {
+      throw new Error(
+        `Refusing to remove uploads for invalid user ID ${userId}`,
+      );
+    }
+    await removeContainedEntry(
+      PUBLIC_UPLOADS_ROOT,
+      resolveChildPath(
+        PUBLIC_USER_RESUMES_ROOT,
+        userId,
+        "public user resume directory",
+      ),
+      { recursive: true },
+    );
+    await removeContainedEntry(
+      PRIVATE_UPLOADS_ROOT,
+      resolveChildPath(
+        PRIVATE_APPLICATION_RESUMES_ROOT,
+        userId,
+        "private user resume directory",
+      ),
+      { recursive: true },
+    );
+  }
+}
+
+function buildAssetOperations(assets) {
+  const operations = [
+    ...assets.logos.map((asset) => ({
+      source: resolveChildPath(
+        FIXTURE_ROOT,
+        path.join("company-logos", asset.source),
+        "logo fixture",
+      ),
+      destination: resolveChildPath(
+        PUBLIC_UPLOADS_ROOT,
+        asset.publicPath,
+        "public logo destination",
+      ),
+      destinationRoot: PUBLIC_UPLOADS_ROOT,
+    })),
+    ...assets.publicResumes.map((asset) => ({
+      source: resolveChildPath(
+        FIXTURE_ROOT,
+        path.join("resumes", asset.source),
+        "resume fixture",
+      ),
+      destination: resolveChildPath(
+        PUBLIC_UPLOADS_ROOT,
+        asset.publicPath,
+        "public resume destination",
+      ),
+      destinationRoot: PUBLIC_UPLOADS_ROOT,
+    })),
+    ...assets.privateResumes.map((asset) => ({
+      source: resolveChildPath(
+        FIXTURE_ROOT,
+        path.join("resumes", asset.source),
+        "resume fixture",
+      ),
+      destination: resolveChildPath(
+        PRIVATE_UPLOADS_ROOT,
+        asset.storageKey,
+        "private resume destination",
+      ),
+      destinationRoot: PRIVATE_UPLOADS_ROOT,
+    })),
+  ];
+
+  for (const operation of operations) {
+    const dedicatedRoot =
+      operation.destinationRoot === PUBLIC_UPLOADS_ROOT
+        ? PUBLIC_DEMO_ROOT
+        : PRIVATE_DEMO_ROOT;
+    if (!isPathInside(dedicatedRoot, operation.destination)) {
+      throw new Error(
+        `Demo fixture destination is outside ${dedicatedRoot}`,
+      );
+    }
+  }
+  return operations;
+}
+
+async function prepareDemoAssets(assets) {
+  const operations = buildAssetOperations(assets);
+  const destinationKeys = operations.map(({ destination }) =>
+    process.platform === "win32" ? destination.toLowerCase() : destination,
+  );
+  if (new Set(destinationKeys).size !== destinationKeys.length) {
+    throw new Error("Demo asset manifest contains duplicate destinations");
+  }
+
+  const canonicalFixtureRoot = await fs.realpath(FIXTURE_ROOT);
+  await Promise.all(
+    unique(operations.map(({ source }) => source)).map(async (source) => {
+      const [canonicalSource, sourceStat] = await Promise.all([
+        fs.realpath(source),
+        fs.stat(source),
+      ]);
+      if (
+        !isPathInside(canonicalFixtureRoot, canonicalSource) ||
+        !sourceStat.isFile()
+      ) {
+        throw new Error(
+          `Demo fixture is not a regular file inside ${FIXTURE_ROOT}`,
+        );
+      }
+    }),
+  );
+  return operations;
+}
+
+async function copyFixture({ source, destination, destinationRoot }) {
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  const [canonicalRoot, canonicalParent] = await Promise.all([
+    fs.realpath(destinationRoot),
+    fs.realpath(path.dirname(destination)),
+  ]);
+  if (!isPathInside(canonicalRoot, canonicalParent)) {
+    throw new Error(
+      `Refusing to copy a demo fixture outside ${destinationRoot}`,
+    );
+  }
+  await fs.copyFile(source, destination);
+}
+
+async function installDemoAssets(operations) {
+  // Both targets are dedicated demo-only directories. Clearing them ensures
+  // files cannot drift from the database across repeated resets.
+  await removeContainedEntry(PUBLIC_UPLOADS_ROOT, PUBLIC_DEMO_ROOT, {
+    recursive: true,
   });
-  await queryInterface.bulkDelete("application_notes", { id: NOTES });
-  await queryInterface.bulkDelete("applications", { id: APPLICATIONS });
-  // Deleting the applications above already cascaded their scorecards away.
-  // Templates are company-owned rather than application-owned, so they need
-  // their own sweep — and it has to happen before the users below, because
-  // scorecard_templates.created_by deliberately blocks deleting an author.
-  await queryInterface.bulkDelete("scorecard_templates", {
-    company_id: COMPANY_ID,
+  await removeContainedEntry(PRIVATE_UPLOADS_ROOT, PRIVATE_DEMO_ROOT, {
+    recursive: true,
   });
-  await queryInterface.bulkDelete("job_skills", { job_id: jobIds });
-  await queryInterface.bulkDelete("candidate_skills", {
-    candidate_profile_id: profileIds,
-  });
-  await queryInterface.bulkDelete("work_experiences", { id: EXPERIENCES });
-  await queryInterface.bulkDelete("jobs", { id: jobIds });
-  await queryInterface.bulkDelete("candidate_profiles", { id: profileIds });
-  await queryInterface.bulkDelete("skills", { id: Object.values(SKILLS) });
-  await queryInterface.bulkDelete("users", { id: Object.values(USERS) });
-  await queryInterface.bulkDelete("companies", { id: [COMPANY_ID] });
+  await Promise.all(operations.map(copyFixture));
 }
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface) {
-    // Idempotency: clear any previous copy of the demo data first.
-    await removeDemoData(queryInterface);
-
     const now = new Date();
-    const stamp = { created_at: now, updated_at: now };
-    const passwordHash = await bcrypt.hash("Password123!", 12);
+    const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
+    const data = buildDemoData(now, passwordHash);
+    const assetOperations = await prepareDemoAssets(data.assets);
 
-    await queryInterface.bulkInsert("companies", [
-      {
-        id: COMPANY_ID,
-        name: "Northwind Labs",
-        industry: "Developer Tools",
-        size: "51-200 employees",
-        location: "Remote-first (EMEA)",
-        contact: "talent@northwindlabs.example.com",
-        website: "https://northwindlabs.example.com",
-        description:
-          "Northwind Labs builds developer tooling for data-intensive teams.",
-        logo_url: "https://northwindlabs.example.com/logo.png",
-        // Seeded as PRO (not the FREE default every other new company gets
-        // via the migration) so AI scoring, the talent pool, and scorecards
-        // are all visible out of the box in the demo environment.
-        subscription_tier: "PRO",
-        subscription_started_at: now,
-        subscription_updated_at: now,
-        ...stamp,
-      },
-    ]);
+    // Validate every source and destination before clearing either dedicated
+    // directory. Installing before the database transaction means a committed
+    // seed never points at fixtures that were known to be unavailable.
+    await installDemoAssets(assetOperations);
 
-    await queryInterface.bulkInsert("users", [
-      {
-        id: USERS.recruiter,
-        email: "recruiter@northwindlabs.example.com",
-        password_hash: passwordHash,
-        name: "Rae Cruter",
-        role: "RECRUITER",
-        email_verified: true,
-        company_id: COMPANY_ID,
-        ...stamp,
-      },
-      {
-        id: USERS.interviewer,
-        email: "interviewer@northwindlabs.example.com",
-        password_hash: passwordHash,
-        name: "Ivan Terview",
-        role: "INTERVIEWER",
-        email_verified: true,
-        company_id: COMPANY_ID,
-        ...stamp,
-      },
-      {
-        id: USERS.recruiter2,
-        email: "recruiter2@northwindlabs.example.com",
-        password_hash: passwordHash,
-        name: "Nadia Hiring",
-        role: "RECRUITER",
-        email_verified: true,
-        company_id: COMPANY_ID,
-        ...stamp,
-      },
-      {
-        id: USERS.candidate1,
-        email: "amara.okafor@example.com",
-        password_hash: passwordHash,
-        name: "Amara Okafor",
-        role: "CANDIDATE",
-        email_verified: true,
-        company_id: null,
-        ...stamp,
-      },
-      {
-        id: USERS.candidate2,
-        email: "liu.wei@example.com",
-        password_hash: passwordHash,
-        name: "Liu Wei",
-        role: "CANDIDATE",
-        email_verified: true,
-        company_id: null,
-        ...stamp,
-      },
-      {
-        id: USERS.candidate3,
-        email: "sofia.marino@example.com",
-        password_hash: passwordHash,
-        name: "Sofia Marino",
-        role: "CANDIDATE",
-        email_verified: true,
-        company_id: null,
-        ...stamp,
-      },
-      {
-        id: USERS.candidate4,
-        email: "dev.patel@example.com",
-        password_hash: passwordHash,
-        name: "Dev Patel",
-        role: "CANDIDATE",
-        email_verified: false,
-        company_id: null,
-        ...stamp,
-      },
-    ]);
+    const removedUploads = await queryInterface.sequelize.transaction(
+      async (transaction) => {
+        const cleanup = await removeDemoData(queryInterface, transaction);
 
-    await queryInterface.bulkInsert("candidate_profiles", [
-      {
-        id: PROFILES.candidate1,
-        user_id: USERS.candidate1,
-        headline: "Senior Full-Stack Engineer",
-        bio: "Nine years shipping web products end to end, from schema design to CSS.",
-        phone: "+1-555-0101",
-        location: "Lagos, Nigeria (remote)",
-        resume_url: "https://files.example.com/resumes/amara-okafor.pdf",
-        ...stamp,
+        await bulkInsert(
+          queryInterface,
+          "companies",
+          data.companies,
+          transaction,
+        );
+        await bulkInsert(queryInterface, "users", data.users, transaction);
+        await bulkInsert(
+          queryInterface,
+          "candidate_profiles",
+          data.candidateProfiles,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "work_experiences",
+          data.workExperiences,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "candidate_education",
+          data.education,
+          transaction,
+        );
+        await ensureDemoSkills(queryInterface, data, transaction);
+        await bulkInsert(
+          queryInterface,
+          "candidate_skills",
+          data.candidateSkills,
+          transaction,
+        );
+        await bulkInsert(queryInterface, "jobs", data.jobs, transaction);
+        await bulkInsert(
+          queryInterface,
+          "job_skills",
+          data.jobSkills,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "applications",
+          data.applications,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "application_stage_history",
+          data.stageHistory,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "application_notes",
+          data.applicationNotes,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "interview_assignments",
+          data.interviewAssignments,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "scorecard_templates",
+          data.scorecardTemplates,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "scorecard_criteria",
+          data.scorecardCriteria,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "interview_scorecards",
+          data.interviewScorecards,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "scorecard_ratings",
+          data.scorecardRatings,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "candidate_tags",
+          data.candidateTags,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "candidate_pool_entries",
+          data.candidatePoolEntries,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "candidate_pool_tags",
+          data.candidatePoolTags,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "saved_jobs",
+          data.savedJobs,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "candidate_job_recommendations",
+          data.recommendations,
+          transaction,
+        );
+        await bulkInsert(
+          queryInterface,
+          "notifications",
+          data.notifications,
+          transaction,
+        );
+        return cleanup;
       },
-      {
-        id: PROFILES.candidate2,
-        user_id: USERS.candidate2,
-        headline: "Backend Engineer, distributed systems",
-        bio: "I like queues, idempotency keys, and boring technology.",
-        phone: "+86-555-0102",
-        location: "Shanghai, China",
-        resume_url: "https://files.example.com/resumes/liu-wei.pdf",
-        ...stamp,
-      },
-      {
-        id: PROFILES.candidate3,
-        user_id: USERS.candidate3,
-        headline: "Frontend Developer, design-systems nerd",
-        bio: "Accessibility first. React since 2017.",
-        phone: null,
-        location: "Milan, Italy",
-        resume_url: "https://files.example.com/resumes/sofia-marino.pdf",
-        ...stamp,
-      },
-      {
-        id: PROFILES.candidate4,
-        user_id: USERS.candidate4,
-        headline: "Platform / DevOps Engineer",
-        bio: "Kubernetes wrangler. I automate myself out of every job.",
-        phone: "+91-555-0104",
-        location: "Pune, India",
-        resume_url: null,
-        ...stamp,
-      },
-    ]);
-
-    await queryInterface.bulkInsert("work_experiences", [
-      {
-        id: EXPERIENCES[0],
-        candidate_profile_id: PROFILES.candidate1,
-        company: "Paystack",
-        title: "Senior Software Engineer",
-        start_date: "2021-03-01",
-        end_date: null,
-        description: "Payments dashboard; React/Node, led a team of four.",
-        ...stamp,
-      },
-      {
-        id: EXPERIENCES[1],
-        candidate_profile_id: PROFILES.candidate1,
-        company: "Andela",
-        title: "Software Engineer",
-        start_date: "2017-06-01",
-        end_date: "2021-02-28",
-        description: "Full-stack client work across fintech and logistics.",
-        ...stamp,
-      },
-      {
-        id: EXPERIENCES[2],
-        candidate_profile_id: PROFILES.candidate2,
-        company: "ByteDance",
-        title: "Backend Engineer",
-        start_date: "2019-09-01",
-        end_date: null,
-        description: "High-throughput ingestion pipelines in Node and Go.",
-        ...stamp,
-      },
-      {
-        id: EXPERIENCES[3],
-        candidate_profile_id: PROFILES.candidate3,
-        company: "Satispay",
-        title: "Frontend Developer",
-        start_date: "2022-01-10",
-        end_date: null,
-        description: "Design system and consumer app UI.",
-        ...stamp,
-      },
-      {
-        id: EXPERIENCES[4],
-        candidate_profile_id: PROFILES.candidate3,
-        company: "Freelance",
-        title: "Web Developer",
-        start_date: "2019-05-01",
-        end_date: "2021-12-31",
-        description: "Client sites and small SPAs.",
-        ...stamp,
-      },
-      {
-        id: EXPERIENCES[5],
-        candidate_profile_id: PROFILES.candidate3,
-        company: "Politecnico di Milano",
-        title: "Research Assistant",
-        start_date: "2017-10-01",
-        end_date: "2019-04-30",
-        description: "HCI lab tooling.",
-        ...stamp,
-      },
-      {
-        id: EXPERIENCES[6],
-        candidate_profile_id: PROFILES.candidate4,
-        company: "Infosys",
-        title: "DevOps Engineer",
-        start_date: "2020-02-01",
-        end_date: null,
-        description: "EKS clusters, Terraform, CI/CD for 40+ services.",
-        ...stamp,
-      },
-      {
-        id: EXPERIENCES[7],
-        candidate_profile_id: PROFILES.candidate4,
-        company: "TCS",
-        title: "Systems Engineer",
-        start_date: "2018-07-01",
-        end_date: "2020-01-31",
-        description: "Linux administration and release automation.",
-        ...stamp,
-      },
-    ]);
-
-    await queryInterface.bulkInsert(
-      "skills",
-      [
-        { id: SKILLS.react, name: "React", ...stamp },
-        { id: SKILLS.typescript, name: "TypeScript", ...stamp },
-        { id: SKILLS.postgresql, name: "PostgreSQL", ...stamp },
-        { id: SKILLS.nodejs, name: "Node.js", ...stamp },
-        { id: SKILLS.docker, name: "Docker", ...stamp },
-        { id: SKILLS.graphql, name: "GraphQL", ...stamp },
-        { id: SKILLS.aws, name: "AWS", ...stamp },
-        { id: SKILLS.redis, name: "Redis", ...stamp },
-        { id: SKILLS.python, name: "Python", ...stamp },
-        { id: SKILLS.kubernetes, name: "Kubernetes", ...stamp },
-      ],
     );
 
-    await queryInterface.bulkInsert("candidate_skills", [
-      // Amara: full-stack
-      { candidate_profile_id: PROFILES.candidate1, skill_id: SKILLS.react, ...stamp },
-      { candidate_profile_id: PROFILES.candidate1, skill_id: SKILLS.typescript, ...stamp },
-      { candidate_profile_id: PROFILES.candidate1, skill_id: SKILLS.nodejs, ...stamp },
-      { candidate_profile_id: PROFILES.candidate1, skill_id: SKILLS.postgresql, ...stamp },
-      // Liu: backend
-      { candidate_profile_id: PROFILES.candidate2, skill_id: SKILLS.nodejs, ...stamp },
-      { candidate_profile_id: PROFILES.candidate2, skill_id: SKILLS.postgresql, ...stamp },
-      { candidate_profile_id: PROFILES.candidate2, skill_id: SKILLS.redis, ...stamp },
-      { candidate_profile_id: PROFILES.candidate2, skill_id: SKILLS.python, ...stamp },
-      // Sofia: frontend
-      { candidate_profile_id: PROFILES.candidate3, skill_id: SKILLS.react, ...stamp },
-      { candidate_profile_id: PROFILES.candidate3, skill_id: SKILLS.typescript, ...stamp },
-      { candidate_profile_id: PROFILES.candidate3, skill_id: SKILLS.graphql, ...stamp },
-      // Dev: platform
-      { candidate_profile_id: PROFILES.candidate4, skill_id: SKILLS.docker, ...stamp },
-      { candidate_profile_id: PROFILES.candidate4, skill_id: SKILLS.kubernetes, ...stamp },
-      { candidate_profile_id: PROFILES.candidate4, skill_id: SKILLS.aws, ...stamp },
-    ]);
+    // The freshly installed fixture paths live below the dedicated demo
+    // roots, so preserve those while removing interactive uploads and orphaned
+    // UUID-scoped files collected from the old workspace.
+    await cleanupRemovedUploads(removedUploads, {
+      preserveInstalledDemoAssets: true,
+    });
 
-    await queryInterface.bulkInsert("jobs", [
-      {
-        id: JOBS.fullstack,
-        company_id: COMPANY_ID,
-        created_by_id: USERS.recruiter,
-        title: "Senior Full-Stack Engineer",
-        description:
-          "Own features end to end across our React/Node stack. You will design schemas, build APIs, and ship UI.",
-        employment_type: "FULL_TIME",
-        experience_min: 5,
-        experience_max: 10,
-        location: "Remote (EMEA)",
-        is_remote: true,
-        salary_min: 95000,
-        salary_max: 130000,
-        salary_currency: "USD",
-        status: "OPEN",
-        ...stamp,
-      },
-      {
-        id: JOBS.platform,
-        company_id: COMPANY_ID,
-        created_by_id: USERS.recruiter,
-        title: "Platform Engineer",
-        description:
-          "Keep our data plane fast and our deploys boring: Postgres, Redis, Docker, AWS.",
-        employment_type: "FULL_TIME",
-        experience_min: 4,
-        experience_max: 9,
-        location: "Remote (global)",
-        is_remote: true,
-        salary_min: 100000,
-        salary_max: 145000,
-        salary_currency: "USD",
-        status: "OPEN",
-        ...stamp,
-      },
-      {
-        id: JOBS.frontend,
-        company_id: COMPANY_ID,
-        created_by_id: USERS.recruiter,
-        title: "Frontend Developer",
-        description:
-          "Build accessible, fast UI in React and TypeScript on top of our GraphQL API.",
-        employment_type: "CONTRACT",
-        experience_min: 3,
-        experience_max: 7,
-        location: "Milan, Italy (hybrid)",
-        is_remote: false,
-        salary_min: 65000,
-        salary_max: 85000,
-        salary_currency: "EUR",
-        status: "CLOSED",
-        ...stamp,
-      },
-    ]);
-
-    await queryInterface.bulkInsert("job_skills", [
-      { job_id: JOBS.fullstack, skill_id: SKILLS.react, ...stamp },
-      { job_id: JOBS.fullstack, skill_id: SKILLS.typescript, ...stamp },
-      { job_id: JOBS.fullstack, skill_id: SKILLS.nodejs, ...stamp },
-      { job_id: JOBS.fullstack, skill_id: SKILLS.postgresql, ...stamp },
-      { job_id: JOBS.platform, skill_id: SKILLS.postgresql, ...stamp },
-      { job_id: JOBS.platform, skill_id: SKILLS.redis, ...stamp },
-      { job_id: JOBS.platform, skill_id: SKILLS.docker, ...stamp },
-      { job_id: JOBS.platform, skill_id: SKILLS.aws, ...stamp },
-      { job_id: JOBS.frontend, skill_id: SKILLS.react, ...stamp },
-      { job_id: JOBS.frontend, skill_id: SKILLS.typescript, ...stamp },
-      { job_id: JOBS.frontend, skill_id: SKILLS.graphql, ...stamp },
-    ]);
-
-    const daysAgo = (n) => new Date(now.getTime() - n * 24 * 60 * 60 * 1000);
-
-    await queryInterface.bulkInsert("applications", [
-      {
-        id: APPLICATIONS[0],
-        job_id: JOBS.fullstack,
-        candidate_profile_id: PROFILES.candidate1,
-        stage: "INTERVIEWING",
-        cover_letter:
-          "I have shipped exactly this stack at Paystack and would love to do it again at Northwind.",
-        resume_url: "https://files.example.com/resumes/amara-okafor.pdf",
-        submitted_at: daysAgo(14),
-        ...stamp,
-      },
-      {
-        id: APPLICATIONS[1],
-        job_id: JOBS.fullstack,
-        candidate_profile_id: PROFILES.candidate2,
-        stage: "APPLIED",
-        cover_letter:
-          "Mostly backend, but I am comfortable across the stack and deep on Postgres.",
-        resume_url: "https://files.example.com/resumes/liu-wei.pdf",
-        submitted_at: daysAgo(3),
-        ...stamp,
-      },
-      {
-        id: APPLICATIONS[2],
-        job_id: JOBS.fullstack,
-        candidate_profile_id: PROFILES.candidate3,
-        stage: "REVIEWED",
-        cover_letter: "Frontend-leaning full-stack; strong on the React side.",
-        resume_url: "https://files.example.com/resumes/sofia-marino.pdf",
-        submitted_at: daysAgo(7),
-        ...stamp,
-      },
-      {
-        id: APPLICATIONS[3],
-        job_id: JOBS.platform,
-        candidate_profile_id: PROFILES.candidate4,
-        stage: "OFFER",
-        cover_letter:
-          "Your stack is my day job: EKS, Terraform, Postgres, Redis.",
-        resume_url: "https://files.example.com/resumes/dev-patel.pdf",
-        submitted_at: daysAgo(21),
-        ...stamp,
-      },
-      {
-        // DRAFT: candidate-only "save your progress" state — no submitted_at,
-        // must never appear in a recruiter pipeline.
-        id: APPLICATIONS[4],
-        job_id: JOBS.platform,
-        candidate_profile_id: PROFILES.candidate2,
-        stage: "DRAFT",
-        cover_letter: "TODO: tailor this before submitting…",
-        resume_url: null,
-        submitted_at: null,
-        ...stamp,
-      },
-      {
-        id: APPLICATIONS[5],
-        job_id: JOBS.frontend,
-        candidate_profile_id: PROFILES.candidate3,
-        stage: "REJECTED",
-        cover_letter: "Applying for the Milan frontend opening.",
-        resume_url: "https://files.example.com/resumes/sofia-marino.pdf",
-        submitted_at: daysAgo(40),
-        ...stamp,
-      },
-    ]);
-
-    await queryInterface.bulkInsert("application_notes", [
-      {
-        id: NOTES[0],
-        application_id: APPLICATIONS[0],
-        author_id: USERS.recruiter,
-        content:
-          "Phone screen went very well — deep Postgres knowledge, clear communicator. Moving to technical interview.",
-        rating: 5,
-        ...stamp,
-      },
-      {
-        id: NOTES[1],
-        application_id: APPLICATIONS[0],
-        author_id: USERS.interviewer,
-        content:
-          "Strong system design round. Minor gaps in frontend testing practices.",
-        rating: 4,
-        ...stamp,
-      },
-      {
-        id: NOTES[2],
-        application_id: APPLICATIONS[2],
-        author_id: USERS.recruiter,
-        content:
-          "Portfolio is excellent but experience skews frontend; may be a better fit for the frontend req if it reopens.",
-        rating: 3,
-        ...stamp,
-      },
-    ]);
-
-    await queryInterface.bulkInsert("interview_assignments", [
-      {
-        id: INTERVIEW_ASSIGNMENT_ID,
-        application_id: APPLICATIONS[0],
-        interviewer_id: USERS.interviewer,
-        ...stamp,
-      },
-    ]);
-
-    await queryInterface.bulkInsert("ai_screenings", [
-      {
-        id: AI_SCREENING_ID,
-        application_id: APPLICATIONS[0],
-        generated_by_id: USERS.recruiter,
-        core_alignment:
-          "Nine years of full-stack experience with direct overlap on React, TypeScript, Node.js and PostgreSQL. Prior fintech scale work maps well to Northwind's data-intensive product.",
-        strengths: [
-          "Deep PostgreSQL schema-design experience",
-          "Led a four-person product team",
-          "Full ownership from API to UI",
-        ],
-        skills_gaps: [
-          "No production GraphQL exposure",
-          "Limited infrastructure/DevOps background",
-        ],
-        interview_questions: [
-          "Walk us through a schema migration you executed with zero downtime.",
-          "How do you decide what lives in the database versus the application layer?",
-          "Describe a time you had to unwind a bad architectural decision.",
-        ],
-        fit_score: 87,
-        model: "claude-sonnet-5",
-        tokens_used: 4231,
-        cost_usd: "0.0412",
-        ...stamp,
-      },
-    ]);
-
-    await queryInterface.bulkInsert("saved_jobs", [
-      {
-        id: SAVED_JOBS[0],
-        candidate_profile_id: PROFILES.candidate3,
-        job_id: JOBS.platform,
-        ...stamp,
-      },
-      {
-        id: SAVED_JOBS[1],
-        candidate_profile_id: PROFILES.candidate4,
-        job_id: JOBS.fullstack,
-        ...stamp,
-      },
-    ]);
+    console.info(
+      `Demo seed ready: ${data.companies.length} companies, ` +
+        `${data.candidateProfiles.length} candidates, ${data.jobs.length} jobs, ` +
+        `${data.applications.length} applications.`,
+    );
   },
 
   async down(queryInterface) {
-    await removeDemoData(queryInterface);
+    const removedUploads = await queryInterface.sequelize.transaction((transaction) =>
+      removeDemoData(queryInterface, transaction),
+    );
+    await cleanupRemovedUploads(removedUploads);
+    await removeContainedEntry(PUBLIC_UPLOADS_ROOT, PUBLIC_DEMO_ROOT, {
+      recursive: true,
+    });
+    await removeContainedEntry(PRIVATE_UPLOADS_ROOT, PRIVATE_DEMO_ROOT, {
+      recursive: true,
+    });
   },
+
+  // Exported for the dedicated reset/validation runner. sequelize-cli ignores
+  // extra migration properties.
+  demo: {
+    companyIds: IDENTITIES.companies,
+    candidateProfileIds: IDENTITIES.candidateProfiles,
+    flagshipJobId: IDENTITIES.jobs[0],
+    password: DEMO_PASSWORD,
+    skillNames: SKILLS,
+  },
+  removeDemoData,
 };
