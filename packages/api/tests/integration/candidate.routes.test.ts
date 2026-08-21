@@ -13,7 +13,7 @@ import {
 } from "@starter-kit/shared/db";
 
 /**
- * Runs against a real Postgres test database (DATABASE_URL from
+ * Runs against a real Postgres test database (TEST_DATABASE_URL from
  * tests/setup.ts, migrated separately) rather than mocking the DB, because
  * what's under test here is the ownership check itself — a mocked service
  * would just assert "the mock returned what I told it to return" and prove
