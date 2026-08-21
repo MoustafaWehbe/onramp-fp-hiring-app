@@ -36,12 +36,24 @@ interface JobCardProps {
    * would just point at the page you are already on.
    */
   linkCompany?: boolean;
+  /**
+   * Tighter padding/gaps and a single-column meta list instead of the
+   * default two-column grid, for contexts that show cards two-up in a
+   * narrower column (e.g. the candidate homepage) rather than the wide
+   * three-up grids on the Jobs and marketing pages. Content is identical —
+   * only spacing and the meta-row layout change.
+   */
+  compact?: boolean;
 }
 
-export function JobCard({ job, linkCompany = true }: JobCardProps) {
+export function JobCard({
+  job,
+  linkCompany = true,
+  compact = false,
+}: JobCardProps) {
   return (
     <Card className={cn(CARD_CLASS, CARD_HOVER_CLASS, "flex h-full flex-col")}>
-      <CardHeader className="space-y-4 p-5">
+      <CardHeader className={cn("space-y-3", compact ? "p-4" : "space-y-4 p-5")}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
             {job.company && (
@@ -60,7 +72,7 @@ export function JobCard({ job, linkCompany = true }: JobCardProps) {
                 )}
               </div>
             )}
-            <CardTitle className="text-xl leading-7">
+            <CardTitle className={compact ? "text-lg leading-6" : "text-xl leading-7"}>
               <Link
                 to={`/jobs/${job.id}`}
                 className="rounded-sm outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -69,12 +81,23 @@ export function JobCard({ job, linkCompany = true }: JobCardProps) {
               </Link>
             </CardTitle>
           </div>
-          <Badge variant="success">Open</Badge>
+          <Badge variant="success" className="rounded-full">Open</Badge>
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col gap-5 px-5 pb-5 pt-0">
-        <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+      <CardContent
+        className={cn(
+          "flex flex-1 flex-col pt-0",
+          compact ? "gap-3 px-4 pb-4" : "gap-5 px-5 pb-5",
+        )}
+      >
+        <div
+          className={
+            compact
+              ? "flex flex-col gap-2 text-sm text-muted-foreground"
+              : "grid gap-3 text-sm text-muted-foreground sm:grid-cols-2"
+          }
+        >
           <span className="flex items-center gap-2">
             <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
             {job.location ?? (job.isRemote ? "Remote" : "Location not specified")}
@@ -99,7 +122,12 @@ export function JobCard({ job, linkCompany = true }: JobCardProps) {
             />
             {job.experienceMin}–{job.experienceMax} years
           </span>
-          <span className="flex items-center gap-2 sm:col-span-2">
+          <span
+            className={cn(
+              "flex items-center gap-2",
+              !compact && "sm:col-span-2",
+            )}
+          >
             <WalletCards className="h-4 w-4 shrink-0" aria-hidden="true" />
             {formatSalaryRange(job)}
           </span>
@@ -123,7 +151,12 @@ export function JobCard({ job, linkCompany = true }: JobCardProps) {
         )}
       </CardContent>
 
-      <CardFooter className="mt-auto justify-between gap-3 px-5 pb-5 pt-0">
+      <CardFooter
+        className={cn(
+          "mt-auto justify-between gap-3 pt-0",
+          compact ? "px-4 pb-4" : "px-5 pb-5",
+        )}
+      >
         <span className="text-xs font-medium text-muted-foreground">
           {job.postedAt}
         </span>
