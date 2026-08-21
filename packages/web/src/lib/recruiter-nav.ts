@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Kanban,
   LayoutDashboard,
+  FileChartColumn,
   Settings as SettingsIcon,
   Users,
   type LucideIcon,
@@ -22,6 +23,7 @@ export interface RecruiterNavItem extends RoleNavItem {
  */
 const RECRUITER_NAV_ICONS: Record<string, LucideIcon> = {
   "/recruiter/dashboard": LayoutDashboard,
+  "/recruiter/reports": FileChartColumn,
   "/recruiter/jobs": Briefcase,
   "/recruiter/pipeline": Kanban,
   "/recruiter/candidates": Users,

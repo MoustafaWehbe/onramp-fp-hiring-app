@@ -30,6 +30,7 @@ import { RecruiterEditJobPage } from "../pages/recruiter/RecruiterEditJobPage";
 import { RecruiterCalendarPage } from "../pages/recruiter/RecruiterCalendarPage";
 import { RecruiterSettingsPage } from "../pages/recruiter/RecruiterSettingsPage";
 import { RecruiterUpgradePage } from "../pages/recruiter/RecruiterUpgradePage";
+import { RecruiterReportsPage } from "../pages/recruiter/RecruiterReportsPage";
 import { PublicCareerPage } from "../pages/PublicCareerPage";
 export function AppRoutes() {
   return (
@@ -80,6 +81,10 @@ export function AppRoutes() {
           <Route
             path="/recruiter/dashboard"
             element={<RecruiterDashboardPage />}
+          />
+          <Route
+            path="/recruiter/reports"
+            element={<RecruiterReportsPage />}
           />
           <Route
             path="/recruiter/pipeline"

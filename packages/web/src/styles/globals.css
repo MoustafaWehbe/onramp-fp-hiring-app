@@ -147,3 +147,63 @@
     scroll-behavior: auto !important;
   }
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #0f172a !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .report-print-root,
+  .report-print-root * {
+    visibility: visible;
+  }
+
+  .report-print-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    color: #0f172a !important;
+  }
+
+  .report-controls,
+  .report-actions,
+  .report-page-heading {
+    display: none !important;
+  }
+
+  .report-summary {
+    background: #0f172a !important;
+    color: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .report-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-print-root .bg-card,
+  .report-print-root [class*="dark:bg-"] {
+    background-color: #fff !important;
+  }
+
+  .report-print-root .text-muted-foreground {
+    color: #475569 !important;
+  }
+
+  .report-print-root .shadow-sm,
+  .report-print-root .shadow-xl {
+    box-shadow: none !important;
+  }
+}
