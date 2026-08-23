@@ -48,3 +48,16 @@ export function formatInterviewDate(interviewDate: string | Date): string {
     minute: "2-digit",
   }).format(new Date(interviewDate));
 }
+
+/**
+ * Day and month only — for the pipeline card's indicator row, where the full
+ * form above would eat the whole line. The complete date still reaches the
+ * recruiter through that indicator's tooltip and screen-reader label, so this
+ * shortens what is shown without hiding anything.
+ */
+export function formatInterviewDateShort(interviewDate: string | Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(interviewDate));
+}

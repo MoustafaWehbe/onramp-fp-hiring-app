@@ -4,10 +4,14 @@ import type {
   CandidatePoolInput,
   RecruiterCandidateFilters,
 } from "../../types/recruiter";
+import type { RecruiterReportFilters } from "../../types/analytics";
 
 export const recruiterKeys = {
   dashboard: ["recruiter", "dashboard"] as const,
   analytics: ["recruiter", "analytics"] as const,
+  reports: ["recruiter", "reports"] as const,
+  report: (filters: RecruiterReportFilters) =>
+    [...recruiterKeys.reports, filters] as const,
   candidates: ["recruiter", "candidates"] as const,
   candidateList: (filters: RecruiterCandidateFilters) =>
     [...recruiterKeys.candidates, "list", filters] as const,
@@ -35,6 +39,18 @@ export function useRecruiterAnalytics() {
     // application.changed event, which is what phase 4 replaced polling with.
     staleTime: 0,
     refetchOnWindowFocus: "always",
+  });
+}
+
+export function useRecruiterReport(
+  filters: RecruiterReportFilters,
+  options: { enabled?: boolean } = {},
+) {
+  return useQuery({
+    queryKey: recruiterKeys.report(filters),
+    queryFn: () => api.getRecruiterReport(filters),
+    enabled: options.enabled ?? true,
+    staleTime: 60_000,
   });
 }
 

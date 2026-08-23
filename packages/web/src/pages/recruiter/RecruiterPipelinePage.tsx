@@ -14,6 +14,8 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Skeleton } from "../../components/ui/skeleton";
 import { PipelineBoard } from "../../features/applications/components/PipelineBoard";
+import { PipelineBoardSkeleton } from "../../features/applications/components/PipelineBoardSkeleton";
+import type { PipelineTalentPoolMark } from "../../features/applications/components/PipelineCard";
 import { stageLabels } from "../../features/applications/components/pipeline-board";
 import {
   useApplicationsByJob,
@@ -28,6 +30,8 @@ import {
 import { useRecruiterJobs } from "../../features/jobs/hooks";
 import { useCalendarConnection } from "../../features/calendar/hooks";
 import { useCompanyProfile } from "../../features/company/hooks";
+import { useRecruiterCandidates } from "../../features/recruiter/hooks";
+import { useFullBleedContent } from "../../layouts/full-bleed";
 import { useRealtime } from "../../providers/RealtimeProvider";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn } from "../../lib/utils";
@@ -38,15 +42,13 @@ import type {
 // add to imports
 import { TEXT_WARNING, WARNING_BANNER } from "../../features/candidate/theme";
 import { SuccessMoment } from "../../components/shared/SuccessMoment";
-function BoardSkeleton() {
-  return (
-    <div className="flex gap-3 overflow-hidden" aria-label="Loading pipeline">
-      {[0, 1, 2, 3, 4, 5].map((column) => (
-        <Skeleton key={column} className="h-80 w-72 shrink-0 rounded-lg" />
-      ))}
-    </div>
-  );
-}
+
+/**
+ * The board spans the full shell width (see `useFullBleedContent` below), so
+ * everything around it re-applies the measure the rest of the app reads at.
+ * Only the columns want a 2560px monitor; a fit-score filter does not.
+ */
+const PAGE_MEASURE_CLASS = "mx-auto w-full max-w-7xl";
 
 function PipelineJobSelector() {
   const jobsQuery = useRecruiterJobs();
@@ -265,6 +267,41 @@ export function RecruiterPipelinePage() {
     [applicationsQuery.data],
   );
 
+  // Six columns of cards are the one recruiter surface worth the whole
+  // viewport. Only while a board is actually on screen — the job selector is
+  // a normal three-up card grid and reads better at the shared measure.
+  useFullBleedContent(Boolean(jobId));
+
+  /*
+   * Talent-pool markers. The pipeline endpoint carries the application and its
+   * candidate profile but not pool membership, which is a recruiter-scoped
+   * relation on the candidate — so rather than widen that response, the board
+   * joins the two client-side on candidate profile id.
+   *
+   * Scoped to `poolStatus: "in_pool"` so the request returns only the
+   * candidates that could produce a marker, and gated on `isPro` because the
+   * listing is Pro-only server-side: a Free company would get a guaranteed
+   * 403, exactly as RecruiterCandidatesPage avoids.
+   */
+  const poolQuery = useRecruiterCandidates(
+    { poolStatus: "in_pool" },
+    { enabled: isPro && Boolean(jobId) },
+  );
+
+  const talentPoolByProfileId = useMemo(() => {
+    const marks = new Map<string, PipelineTalentPoolMark>();
+
+    for (const candidate of poolQuery.data ?? []) {
+      if (candidate.poolEntry) {
+        marks.set(candidate.id, {
+          tagLabels: candidate.poolEntry.tags.map((tag) => tag.label),
+        });
+      }
+    }
+
+    return marks;
+  }, [poolQuery.data]);
+
   const visibleApplications = useMemo(
     () =>
       applications.filter(
@@ -352,7 +389,7 @@ export function RecruiterPipelinePage() {
 
   return (
     <>
-      <div className="mb-8">
+      <div className={cn(PAGE_MEASURE_CLASS, "mb-8")}>
           <p className="text-sm font-medium text-primary">Recruiter pipeline</p>
           <h1 className="mt-2 text-4xl font-bold">
             Move candidates, not spreadsheets.
@@ -363,17 +400,16 @@ export function RecruiterPipelinePage() {
           </p>
         </div>
 
-        {/* The board's columns already scroll horizontally on their own
-            (overflow-x-auto in PipelineBoard) — it stays inside the shared
-            max-w-7xl content container like every other recruiter page
-            rather than breaking out of it. */}
+        {!jobId && (
+          <div className={PAGE_MEASURE_CLASS}>
+            <PipelineJobSelector />
+          </div>
+        )}
 
-        {!jobId && <PipelineJobSelector />}
-
-        {jobId && applicationsQuery.isLoading && <BoardSkeleton />}
+        {jobId && applicationsQuery.isLoading && <PipelineBoardSkeleton />}
 
         {jobId && applicationsQuery.isError && (
-          <Card role="alert">
+          <Card role="alert" className={PAGE_MEASURE_CLASS}>
             <CardContent className="flex flex-col items-start gap-4 p-6">
               <div>
                 <h2 className="font-semibold">Pipeline unavailable</h2>
@@ -399,14 +435,16 @@ export function RecruiterPipelinePage() {
         {jobId && applicationsQuery.isSuccess && (
           <div className="space-y-4">
             {justHired && (
-              <SuccessMoment
-                message={`${justHired} was hired!`}
-                onDismiss={() => setJustHired(null)}
-              />
+              <div className={PAGE_MEASURE_CLASS}>
+                <SuccessMoment
+                  message={`${justHired} was hired!`}
+                  onDismiss={() => setJustHired(null)}
+                />
+              </div>
             )}
 
             {isDegraded && (
-  <Card className={WARNING_BANNER} role="status">
+  <Card className={cn(WARNING_BANNER, PAGE_MEASURE_CLASS)} role="status">
     <CardContent className={cn("p-4 text-sm", TEXT_WARNING)}>
                   Live updates are reconnecting. Moves you make still save, but
                   changes from other sessions may not appear until the
@@ -416,7 +454,7 @@ export function RecruiterPipelinePage() {
             )}
 
             {applications.length === 0 ? (
-              <Card>
+              <Card className={PAGE_MEASURE_CLASS}>
                 <CardContent className="p-6">
                   <h2 className="font-semibold">No applications yet</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -428,14 +466,16 @@ export function RecruiterPipelinePage() {
             ) : (
               <>
                 {scheduleApplication && jobId && (
-                  <SchedulePrompt
-                    application={scheduleApplication}
-                    jobId={jobId}
-                    onDismiss={() => setScheduleFor(null)}
-                  />
+                  <div className={PAGE_MEASURE_CLASS}>
+                    <SchedulePrompt
+                      application={scheduleApplication}
+                      jobId={jobId}
+                      onDismiss={() => setScheduleFor(null)}
+                    />
+                  </div>
                 )}
 
-                <Card>
+                <Card className={PAGE_MEASURE_CLASS}>
                   <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
                     <div className="w-full max-w-xs space-y-2">
                       <Label htmlFor="minimum-fit-score">
@@ -497,7 +537,7 @@ export function RecruiterPipelinePage() {
                 </Card>
 
                 {visibleApplications.length === 0 ? (
-                  <Card>
+                  <Card className={PAGE_MEASURE_CLASS}>
                     <CardContent className="p-6">
                       <h2 className="font-semibold">
                         No candidates meet this threshold
@@ -516,6 +556,7 @@ export function RecruiterPipelinePage() {
                         : undefined
                     }
                     isPro={isPro}
+                    talentPoolByProfileId={talentPoolByProfileId}
                     onMove={moveToStage}
                     onRefuse={(message) => toast.error(message)}
                   />

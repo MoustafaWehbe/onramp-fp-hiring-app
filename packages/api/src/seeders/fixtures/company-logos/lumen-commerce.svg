@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title">
+  <title id="title">Lumen Commerce</title>
+  <rect width="160" height="160" rx="32" fill="#7c2d12"/>
+  <path d="M48 35v79c0 8 6 13 14 13h54v-20H70V35z" fill="#ffedd5"/>
+  <circle cx="105" cy="55" r="19" fill="#fb923c"/>
+</svg>

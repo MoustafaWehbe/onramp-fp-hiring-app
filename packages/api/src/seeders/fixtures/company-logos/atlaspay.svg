@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title">
+  <title id="title">AtlasPay</title>
+  <rect width="160" height="160" rx="32" fill="#0f4c5c"/>
+  <path d="m80 30 48 99h-24L93 105H66l-11 24H32zm0 34-8 23h16z" fill="#fef3c7"/>
+  <path d="M53 105h54" stroke="#f59e0b" stroke-width="8" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title">
+  <title id="title">Northwind Labs</title>
+  <rect width="160" height="160" rx="32" fill="#312e81"/>
+  <path d="M36 112V48h18l27 37V48h20v64H84L56 74v38z" fill="#fff"/>
+  <circle cx="119" cy="48" r="12" fill="#a5b4fc"/>
+</svg>

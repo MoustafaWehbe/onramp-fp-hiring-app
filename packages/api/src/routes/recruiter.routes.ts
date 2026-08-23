@@ -15,6 +15,7 @@ import {
   updateCandidatePoolSchema,
 } from "../schemas/talent-pool.schemas";
 import { calendarController } from "../controllers/calendar.controller";
+import { recruiterReportQuerySchema } from "../schemas/reports.schemas";
 
 const router = Router();
 const requireRecruiter = [authenticate, authorize("RECRUITER", "ADMIN")];
@@ -115,6 +116,12 @@ router.get(
   authenticate,
   authorize("RECRUITER", "ADMIN"),
   recruiterController.analytics,
+);
+router.get(
+  "/reports",
+  ...requireProRecruiter,
+  validate(recruiterReportQuerySchema, "query"),
+  recruiterController.reports,
 );
 
 export { router as recruiterRouter };

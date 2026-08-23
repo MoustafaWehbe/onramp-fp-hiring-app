@@ -1,5 +1,9 @@
 import { apiClient } from "../../lib/api-client";
-import type { RecruiterAnalyticsRecord } from "../../types/analytics";
+import type {
+  RecruiterAnalyticsRecord,
+  RecruiterReportFilters,
+  RecruiterReportRecord,
+} from "../../types/analytics";
 import type {
   CandidatePoolEntryRecord,
   CandidatePoolInput,
@@ -27,6 +31,26 @@ export async function getRecruiterAnalytics(): Promise<RecruiterAnalyticsRecord>
     "/recruiter/analytics",
   );
   return data.data;
+}
+
+export async function getRecruiterReport(
+  filters: RecruiterReportFilters,
+): Promise<RecruiterReportRecord> {
+  const { data } = await apiClient.get<Envelope<RecruiterReportRecord>>(
+    "/recruiter/reports",
+    { params: filters },
+  );
+  return data.data;
+}
+
+export async function downloadRecruiterReportCsv(
+  filters: RecruiterReportFilters,
+): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>("/recruiter/reports", {
+    params: { ...filters, format: "csv" },
+    responseType: "blob",
+  });
+  return data;
 }
 
 export async function getRecruiterCandidates(

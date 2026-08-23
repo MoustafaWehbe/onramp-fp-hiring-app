@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title">
+  <title id="title">Greenline Mobility</title>
+  <rect width="160" height="160" rx="32" fill="#134e4a"/>
+  <path d="M31 91c15-36 38-54 70-54 11 0 21 3 28 8-3 39-24 67-61 76-17 4-29-7-37-30Z" fill="#99f6e4"/>
+  <path d="M45 113c16-22 35-38 61-52" stroke="#0f766e" stroke-width="9" stroke-linecap="round" fill="none"/>
+</svg>

@@ -101,6 +101,53 @@ function percentage(part: number, whole: number): number {
   return whole === 0 ? 0 : roundTo((part / whole) * 100);
 }
 
+export interface FunnelAggregateInput {
+  counts: Partial<Record<FunnelStage | "REJECTED", number>>;
+  reached: Partial<Record<FunnelStage, number>>;
+  rejectedFrom: Partial<Record<FunnelStage, number>>;
+  unattributedRejections: number;
+  measuredByHistory: number;
+  total: number;
+}
+
+/**
+ * Shared presentation logic for both dashboard and report funnel sources.
+ * The dashboard derives these aggregates from ORM rows; reports derive them
+ * in SQL so wide date ranges never materialize application history in Node.
+ */
+export function formatFunnelAggregates(input: FunnelAggregateInput) {
+  const stages: FunnelStageStats[] = FUNNEL_STAGE_ORDER.map((stage, index) => {
+    const reached = input.reached[stage] ?? 0;
+    const previousReached =
+      index === 0 ? null : (input.reached[FUNNEL_STAGE_ORDER[index - 1]] ?? 0);
+
+    return {
+      stage,
+      count: input.counts[stage] ?? 0,
+      reached,
+      reachedPercentage: percentage(reached, input.total),
+      conversionFromPrevious:
+        previousReached === null || previousReached === 0
+          ? null
+          : percentage(reached, previousReached),
+      rejectedFrom: input.rejectedFrom[stage] ?? 0,
+    };
+  });
+  const rejected = input.counts.REJECTED ?? 0;
+
+  return {
+    stages,
+    rejected,
+    rejectedPercentage: percentage(rejected, input.total),
+    unattributedRejections: input.unattributedRejections,
+    historyCoverage: {
+      measured: input.measuredByHistory,
+      total: input.total,
+      percentage: percentage(input.measuredByHistory, input.total),
+    },
+  };
+}
+
 function monthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
@@ -255,43 +302,15 @@ export class RecruiterAnalyticsService {
     }
 
     const total = rows.length;
-    const rejected = counts.get("REJECTED") ?? 0;
 
-    const stages: FunnelStageStats[] = FUNNEL_STAGE_ORDER.map(
-      (stage, index) => {
-        const reached = reachedCounts.get(stage) ?? 0;
-        const previousReached =
-          index === 0
-            ? null
-            : (reachedCounts.get(FUNNEL_STAGE_ORDER[index - 1]) ?? 0);
-
-        return {
-          stage,
-          count: counts.get(stage) ?? 0,
-          reached,
-          reachedPercentage: percentage(reached, total),
-          // Null rather than 0 when nobody reached the prior stage: there is
-          // no rate to report, and "0%" would read as a total drop-off.
-          conversionFromPrevious:
-            previousReached === null || previousReached === 0
-              ? null
-              : percentage(reached, previousReached),
-          rejectedFrom: rejectionsByStage.get(stage) ?? 0,
-        };
-      },
-    );
-
-    return {
-      stages,
-      rejected,
-      rejectedPercentage: percentage(rejected, total),
+    return formatFunnelAggregates({
+      counts: Object.fromEntries(counts),
+      reached: Object.fromEntries(reachedCounts),
+      rejectedFrom: Object.fromEntries(rejectionsByStage),
       unattributedRejections,
-      historyCoverage: {
-        measured: measuredByHistory,
-        total,
-        percentage: percentage(measuredByHistory, total),
-      },
-    };
+      measuredByHistory,
+      total,
+    });
   }
 
   /**

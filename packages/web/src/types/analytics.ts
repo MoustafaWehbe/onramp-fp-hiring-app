@@ -15,6 +15,52 @@ export interface FunnelStageStats {
   reachedPercentage: number;
   /** Share of the previous stage that reached this one; null for the first. */
   conversionFromPrevious: number | null;
+  rejectedFrom?: number;
+}
+
+export interface RecruiterReportRecord {
+  company: { id: string; name: string };
+  range: { from: string; to: string };
+  scope: { jobId: string | null };
+  generatedAt: string;
+  hasActivity: boolean;
+  summary: {
+    totalApplications: number;
+    activeJobs: number;
+    interviewsScheduled: number;
+    offersMade: number;
+    hires: number;
+  };
+  funnel: RecruiterAnalyticsRecord["funnel"] & {
+    unattributedRejections: number;
+  };
+  timeToHire: TimeToHireStats;
+  scoreDistribution: ScoreDistributionStats;
+  jobs: Array<{
+    jobId: string;
+    title: string;
+    applications: number;
+    stageSpread: Record<
+      "APPLIED" | "REVIEWED" | "INTERVIEWING" | "OFFER" | "HIRED" | "REJECTED",
+      number
+    >;
+    hires: number;
+    averageFitScore: number | null;
+  }>;
+  scorecards: Array<{
+    criterionId: string;
+    label: string;
+    ratings: number;
+    averageRating: number;
+  }>;
+  applicationsOverTime: Array<{ period: string; applications: number }>;
+  timingInterval: "day" | "week" | "month";
+}
+
+export interface RecruiterReportFilters {
+  from: string;
+  to: string;
+  jobId?: string;
 }
 
 export interface TimeToHireStats {
