@@ -62,6 +62,20 @@ export class CandidateRecommendationsService {
       })
     ).map((application) => application.jobId);
 
+    // Whether a scoring pass has ever completed for this profile, independent
+    // of whether it left any eligible rows (a candidate who has applied to
+    // every open job scores zero on purpose — that is a real "ready, nothing
+    // left" state, not "computing"). candidate_job_recommendations row
+    // presence can't answer this, since that case is legitimately empty;
+    // recommendationsComputedAt is a durable marker set on every pass
+    // regardless of outcome. Determines status/staleness — the filtered
+    // `cached` query below decides only what is actually displayed.
+    const hasEverBeenScored = profile.recommendationsComputedAt != null;
+    const isStale =
+      hasEverBeenScored &&
+      Date.now() - profile.recommendationsComputedAt!.getTime() >
+        STALE_AFTER_MS;
+
     const cached = await CandidateJobRecommendation.findAll({
       where: {
         candidateProfileId: profile.id,
@@ -101,24 +115,17 @@ export class CandidateRecommendationsService {
       limit,
     });
 
-    const oldest = cached.reduce<number | null>((oldestAt, row) => {
-      const time = row.computedAt.getTime();
-      return oldestAt === null || time < oldestAt ? time : oldestAt;
-    }, null);
-    const isStale =
-      oldest !== null && Date.now() - oldest > STALE_AFTER_MS;
-
-    // A first visit has nothing cached; a stale cache is still served while a
-    // fresh pass runs, so the candidate never waits on the queue.
-    if (profileIsScorable && (cached.length === 0 || isStale)) {
+    // A first visit has nothing scored yet; a stale score set is still served
+    // while a fresh pass runs, so the candidate never waits on the queue.
+    if (profileIsScorable && (!hasEverBeenScored || isStale)) {
       scheduleCandidateRecommendations(
         profile.id,
-        cached.length === 0 ? "first-visit" : "scheduled",
+        hasEverBeenScored ? "scheduled" : "first-visit",
       );
     }
 
     return {
-      status: this.resolveStatus(profileIsScorable, cached.length),
+      status: this.resolveStatus(profileIsScorable, hasEverBeenScored),
       recommendations: cached.map((row) => {
         const job = row.get("job") as
           | (Job & { company?: Company; skills?: Skill[] })
@@ -137,10 +144,13 @@ export class CandidateRecommendationsService {
                 location: job.location ?? null,
                 isRemote: job.isRemote,
                 employmentType: job.employmentType,
+                experienceMin: job.experienceMin,
+                experienceMax: job.experienceMax,
                 salaryMin: job.salaryMin,
                 salaryMax: job.salaryMax,
                 salaryCurrency: job.salaryCurrency,
                 skills: (job.skills ?? []).map((skill) => skill.name),
+                createdAt: job.createdAt,
                 company: job.company
                   ? {
                       id: job.company.id,
@@ -157,13 +167,13 @@ export class CandidateRecommendationsService {
 
   private resolveStatus(
     profileIsScorable: boolean,
-    cachedCount: number,
+    hasEverBeenScored: boolean,
   ): "ready" | "computing" | "insufficient-profile" {
     if (!profileIsScorable) {
       return "insufficient-profile";
     }
 
-    return cachedCount === 0 ? "computing" : "ready";
+    return hasEverBeenScored ? "ready" : "computing";
   }
 
   /** Queued when a profile changes materially enough to move scores. */

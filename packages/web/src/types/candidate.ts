@@ -109,10 +109,13 @@ export interface JobRecommendation {
     location: string | null;
     isRemote: boolean;
     employmentType: string;
+    experienceMin: number;
+    experienceMax: number;
     salaryMin: number;
     salaryMax: number;
     salaryCurrency: string;
     skills: string[];
+    createdAt: string;
     company: { id: string; name: string; logoUrl: string | null } | null;
   } | null;
 }

@@ -177,7 +177,7 @@ export function RecommendedJobs({ limit = 4 }: { limit?: number }) {
           </div>
         )}
 
-        {data?.status === "computing" && (
+        {data?.status === "computing" && !recommendationsQuery.timedOut && (
           <div className="flex items-start gap-3 rounded-md border border-dashed p-4">
             <Loader2
               className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-muted-foreground"
@@ -219,13 +219,22 @@ export function RecommendedJobs({ limit = 4 }: { limit?: number }) {
           </div>
         )}
 
-        {data?.status === "ready" && data.recommendations.length === 0 && (
+        {((data?.status === "ready" && data.recommendations.length === 0) ||
+          (data?.status === "computing" && recommendationsQuery.timedOut)) && (
           <div className="rounded-md border border-dashed p-4">
             <p className="text-sm font-medium">No new matches right now</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              You've applied to the open roles that fit your profile. New
-              postings will show up here.
+              Check back soon, or browse all open jobs.
             </p>
+            <Link
+              to="/jobs"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "mt-3",
+              )}
+            >
+              Browse all jobs
+            </Link>
           </div>
         )}
 

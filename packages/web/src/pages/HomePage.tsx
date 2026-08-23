@@ -15,6 +15,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { JobCard } from "../components/jobs/JobCard";
 import { RoleSwitcher } from "../components/jobs/RoleSwitcher";
 import { roleIcons } from "../components/auth/RolePicker";
+import { Reveal } from "../components/shared/Reveal";
 import { buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
@@ -108,7 +109,7 @@ export function HomePage() {
       {/* Hero */}
       <section className="border-b bg-background" aria-labelledby="hero-heading">
         <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 md:py-20 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-center lg:px-8">
-          <div className="flex flex-col justify-center">
+          <div className="flex flex-col justify-center animate-fade-slide-in">
             <div className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border bg-card px-3 py-1 text-sm font-medium text-muted-foreground">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
               HireFlow hiring workspace
@@ -128,14 +129,20 @@ export function HomePage() {
                 to={
                   signedInRole ? getRoleHomePath(signedInRole) : "/register"
                 }
-                className={cn(buttonVariants({ size: "lg" }), "gap-2")}
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "gap-2 transition-transform hover:scale-[1.03] active:scale-[0.98]",
+                )}
               >
                 {signedInRole ? "Open your workspace" : "Get started"}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <Link
                 to="/jobs"
-                className={buttonVariants({ variant: "outline", size: "lg" })}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "lg" }),
+                  "transition-transform hover:scale-[1.03] active:scale-[0.98]",
+                )}
               >
                 Browse open roles
               </Link>
@@ -147,7 +154,10 @@ export function HomePage() {
           </div>
 
           {/* Early role selection */}
-          <Card>
+          <Card
+            className="animate-fade-slide-in"
+            style={{ animationDelay: "120ms", animationFillMode: "backwards" }}
+          >
             <CardContent className="p-5">
               <p className="text-sm font-semibold">
                 {signedInRole ? "Your workspace" : "Choose your workspace"}
@@ -167,8 +177,8 @@ export function HomePage() {
                       type="button"
                       onClick={() => continueAsRole(role)}
                       className={cn(
-                        "group flex w-full items-center gap-3 rounded-md border bg-background p-3 text-left transition-colors",
-                        "hover:border-slate-300 hover:bg-accent/50",
+                        "group flex w-full items-center gap-3 rounded-md border bg-background p-3 text-left transition-all",
+                        "hover:border-slate-300 hover:bg-accent/50 hover:shadow-sm",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       )}
                     >
@@ -205,33 +215,38 @@ export function HomePage() {
         className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 md:py-20 lg:px-8"
         aria-labelledby="roles-heading"
       >
-        <div className="mb-8 max-w-2xl">
-          <h2 id="roles-heading" className="text-3xl font-bold tracking-tight">
-            {signedInRole
-              ? `Your ${roleConfig[signedInRole].label.toLowerCase()} workspace`
-              : "One platform, three workspaces"}
-          </h2>
-          <p className="mt-3 text-base leading-7 text-muted-foreground">
-            {signedInRole
-              ? roleConfig[signedInRole].description
-              : "Candidates, recruiters, and interviewers each get pages, navigation, and workflows built for their side of hiring."}
-          </p>
-        </div>
-        {signedInRole ? (
-          <Link
-            to={getRoleHomePath(signedInRole)}
-            className={cn(buttonVariants({ size: "lg" }), "gap-2")}
-          >
-            Open {roleConfig[signedInRole].label.toLowerCase()} workspace
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        ) : (
-          <RoleSwitcher
-            value={intendedRole}
-            onChange={continueAsRole}
-            ctaPrefix="Continue as"
-          />
-        )}
+        <Reveal>
+          <div className="mb-8 max-w-2xl">
+            <h2 id="roles-heading" className="text-3xl font-bold tracking-tight">
+              {signedInRole
+                ? `Your ${roleConfig[signedInRole].label.toLowerCase()} workspace`
+                : "One platform, three workspaces"}
+            </h2>
+            <p className="mt-3 text-base leading-7 text-muted-foreground">
+              {signedInRole
+                ? roleConfig[signedInRole].description
+                : "Candidates, recruiters, and interviewers each get pages, navigation, and workflows built for their side of hiring."}
+            </p>
+          </div>
+          {signedInRole ? (
+            <Link
+              to={getRoleHomePath(signedInRole)}
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "gap-2 transition-transform hover:scale-[1.03] active:scale-[0.98]",
+              )}
+            >
+              Open {roleConfig[signedInRole].label.toLowerCase()} workspace
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          ) : (
+            <RoleSwitcher
+              value={intendedRole}
+              onChange={continueAsRole}
+              ctaPrefix="Continue as"
+            />
+          )}
+        </Reveal>
       </section>
 
       {/* Open roles */}
@@ -240,7 +255,7 @@ export function HomePage() {
         aria-labelledby="open-roles-heading"
       >
         <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 md:py-20 lg:px-8">
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <Reveal className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-2xl">
               <h2
                 id="open-roles-heading"
@@ -257,13 +272,13 @@ export function HomePage() {
               to="/jobs"
               className={cn(
                 buttonVariants({ variant: "outline" }),
-                "w-full gap-2 sm:w-auto",
+                "w-full gap-2 transition-transform hover:scale-[1.03] active:scale-[0.98] sm:w-auto",
               )}
             >
               Browse all jobs
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-          </div>
+          </Reveal>
           {publicJobsQuery.isLoading ? (
             <div
               className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
@@ -291,8 +306,10 @@ export function HomePage() {
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {featuredJobs.map((job) => (
-                <JobCard key={job.id} job={job} />
+              {featuredJobs.map((job, index) => (
+                <Reveal key={job.id} delayMs={Math.min(index * 80, 240)}>
+                  <JobCard job={job} />
+                </Reveal>
               ))}
             </div>
           )}
@@ -304,7 +321,7 @@ export function HomePage() {
         className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 md:py-20 lg:px-8"
         aria-labelledby="interviews-heading"
       >
-        <div className="mb-8 max-w-2xl">
+        <Reveal className="mb-8 max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-wide text-primary">
             For interviewers
           </p>
@@ -318,24 +335,23 @@ export function HomePage() {
             Prepare with current candidate, role, resume, and application
             context — no more scrambling before the call.
           </p>
-        </div>
+        </Reveal>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {interviewerHighlights.map(({ icon: Icon, title, description }) => (
-            <div
-              key={title}
-              className="flex h-full flex-col rounded-lg border bg-card p-5 shadow-sm"
-            >
-              <span
-                className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border bg-background text-primary"
-                aria-hidden="true"
-              >
-                <Icon className="h-5 w-5" />
-              </span>
-              <h3 className="text-base font-semibold">{title}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {description}
-              </p>
-            </div>
+          {interviewerHighlights.map(({ icon: Icon, title, description }, index) => (
+            <Reveal key={title} delayMs={Math.min(index * 80, 240)}>
+              <div className="flex h-full flex-col rounded-lg border bg-card p-5 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md">
+                <span
+                  className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border bg-background text-primary"
+                  aria-hidden="true"
+                >
+                  <Icon className="h-5 w-5" />
+                </span>
+                <h3 className="text-base font-semibold">{title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {description}
+                </p>
+              </div>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -346,7 +362,7 @@ export function HomePage() {
         aria-labelledby="pipeline-heading"
       >
         <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 md:py-20 lg:px-8">
-          <div className="mb-8 max-w-2xl">
+          <Reveal className="mb-8 max-w-2xl">
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">
               For recruiters
             </p>
@@ -360,24 +376,23 @@ export function HomePage() {
               Move candidates through a clear hiring pipeline and keep every
               stage — from first screen to offer — visible to the whole team.
             </p>
-          </div>
+          </Reveal>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {recruiterHighlights.map(({ icon: Icon, title, description }) => (
-              <div
-                key={title}
-                className="flex h-full flex-col rounded-lg border bg-card p-5 shadow-sm"
-              >
-                <span
-                  className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border bg-background text-primary"
-                  aria-hidden="true"
-                >
-                  <Icon className="h-5 w-5" />
-                </span>
-                <h3 className="text-base font-semibold">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {description}
-                </p>
-              </div>
+            {recruiterHighlights.map(({ icon: Icon, title, description }, index) => (
+              <Reveal key={title} delayMs={Math.min(index * 80, 240)}>
+                <div className="flex h-full flex-col rounded-lg border bg-card p-5 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md">
+                  <span
+                    className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border bg-background text-primary"
+                    aria-hidden="true"
+                  >
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <h3 className="text-base font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {description}
+                  </p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -388,7 +403,7 @@ export function HomePage() {
         className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 md:py-20 lg:px-8"
         aria-labelledby="final-cta-heading"
       >
-        <div className="rounded-xl border bg-card px-6 py-10 text-center shadow-sm sm:px-10 md:py-14">
+        <Reveal className="rounded-xl border bg-card px-6 py-10 text-center shadow-sm sm:px-10 md:py-14">
           <h2
             id="final-cta-heading"
             className="text-3xl font-bold tracking-tight"
@@ -414,7 +429,7 @@ export function HomePage() {
                         : "outline",
                     size: "lg",
                   }),
-                  "w-full sm:w-auto",
+                  "w-full transition-transform hover:scale-[1.03] active:scale-[0.98] sm:w-auto",
                 )}
               >
                 {signedInRole
@@ -423,7 +438,7 @@ export function HomePage() {
               </button>
             ))}
           </div>
-        </div>
+        </Reveal>
       </section>
     </div>
   );

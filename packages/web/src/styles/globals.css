@@ -88,6 +88,10 @@
   body {
     @apply overflow-x-hidden;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /*

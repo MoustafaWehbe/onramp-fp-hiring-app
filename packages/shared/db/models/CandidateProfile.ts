@@ -20,6 +20,14 @@ export interface CandidateProfileAttributes {
    * anything the candidate has edited since.
    */
   profileSeededAt?: Date | null;
+  /**
+   * When a recommendations scoring pass last completed for this profile,
+   * regardless of whether it produced any rows. Distinguishes "never
+   * scored yet" from "scored, currently nothing eligible" (e.g. every open
+   * job has been applied to) — the candidate_job_recommendations table looks
+   * identical (empty) in both cases.
+   */
+  recommendationsComputedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -35,6 +43,7 @@ export type CandidateProfileCreationAttributes = Optional<
   | "links"
   | "profilePhotoUrl"
   | "profileSeededAt"
+  | "recommendationsComputedAt"
 >;
 
 export class CandidateProfile
@@ -51,6 +60,7 @@ export class CandidateProfile
   declare links: CandidateProfileLinks | null | undefined;
   declare profilePhotoUrl: string | null | undefined;
   declare profileSeededAt: Date | null | undefined;
+  declare recommendationsComputedAt: Date | null | undefined;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 
@@ -98,6 +108,10 @@ export class CandidateProfile
           allowNull: true,
         },
         profileSeededAt: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
+        recommendationsComputedAt: {
           type: DataTypes.DATE,
           allowNull: true,
         },
