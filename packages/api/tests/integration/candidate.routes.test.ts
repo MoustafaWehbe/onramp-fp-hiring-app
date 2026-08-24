@@ -442,15 +442,39 @@ describe("GET /api/candidate/skills/catalog", () => {
 // ─── Resume upload: local disk storage, validated type/size ───────────────────
 
 describe("POST /api/candidate/resume", () => {
-  it("uploads a PDF and sets resumeUrl on the candidate's own profile", async () => {
+  it("stores and downloads a profile CV with its original filename", async () => {
+    const body = Buffer.from("%PDF-1.4 fake resume content");
     const res = await request(app)
       .post("/api/candidate/resume")
       .set("Cookie", cookie(tokenA))
-      .attach("resume", Buffer.from("%PDF-1.4 fake resume content"), "resume.pdf");
+      .attach("resume", body, "Jane_Doe_Resume.pdf");
 
     expect(res.status).toBe(200);
     expect(res.body.data.resumeUrl).toMatch(/^\/uploads\/resumes\//);
+    expect(res.body.data.resumeOriginalFilename).toBe("Jane_Doe_Resume.pdf");
     expect(res.body.data.userId).toBe(candidateA.id);
+
+    const download = await request(app)
+      .get("/api/candidate/resume")
+      .set("Cookie", cookie(tokenA));
+    expect(download.status).toBe(200);
+    expect(download.headers["content-disposition"]).toContain(
+      'attachment; filename="Jane_Doe_Resume.pdf"',
+    );
+    expect(Buffer.compare(download.body as Buffer, body)).toBe(0);
+
+    const profile = await CandidateProfile.findOne({
+      where: { userId: candidateA.id },
+    });
+    await profile!.update({ resumeOriginalFilename: null });
+
+    const legacyDownload = await request(app)
+      .get("/api/candidate/resume")
+      .set("Cookie", cookie(tokenA));
+    expect(legacyDownload.status).toBe(200);
+    expect(legacyDownload.headers["content-disposition"]).toContain(
+      'attachment; filename="resume.pdf"',
+    );
   });
 
   it("422s for a disallowed file type", async () => {

@@ -1,6 +1,8 @@
 import path from "path";
 import dotenv from "dotenv";
-dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+const repoRootOffset =
+  path.basename(__dirname) === "dist" ? "../../../.env" : "../../.env";
+dotenv.config({ path: path.resolve(__dirname, repoRootOffset) });
 import { createWorkers } from "./src/queues";
 import { closeDatabase, initializeDatabase } from "./src/lib/db";
 import { getRedisConnection } from "@starter-kit/shared";

@@ -466,9 +466,13 @@ export function RecruiterCandidatesPage() {
                     >
                       View profile
                     </Link>
-                    {candidate.resumeUrl && (
+                    {candidate.applicationResumes?.[0] && (
                       <a
-                        href={candidate.resumeUrl}
+                        href={candidate.applicationResumes[0].resumeDownloadUrl}
+                        download={
+                          candidate.applicationResumes[0]
+                            .resumeOriginalFilename
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className={cn(
@@ -479,7 +483,7 @@ export function RecruiterCandidatesPage() {
                         )}
                       >
                         <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
-                        Resume
+                        {candidate.applicationResumes[0].resumeOriginalFilename}
                       </a>
                     )}
                   </div>

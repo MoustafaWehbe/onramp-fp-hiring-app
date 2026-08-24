@@ -281,6 +281,10 @@ describe("profile seeding from parsed resume data", () => {
 describe("Easy Apply", () => {
   it("applies from the profile and snapshots it onto the application", async () => {
     const job = await createJob(`Easy Apply Job ${randomUUID()}`);
+    await profile.update({
+      resumeUrl: "/uploads/demo/resumes/full-stack-engineer.pdf",
+      resumeOriginalFilename: "Jane_Doe_Resume.pdf",
+    });
 
     const res = await request(app)
       .post("/api/candidate/easy-apply")
@@ -288,6 +292,10 @@ describe("Easy Apply", () => {
       .send({ jobId: job.id, coverLetter: "From my profile." });
 
     expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({
+      resumeOriginalFilename: "Jane_Doe_Resume.pdf",
+      resumeDownloadUrl: `/api/applications/${res.body.data.id}/resume`,
+    });
 
     const application = await Application.findByPk(res.body.data.id);
     expect(application).not.toBeNull();
@@ -296,6 +304,31 @@ describe("Easy Apply", () => {
     expect(application!.resumeText).toContain("My own headline");
     expect(application!.parsedSkills).toEqual(
       expect.arrayContaining(["Rust", "Kubernetes"]),
+    );
+
+    const candidateDownload = await request(app)
+      .get(`/api/applications/${application!.id}/resume`)
+      .set("Cookie", cookie(candidateToken));
+    expect(candidateDownload.status).toBe(200);
+    expect(candidateDownload.headers["content-disposition"]).toContain(
+      'attachment; filename="Jane_Doe_Resume.pdf"',
+    );
+
+    const recruiterDownload = await request(app)
+      .get(`/api/applications/${application!.id}/resume`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(recruiterDownload.status).toBe(200);
+
+    const pipeline = await request(app)
+      .get(`/api/applications/job/${job.id}`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(pipeline.status).toBe(200);
+    expect(pipeline.body.data).toContainEqual(
+      expect.objectContaining({
+        id: application!.id,
+        resumeOriginalFilename: "Jane_Doe_Resume.pdf",
+        resumeDownloadUrl: `/api/applications/${application!.id}/resume`,
+      }),
     );
 
     const snapshot = application!.resumeText;

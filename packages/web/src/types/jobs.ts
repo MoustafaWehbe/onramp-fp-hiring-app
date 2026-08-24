@@ -32,6 +32,8 @@ export interface PublicJobRecord {
     name: string;
     website: string | null;
     logoUrl: string | null;
+    /** Public company summary; older API responses may omit it. */
+    description?: string | null;
   };
   skills: JobSkillRecord[];
 }
@@ -86,7 +88,11 @@ export interface JobSummary {
   company: string | null;
   /** Drives the link from a card to that company's careers page. */
   companyId: string | null;
+  /** Optional so lean recommendation records can keep using this shape. */
+  companyLogoUrl?: string | null;
   title: string;
+  /** Available for public listings; omitted by lean recommendation records. */
+  description?: string;
   status: "open";
   location: string | null;
   employmentType: EmploymentType;
@@ -97,5 +103,7 @@ export interface JobSummary {
   salaryMax: number;
   salaryCurrency: string;
   skills: string[];
+  /** Present for public jobs; lean recommendation records only expose names. */
+  skillIds?: string[];
   postedAt: string;
 }

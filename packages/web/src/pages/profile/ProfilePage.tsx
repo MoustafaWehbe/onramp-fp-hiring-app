@@ -51,7 +51,7 @@ export function ProfilePage() {
           useIsMdUp gate exactly — using a different breakpoint here would
           open a range where the card has mounted but the grid hasn't split
           yet, stacking it awkwardly under a still-single left column. */}
-      <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-6">
             <IdentityCard />
@@ -65,6 +65,9 @@ export function ProfilePage() {
             <ResumeCard
               profileExists={profileExists}
               resumeUrl={profileQuery.data?.resumeUrl}
+              resumeOriginalFilename={
+                profileQuery.data?.resumeOriginalFilename
+              }
             />
           </div>
 

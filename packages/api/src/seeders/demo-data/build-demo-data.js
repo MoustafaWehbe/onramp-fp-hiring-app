@@ -271,6 +271,7 @@ function buildCandidateRows(now, passwordHash) {
       phone: `${callingCode} ${String(700000000 + index * 7919).slice(0, 10)}`,
       location,
       resume_url: `/uploads/demo/resumes/${fixture.publicName}`,
+      resume_original_filename: `${name.replaceAll(" ", "_")}_Resume.${fixture.publicName.split(".").pop()}`,
       links: JSON.stringify({
         LinkedIn: `https://www.linkedin.com/in/${slug(name).replaceAll(".", "-")}-demo`,
         ...(index % 3 !== 1

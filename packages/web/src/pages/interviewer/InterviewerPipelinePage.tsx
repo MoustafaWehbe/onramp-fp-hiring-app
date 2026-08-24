@@ -74,8 +74,9 @@ export function InterviewerPipelinePage() {
             {assignments.map((assignment) => {
               const { application } = assignment;
               const { candidateProfile, job } = application;
-              const resumeUrl =
-                application.resumeUrl ?? candidateProfile.resumeUrl;
+              const resumeFilename = application.resumeDownloadUrl
+                ? application.resumeOriginalFilename?.trim() || "resume.pdf"
+                : null;
 
               return (
                 <Card key={assignment.id}>
@@ -123,9 +124,10 @@ export function InterviewerPipelinePage() {
                       </div>
                     )}
 
-                    {resumeUrl && (
+                    {resumeFilename && application.resumeDownloadUrl && (
                       <a
-                        href={resumeUrl}
+                        href={application.resumeDownloadUrl}
+                        download={resumeFilename}
                         target="_blank"
                         rel="noreferrer"
                         className={cn(
@@ -134,7 +136,7 @@ export function InterviewerPipelinePage() {
                         )}
                       >
                         <FileText className="h-4 w-4" aria-hidden="true" />
-                        View resume
+                        {resumeFilename}
                       </a>
                     )}
                   </CardContent>

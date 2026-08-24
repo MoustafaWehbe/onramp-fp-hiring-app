@@ -43,6 +43,18 @@ const amara: RecruiterCandidateRecord = {
     name: "Amara Okafor",
     email: "amara.okafor@example.com",
   },
+  applicationResumes: [
+    {
+      applicationId: "application-1",
+      jobId: "job-1",
+      jobTitle: "Product Engineer",
+      resumeOriginalFilename: "Amara_Okafor_CV.pdf",
+      resumeUploadedAt: "2026-07-01T00:00:00.000Z",
+      parsedYearsExperience: 5,
+      parsedSkills: ["TypeScript"],
+      resumeDownloadUrl: "/api/applications/application-1/resume",
+    },
+  ],
 };
 
 beforeEach(() => {
@@ -80,10 +92,15 @@ describe("RecruiterCandidatesPage", () => {
       "href",
       "/recruiter/candidates/profile-1",
     );
-    expect(screen.getByRole("link", { name: "Resume" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Amara_Okafor_CV.pdf" }),
+    ).toHaveAttribute(
       "href",
-      "https://example.com/resume.pdf",
+      "/api/applications/application-1/resume",
     );
+    expect(
+      screen.getByRole("link", { name: "Amara_Okafor_CV.pdf" }),
+    ).toHaveAttribute("download", "Amara_Okafor_CV.pdf");
   });
 
   it("filters candidates without changing the API scope", async () => {

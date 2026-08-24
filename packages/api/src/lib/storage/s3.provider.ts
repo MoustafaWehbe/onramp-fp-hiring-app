@@ -12,4 +12,10 @@ export class S3StorageProvider implements StorageProvider {
       "Storage not configured. Set S3_BUCKET and AWS credentials in .env",
     );
   }
+
+  async read(_key: string): Promise<Buffer> {
+    throw new Error(
+      "Storage not configured. Set S3_BUCKET and AWS credentials in .env",
+    );
+  }
 }

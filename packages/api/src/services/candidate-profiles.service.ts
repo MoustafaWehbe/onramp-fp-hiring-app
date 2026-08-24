@@ -7,6 +7,10 @@ import {
 import { Op } from "sequelize";
 
 import { createError } from "../middleware/error-handler";
+import {
+  publicResumeStorageKey,
+  resolveResumeFilename,
+} from "../lib/resume-upload";
 
 export class CandidateProfileService {
   async create(input: {
@@ -77,6 +81,7 @@ export class CandidateProfileService {
         "id",
         "jobId",
         "stage",
+        "resumeUrl",
         "resumeFileUrl",
         "resumeOriginalFilename",
         "resumeUploadedAt",
@@ -117,23 +122,31 @@ export class CandidateProfileService {
       ...profile.toJSON(),
       applicationInsights: companyApplications.map((application) => {
         const job = application.get("job") as Job | undefined;
+        const publicResumeUrl =
+          application.resumeUrl && publicResumeStorageKey(application.resumeUrl)
+            ? application.resumeUrl
+            : null;
+        const resumeReference =
+          application.resumeFileUrl ?? publicResumeUrl;
 
         return {
           applicationId: application.id,
           jobId: application.jobId,
           jobTitle: job?.title ?? "Job application",
           stage: application.stage,
-          resumeOriginalFilename:
-            application.resumeOriginalFilename ?? null,
+          resumeOriginalFilename: resumeReference
+            ? resolveResumeFilename(
+                application.resumeOriginalFilename,
+                resumeReference,
+              )
+            : null,
           resumeUploadedAt: application.resumeUploadedAt ?? null,
           parsedYearsExperience:
             application.parsedYearsExperience ?? null,
           parsedSkills: application.parsedSkills ?? [],
-          resumeDownloadUrl:
-            application.resumeFileUrl &&
-            application.resumeOriginalFilename
-              ? `/api/applications/${application.id}/resume`
-              : null,
+          resumeDownloadUrl: resumeReference
+            ? `/api/applications/${application.id}/resume`
+            : null,
           fitScore: application.fitScore ?? null,
           aiSummary: application.aiSummary ?? null,
           aiStrengths: application.aiStrengths ?? [],
@@ -150,17 +163,23 @@ export class CandidateProfileService {
       applicationResumes: companyApplications
         .filter(
           (application) =>
-            application.resumeFileUrl &&
-            application.resumeOriginalFilename,
+            application.resumeFileUrl ||
+            (application.resumeUrl &&
+              publicResumeStorageKey(application.resumeUrl)),
         )
         .map((application) => {
           const job = application.get("job") as Job | undefined;
+          const resumeReference =
+            application.resumeFileUrl ?? (application.resumeUrl as string);
 
           return {
             applicationId: application.id,
             jobId: application.jobId,
             jobTitle: job?.title ?? "Job application",
-            resumeOriginalFilename: application.resumeOriginalFilename,
+            resumeOriginalFilename: resolveResumeFilename(
+              application.resumeOriginalFilename,
+              resumeReference,
+            ),
             resumeUploadedAt: application.resumeUploadedAt ?? null,
             parsedYearsExperience:
               application.parsedYearsExperience ?? null,

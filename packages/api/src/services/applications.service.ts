@@ -19,9 +19,14 @@ import { createError } from "../middleware/error-handler";
 import { scorecardsService } from "./scorecards.service";
 import {
   applicationResumeService,
-  resumeContentType,
   type StoredApplicationResume,
 } from "./application-resume.service";
+import {
+  publicResumeStorageKey,
+  resolveResumeFilename,
+  resumeContentType,
+} from "../lib/resume-upload";
+import { storageProvider } from "../lib/storage";
 import { scheduleApplicationFitScore } from "./application-scoring-queue.service";
 import { notificationService } from "./notifications.service";
 import { calendarService } from "./calendar.service";
@@ -85,6 +90,7 @@ export class ApplicationService {
       calendarSyncRecruiterId: _calendarSyncRecruiterId,
       recruiterNotes,
       resumeFileUrl,
+      resumeOriginalFilename,
       resumeText,
       // The Applicant Percentile Score is candidate-private and has no
       // recruiter-facing equivalent — unlike the fields above, it is never
@@ -102,10 +108,27 @@ export class ApplicationService {
     void _resumeReviewPercentile;
     void _resumeReviewScoredAt;
 
+    const publicResumeUrl =
+      typeof safeApplication.resumeUrl === "string" &&
+      publicResumeStorageKey(safeApplication.resumeUrl)
+        ? safeApplication.resumeUrl
+        : null;
+    const downloadableResumeReference =
+      typeof resumeFileUrl === "string" ? resumeFileUrl : publicResumeUrl;
+
     return {
       ...safeApplication,
+      resumeOriginalFilename:
+        downloadableResumeReference
+          ? resolveResumeFilename(
+              typeof resumeOriginalFilename === "string"
+                ? resumeOriginalFilename
+                : null,
+              downloadableResumeReference,
+            )
+          : null,
       resumeDownloadUrl:
-        typeof resumeFileUrl === "string"
+        downloadableResumeReference
           ? `/api/applications/${application.id}/resume`
           : null,
       resumeParseSucceeded:
@@ -239,6 +262,9 @@ export class ApplicationService {
             coverLetter: input.coverLetter ?? existing.coverLetter,
             submittedAt: new Date(),
             resumeUrl: existing.resumeUrl ?? profile.resumeUrl,
+            resumeOriginalFilename:
+              existing.resumeOriginalFilename ??
+              (existing.resumeUrl ? null : profile.resumeOriginalFilename),
             ...this.pendingScoringAttributes(),
             ...(input.profileSnapshot
               ? {
@@ -325,6 +351,7 @@ export class ApplicationService {
         stage: "APPLIED",
         submittedAt: new Date(),
         resumeUrl: profile.resumeUrl,
+        resumeOriginalFilename: profile.resumeOriginalFilename ?? null,
         ...this.pendingScoringAttributes(),
         // An uploaded file wins over the snapshot: the candidate explicitly
         // chose to send that document for this application.
@@ -625,22 +652,50 @@ export class ApplicationService {
     const recruiterOwnsJob =
       requester.role === "RECRUITER" &&
       Boolean(requester.companyId) &&
-      application.job?.companyId === requester.companyId;
+      application.job?.companyId === requester.companyId &&
+      application.stage !== "DRAFT";
+    const interviewerIsAssigned =
+      requester.role === "INTERVIEWER" &&
+      application.stage !== "DRAFT" &&
+      Boolean(
+        await InterviewAssignment.findOne({
+          attributes: ["id"],
+          where: {
+            applicationId: application.id,
+            interviewerId: requester.userId,
+          },
+        }),
+      );
     const adminAccess = requester.role === "ADMIN";
 
-    if (!candidateOwnsApplication && !recruiterOwnsJob && !adminAccess) {
+    if (
+      !candidateOwnsApplication &&
+      !recruiterOwnsJob &&
+      !interviewerIsAssigned &&
+      !adminAccess
+    ) {
       throw createError("You cannot access this application's CV", 403);
     }
 
-    if (!application.resumeFileUrl || !application.resumeOriginalFilename) {
+    const publicStorageKey = application.resumeUrl
+      ? publicResumeStorageKey(application.resumeUrl)
+      : null;
+
+    if (!application.resumeFileUrl && !publicStorageKey) {
       throw createError("Application CV not found", 404);
     }
 
     try {
+      const storageReference = application.resumeFileUrl ?? application.resumeUrl!;
       return {
-        body: await applicationResumeService.read(application.resumeFileUrl),
-        contentType: resumeContentType(application.resumeFileUrl),
-        filename: application.resumeOriginalFilename,
+        body: application.resumeFileUrl
+          ? await applicationResumeService.read(application.resumeFileUrl)
+          : await storageProvider.read(publicStorageKey as string),
+        contentType: resumeContentType(storageReference),
+        filename: resolveResumeFilename(
+          application.resumeOriginalFilename,
+          storageReference,
+        ),
       };
     } catch {
       throw createError("Application CV not found", 404);

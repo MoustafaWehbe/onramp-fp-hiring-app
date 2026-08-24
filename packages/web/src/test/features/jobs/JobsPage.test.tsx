@@ -1,13 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { JobsPage } from "@/pages/jobs/JobsPage";
 import type { PublicJobRecord } from "@/types/jobs";
 
-const { usePublicJobs, useAuth } = vi.hoisted(() => ({
+const { usePublicJobs, useAuth, useSkills } = vi.hoisted(() => ({
   usePublicJobs: vi.fn(),
   useAuth: vi.fn(),
+  useSkills: vi.fn(),
 }));
 
 vi.mock("@/features/jobs/hooks", () => ({
@@ -15,6 +16,9 @@ vi.mock("@/features/jobs/hooks", () => ({
 }));
 
 vi.mock("@/hooks/useAuth", () => ({ useAuth }));
+vi.mock("@/features/candidate/hooks", () => ({
+  useSkills: (enabled?: boolean) => useSkills(enabled),
+}));
 
 // The recommendations panel is candidate-only and has its own tests; these
 // cases cover the public job list.
@@ -40,7 +44,7 @@ const reactJob: PublicJobRecord = {
     id: "company-northstar",
     name: "Northstar Labs",
     website: "https://northstar.example",
-    logoUrl: null,
+    logoUrl: "https://northstar.example/logo.png",
   },
   skills: [
     { id: "skill-react", name: "React" },
@@ -71,10 +75,15 @@ const pythonJob: PublicJobRecord = {
   skills: [{ id: "skill-python", name: "Python" }],
 };
 
-function renderPage() {
+function LocationProbe() {
+  return <output data-testid="location-search">{useLocation().search}</output>;
+}
+
+function renderPage(initialEntry = "/jobs") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <JobsPage />
+      <LocationProbe />
     </MemoryRouter>,
   );
 }
@@ -82,6 +91,11 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   useAuth.mockReturnValue({ user: null, currentRole: null });
+  useSkills.mockReturnValue({
+    data: undefined,
+    isSuccess: false,
+    isError: false,
+  });
 });
 
 describe("JobsPage", () => {
@@ -146,14 +160,253 @@ describe("JobsPage", () => {
     expect(screen.getByText("2–5 years")).toBeInTheDocument();
     expect(screen.getByText("$80,000 – $110,000")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "TypeScript" }),
+      screen.getByRole("option", { name: "TypeScript" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "React" }));
+    await user.selectOptions(screen.getByLabelText("Skill"), "React");
 
     expect(screen.getByText("Product Engineer")).toBeInTheDocument();
     expect(screen.queryByText("Backend Engineer")).not.toBeInTheDocument();
-    expect(screen.getByText("Matching the React stack.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "1 job" })).toBeInTheDocument();
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "?skill=React",
+    );
+    expect(
+      screen.getByRole("button", { name: "Remove Skill: React filter" }),
+    ).toBeInTheDocument();
+    expect(useSkills).toHaveBeenCalledWith(false);
+    expect(
+      screen.queryByLabelText(/You match .* required skills/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("restores filters from the URL and makes each active filter removable", async () => {
+    usePublicJobs.mockReturnValue({
+      data: [reactJob, pythonJob],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    renderPage("/jobs?q=Backend&employmentType=FULL_TIME");
+
+    expect(screen.getByLabelText("Keyword")).toHaveValue("Backend");
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
+    expect(screen.queryByText("Product Engineer")).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Remove Keyword: Backend filter",
+      }),
+    );
+
+    expect(screen.getByText("Product Engineer")).toBeInTheDocument();
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "?employmentType=FULL_TIME",
+    );
+  });
+
+  it("shows a filter-specific empty state and clears back to all jobs", async () => {
+    usePublicJobs.mockReturnValue({
+      data: [reactJob, pythonJob],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(screen.getByLabelText("Keyword"), "no-such-role");
+
+    expect(screen.getByRole("heading", { name: "0 jobs" })).toBeInTheDocument();
+    expect(screen.getByText("No jobs match these filters")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Clear all filters" }),
+    );
+
+    expect(screen.getByText("Product Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
+    expect(screen.getByTestId("location-search")).toBeEmptyDOMElement();
+  });
+
+  it("shows compact skill-match counts only for a logged-in candidate", () => {
+    useAuth.mockReturnValue({
+      user: { id: "candidate-1", role: "CANDIDATE" },
+      currentRole: "candidate",
+    });
+    useSkills.mockReturnValue({
+      data: [{ id: "skill-react", name: "React" }],
+      isSuccess: true,
+      isError: false,
+    });
+    usePublicJobs.mockReturnValue({
+      data: [reactJob, pythonJob],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(useSkills).toHaveBeenCalledWith(true);
+    expect(
+      screen.getByLabelText("You match 1 of 2 required skills"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("You match 0 of 1 required skills"),
+    ).toBeInTheDocument();
+  });
+
+  it("does not render cached skill matches while candidate skills refetch", () => {
+    useAuth.mockReturnValue({
+      user: { id: "candidate-1", role: "CANDIDATE" },
+      currentRole: "candidate",
+    });
+    useSkills.mockReturnValue({
+      data: [{ id: "skill-react", name: "React" }],
+      isSuccess: true,
+      isFetching: true,
+      isError: false,
+    });
+    usePublicJobs.mockReturnValue({
+      data: [reactJob],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(
+      screen.queryByLabelText(/You match .* required skills/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("requires a currency before comparing salary bounds in a mixed-currency feed", async () => {
+    usePublicJobs.mockReturnValue({
+      data: [
+        reactJob,
+        {
+          ...pythonJob,
+          salaryCurrency: "EUR",
+        },
+      ],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByLabelText("Minimum salary")).toBeDisabled();
+    await user.selectOptions(screen.getByLabelText("Salary currency"), "USD");
+    expect(screen.getByLabelText("Minimum salary")).toBeEnabled();
+    await user.type(screen.getByLabelText("Minimum salary"), "105000");
+
+    expect(screen.getByText("Product Engineer")).toBeInTheDocument();
+    expect(screen.queryByText("Backend Engineer")).not.toBeInTheDocument();
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "currency=USD",
+    );
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "salaryMin=105000",
+    );
+  });
+
+  it("clears stale currency bounds instead of reinterpreting them", async () => {
+    usePublicJobs.mockReturnValue({
+      data: [reactJob, pythonJob],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage("/jobs?currency=EUR&salaryMin=120000");
+
+    expect(screen.getByText("Product Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search")).toBeEmptyDOMElement();
+    });
+    expect(screen.getByLabelText("Minimum salary")).toHaveValue(null);
+  });
+
+  it("removes a redundant sole currency while preserving valid bounds", async () => {
+    usePublicJobs.mockReturnValue({
+      data: [reactJob, pythonJob],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage("/jobs?currency=USD&salaryMin=115000");
+
+    expect(screen.queryByText("Product Engineer")).not.toBeInTheDocument();
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search")).toHaveTextContent(
+        "?salaryMin=115000",
+      );
+    });
+    expect(screen.getByTestId("location-search")).not.toHaveTextContent(
+      "currency=",
+    );
+  });
+
+  it("clears mixed-currency salary bounds that have no currency", async () => {
+    usePublicJobs.mockReturnValue({
+      data: [reactJob, { ...pythonJob, salaryCurrency: "EUR" }],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage("/jobs?salaryMin=100000");
+
+    expect(screen.getByText("Product Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search")).toBeEmptyDOMElement();
+    });
+    expect(screen.getByLabelText("Minimum salary")).toBeDisabled();
+  });
+
+  it("marks an inverted salary range invalid and matches no jobs", () => {
+    usePublicJobs.mockReturnValue({
+      data: [reactJob, pythonJob],
+      error: null,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage("/jobs?salaryMin=120000&salaryMax=90000");
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Minimum salary cannot be greater than maximum salary.",
+    );
+    expect(screen.getByLabelText("Minimum salary")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByLabelText("Maximum salary")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByRole("heading", { name: "0 jobs" })).toBeInTheDocument();
+    expect(screen.queryByText("Product Engineer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Backend Engineer")).not.toBeInTheDocument();
   });
 
   it("routes each card's company name to that company's careers page", () => {
@@ -172,6 +425,7 @@ describe("JobsPage", () => {
         name: "View all open roles at Northstar Labs",
       }),
     ).toHaveAttribute("href", "/careers/company-northstar");
+    expect(screen.getByAltText("Northstar Labs logo")).toBeInTheDocument();
   });
 
   it("shows the empty state when the API has no open jobs", () => {

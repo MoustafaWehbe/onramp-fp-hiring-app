@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
@@ -10,7 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
   useMyApplications,
@@ -40,6 +40,7 @@ import { getApiErrorMessage } from "../../lib/api-errors";
 import { cn, formatDate } from "../../lib/utils";
 import { CARD_CLASS, TEXT_WARNING } from "../../features/candidate/theme";
 import { CountUpNumber } from "../../components/shared/CountUpNumber";
+import { CompanyLogo } from "../../components/shared/CompanyLogo";
 
 interface StagePresentation {
   label: string;
@@ -83,9 +84,14 @@ function ApplicationCard({
 }) {
   const stage = stagePresentation[application.stage];
   const Icon = stage.icon;
-  const activityDate = application.submittedAt ?? application.updatedAt;
-  const activityLabel =
-    application.stage === "DRAFT" ? "Saved" : "Submitted";
+  const isDraft = application.stage === "DRAFT";
+  const activityDate = isDraft
+    ? application.updatedAt
+    : (application.submittedAt ?? application.createdAt);
+  const activityLabel = isDraft ? "Saved" : "Applied";
+  const resumeFilename = application.resumeDownloadUrl
+    ? application.resumeOriginalFilename?.trim() || "resume.pdf"
+    : null;
   const replaceResume = useReplaceApplicationResume();
   const [replacementFile, setReplacementFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -131,12 +137,17 @@ function ApplicationCard({
   }
 
   return (
-    <Card className={CARD_CLASS}>
+    <Card
+      id={`application-${application.id}`}
+      className={cn(CARD_CLASS, "scroll-mt-20")}
+    >
       <CardContent className="space-y-5 p-5">
         <div className="flex gap-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border bg-card text-primary">
-            <Icon className="h-5 w-5" aria-hidden="true" />
-          </span>
+          <CompanyLogo
+            name={application.job.company.name}
+            logoUrl={application.job.company.logoUrl}
+            className="h-11 w-11 rounded-md border bg-card p-1 text-base shadow-none dark:border-stone-700"
+          />
           <div>
             <p className="text-sm text-muted-foreground">
               {application.job.company.name}
@@ -155,6 +166,7 @@ function ApplicationCard({
             <Badge variant="outline">Job closed</Badge>
           )}
           <Badge
+            className="gap-1.5"
             variant={
               application.stage === "HIRED" ||
               application.stage === "OFFER"
@@ -164,6 +176,7 @@ function ApplicationCard({
                   : "secondary"
             }
           >
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
             {stage.label}
           </Badge>
         </div>
@@ -171,19 +184,15 @@ function ApplicationCard({
         <div className="grid gap-4 border-t pt-4 md:grid-cols-2">
           <div>
             <p className="text-sm font-medium">Application CV</p>
-            {application.resumeOriginalFilename &&
-            application.resumeDownloadUrl ? (
+            {resumeFilename && application.resumeDownloadUrl ? (
               <div className="mt-2 space-y-2">
                 <a
                   href={application.resumeDownloadUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                  download={resumeFilename}
                   className="inline-flex max-w-full items-center gap-2 text-sm font-medium text-primary hover:underline"
                 >
                   <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="truncate">
-                    {application.resumeOriginalFilename}
-                  </span>
+                  <span className="truncate">{resumeFilename}</span>
                 </a>
                 <p className="text-xs text-muted-foreground">
                   Uploaded{" "}
@@ -233,7 +242,7 @@ function ApplicationCard({
 
           <div className="space-y-2">
             <Label htmlFor={`replace-resume-${application.id}`}>
-              {application.resumeOriginalFilename ? "Replace CV" : "Add CV"}
+              {application.resumeDownloadUrl ? "Replace CV" : "Add CV"}
             </Label>
             <Input
               key={inputKey}
@@ -284,7 +293,7 @@ function ApplicationCard({
               <Upload className="h-4 w-4" aria-hidden="true" />
               {replaceResume.isPending
                 ? "Uploading..."
-                : application.resumeOriginalFilename
+                : application.resumeDownloadUrl
                   ? "Replace CV"
                   : "Upload CV"}
             </Button>
@@ -296,6 +305,7 @@ function ApplicationCard({
 }
 
 export function ApplicationsPage() {
+  const location = useLocation();
   const applicationsQuery = useMyApplications();
   const applications = applicationsQuery.data ?? [];
   const interviews = applications.filter(
@@ -304,6 +314,15 @@ export function ApplicationsPage() {
   const positiveOutcomes = applications.filter(
     ({ stage }) => stage === "OFFER" || stage === "HIRED",
   ).length;
+
+  useEffect(() => {
+    if (!applicationsQuery.isSuccess || !location.hash) {
+      return;
+    }
+
+    const targetId = location.hash.slice(1);
+    document.getElementById(targetId)?.scrollIntoView({ block: "start" });
+  }, [applicationsQuery.isSuccess, applications.length, location.hash]);
 
   return (
     <div className="bg-muted/30">

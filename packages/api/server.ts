@@ -1,6 +1,8 @@
 import path from "path";
 import dotenv from "dotenv";
-dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+const repoRootOffset =
+  path.basename(__dirname) === "dist" ? "../../../.env" : "../../.env";
+dotenv.config({ path: path.resolve(__dirname, repoRootOffset) });
 
 import { app } from "./app";
 import { initializeDatabase } from "./src/lib/db";

@@ -9,6 +9,8 @@ export interface InterviewerAssignment {
     submittedAt: string | null;
     coverLetter: string | null;
     resumeUrl: string | null;
+    resumeOriginalFilename: string | null;
+    resumeDownloadUrl: string | null;
     job: {
       id: string;
       title: string;

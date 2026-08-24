@@ -1,8 +1,10 @@
-import path from "path";
 import mammoth from "mammoth";
 import DOMMatrix from "@thednp/dommatrix";
 import { privateStorageProvider } from "../lib/storage";
-import { applicationResumeStorageKey } from "../lib/resume-upload";
+import {
+  applicationResumeStorageKey,
+  safeOriginalFilename,
+} from "../lib/resume-upload";
 
 const MAX_EXPERIENCE_YEARS = 60;
 
@@ -172,25 +174,6 @@ export async function extractResumeText(
   }
 
   throw new Error("Unsupported CV format");
-}
-
-function safeOriginalFilename(originalname: string): string {
-  const basename = originalname.split(/[\\/]/).pop() ?? "resume";
-  const sanitized = [...basename]
-    .filter((character) => {
-      const codePoint = character.codePointAt(0) ?? 0;
-      return codePoint >= 32 && codePoint !== 127;
-    })
-    .join("")
-    .trim();
-
-  return (sanitized || "resume").slice(0, 255);
-}
-
-export function resumeContentType(storageKey: string): string {
-  return path.extname(storageKey).toLowerCase() === ".pdf"
-    ? "application/pdf"
-    : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 }
 
 export class ApplicationResumeService {

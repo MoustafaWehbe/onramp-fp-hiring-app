@@ -115,7 +115,7 @@ describe("RecommendedJobs", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Complete your profile" }),
-    ).toHaveAttribute("href", "/candidate/profile");
+    ).toHaveAttribute("href", "/profile");
     expect(screen.queryByRole("img", { name: /% match/ })).not.toBeInTheDocument();
   });
 

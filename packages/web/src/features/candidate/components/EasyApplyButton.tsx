@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import { Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -18,11 +19,13 @@ export function EasyApplyButton({
   jobId,
   disabled = false,
   onApplied,
+  onAlreadyApplied,
   className,
 }: {
   jobId: string;
   disabled?: boolean;
   onApplied?: (application: { id: string; jobId: string; stage: string }) => void;
+  onAlreadyApplied?: () => void;
   className?: string;
 }) {
   const readinessQuery = useEasyApplyReadiness();
@@ -39,7 +42,7 @@ export function EasyApplyButton({
   if (!readiness?.ready) {
     return (
       <Link
-        to="/candidate/profile"
+        to="/profile"
         className={cn(
           buttonVariants({ variant: "outline" }),
           "gap-2",
@@ -66,6 +69,12 @@ export function EasyApplyButton({
           onApplied?.(application);
         },
         onError: (error) => {
+          if (isAxiosError(error) && error.response?.status === 409) {
+            toast.info("You've already applied to this role.");
+            onAlreadyApplied?.();
+            return;
+          }
+
           toast.error(
             getApiErrorMessage(error, "Couldn't submit your application."),
           );

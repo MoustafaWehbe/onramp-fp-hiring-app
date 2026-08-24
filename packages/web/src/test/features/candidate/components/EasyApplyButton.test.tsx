@@ -4,9 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EasyApplyButton } from "@/features/candidate/components/EasyApplyButton";
 
-const { toastError, toastSuccess, useEasyApply, useEasyApplyReadiness } =
+const { toastError, toastInfo, toastSuccess, useEasyApply, useEasyApplyReadiness } =
   vi.hoisted(() => ({
     toastError: vi.fn(),
+    toastInfo: vi.fn(),
     toastSuccess: vi.fn(),
     useEasyApply: vi.fn(),
     useEasyApplyReadiness: vi.fn(),
@@ -18,7 +19,7 @@ vi.mock("@/features/candidate/hooks", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: { error: toastError, success: toastSuccess },
+  toast: { error: toastError, info: toastInfo, success: toastSuccess },
 }));
 
 function readiness(overrides = {}) {
@@ -89,14 +90,14 @@ describe("EasyApplyButton", () => {
     const link = screen.getByRole("link", {
       name: "Complete profile to Easy Apply",
     });
-    expect(link).toHaveAttribute("href", "/candidate/profile");
+    expect(link).toHaveAttribute("href", "/profile");
     expect(link).toHaveAttribute(
       "title",
       "Add at least one skill, or a resume on file to use Easy Apply",
     );
   });
 
-  it("surfaces the API message when applying fails", async () => {
+  it("reports an already-applied conflict to its parent", async () => {
     const mutate = vi.fn((_input, options) =>
       options.onError({
         isAxiosError: true,
@@ -107,15 +108,42 @@ describe("EasyApplyButton", () => {
       }),
     );
     useEasyApply.mockReturnValue({ mutate, isPending: false });
+    const onAlreadyApplied = vi.fn();
     const user = userEvent.setup();
 
-    renderButton();
+    renderButton({ onAlreadyApplied });
+    await user.click(screen.getByRole("button", { name: "Easy Apply" }));
+
+    expect(toastInfo).toHaveBeenCalledWith(
+      "You've already applied to this role.",
+    );
+    expect(onAlreadyApplied).toHaveBeenCalledOnce();
+    expect(toastError).not.toHaveBeenCalled();
+    expect(toastSuccess).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the API message for a non-conflict failure", async () => {
+    const mutate = vi.fn((_input, options) =>
+      options.onError({
+        isAxiosError: true,
+        response: {
+          status: 500,
+          data: { error: "Application service is unavailable" },
+        },
+      }),
+    );
+    useEasyApply.mockReturnValue({ mutate, isPending: false });
+    const onAlreadyApplied = vi.fn();
+    const user = userEvent.setup();
+
+    renderButton({ onAlreadyApplied });
     await user.click(screen.getByRole("button", { name: "Easy Apply" }));
 
     expect(toastError).toHaveBeenCalledWith(
-      "You have already applied for this job",
+      "Application service is unavailable",
     );
-    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(onAlreadyApplied).not.toHaveBeenCalled();
+    expect(toastInfo).not.toHaveBeenCalled();
   });
 
   it("renders nothing until readiness is known", () => {

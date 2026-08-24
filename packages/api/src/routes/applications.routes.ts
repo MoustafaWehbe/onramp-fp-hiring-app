@@ -106,7 +106,7 @@ router.put(
 router.get(
   "/:id/resume",
   authenticate,
-  authorize("CANDIDATE", "RECRUITER", "ADMIN"),
+  authorize("CANDIDATE", "RECRUITER", "INTERVIEWER", "ADMIN"),
   validate(applicationIdParamSchema, "params"),
   applicationController.downloadResume,
 );

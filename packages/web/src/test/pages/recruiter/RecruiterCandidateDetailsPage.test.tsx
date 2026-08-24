@@ -200,6 +200,28 @@ describe("RecruiterCandidateDetailsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses a sensible filename when an older application CV has no original name", () => {
+    useRecruiterCandidate.mockReturnValue({
+      data: {
+        ...candidate,
+        applicationResumes: candidate.applicationResumes?.map((resume) => ({
+          ...resume,
+          resumeOriginalFilename: null,
+        })),
+      } as unknown as RecruiterCandidateRecord,
+      error: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText(/resume\.pdf/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View or download CV" }),
+    ).toHaveAttribute("href", "/api/applications/application-1/resume");
+  });
+
   it("saves recruiter notes on a candidate still in an early stage", async () => {
     const mutate = vi.fn();
     useUpdateApplicationInterview.mockReturnValue({
