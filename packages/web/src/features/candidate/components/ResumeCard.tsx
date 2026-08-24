@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { cn } from "../../../lib/utils";
 import { getApiErrorMessage } from "../../../lib/api-errors";
 import { useUploadResume } from "../hooks";
-import { CARD_CLASS ,ACCENT_CHIP} from "../theme";
+import { ACCENT_CHIP, CARD_CLASS } from "../theme";
 const ACCEPTED_EXTENSIONS = [".pdf", ".docx"];
 const ACCEPTED_MIME_TYPES = [
   "application/pdf",
@@ -22,23 +22,29 @@ function isAcceptedFile(file: File): boolean {
   return hasAcceptedExtension || ACCEPTED_MIME_TYPES.includes(file.type);
 }
 
-function resumeFileName(resumeUrl: string): string {
-  try {
-    return decodeURIComponent(resumeUrl.split("/").pop() ?? "resume");
-  } catch {
-    return "resume";
-  }
-}
-
 interface ResumeCardProps {
   profileExists: boolean;
   resumeUrl?: string | null;
+  resumeOriginalFilename?: string | null;
 }
 
-export function ResumeCard({ profileExists, resumeUrl }: ResumeCardProps) {
+function fallbackResumeFilename(resumeUrl: string): string {
+  return resumeUrl.toLowerCase().endsWith(".docx")
+    ? "resume.docx"
+    : "resume.pdf";
+}
+
+export function ResumeCard({
+  profileExists,
+  resumeUrl,
+  resumeOriginalFilename,
+}: ResumeCardProps) {
   const uploadResume = useUploadResume();
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const displayFilename = resumeUrl
+    ? resumeOriginalFilename?.trim() || fallbackResumeFilename(resumeUrl)
+    : null;
 
   async function handleFile(file: File) {
     if (!isAcceptedFile(file)) {
@@ -86,14 +92,15 @@ export function ResumeCard({ profileExists, resumeUrl }: ResumeCardProps) {
           <>
             {resumeUrl && (
               <a
-                href={resumeUrl}
-                target="_blank"
-                rel="noreferrer"
-                className={cn("flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900", ACCENT_CHIP)}
-
+                href="/api/candidate/resume"
+                download={displayFilename ?? undefined}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900",
+                  ACCENT_CHIP,
+                )}
               >
                 <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">{resumeFileName(resumeUrl)}</span>
+                <span className="truncate">{displayFilename}</span>
               </a>
             )}
 

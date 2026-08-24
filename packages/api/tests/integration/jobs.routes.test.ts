@@ -46,6 +46,7 @@ type PublicJobResponse = {
     name: string;
     website: string | null;
     logoUrl: string | null;
+    description: string | null;
   };
   skills: Array<{
     id: string;
@@ -71,7 +72,13 @@ const PUBLIC_JOB_KEYS = [
   "skills",
 ].sort();
 
-const PUBLIC_COMPANY_KEYS = ["id", "name", "website", "logoUrl"].sort();
+const PUBLIC_COMPANY_KEYS = [
+  "id",
+  "name",
+  "website",
+  "logoUrl",
+  "description",
+].sort();
 const PUBLIC_SKILL_KEYS = ["id", "name"].sort();
 
 let ownCompany: Company;
@@ -130,7 +137,7 @@ beforeAll(async () => {
     location: "Beirut, Lebanon",
     contact: "hiring@own-jobs.example.com",
     website: "https://own-jobs.example.com",
-    description: "Internal company description must not leak through public jobs.",
+    description: "A public company introduction for candidates.",
     logoUrl: "https://own-jobs.example.com/logo.png",
     subscriptionTier: "PRO",
   });
@@ -359,6 +366,7 @@ describe("public jobs", () => {
         name: ownCompany.name,
         website: ownCompany.website,
         logoUrl: ownCompany.logoUrl,
+        description: ownCompany.description,
       },
       skills: [{ id: publicSkill.id, name: publicSkill.name }],
     });
@@ -387,6 +395,7 @@ describe("public jobs", () => {
       company: {
         id: ownCompany.id,
         name: ownCompany.name,
+        description: ownCompany.description,
       },
     });
   });

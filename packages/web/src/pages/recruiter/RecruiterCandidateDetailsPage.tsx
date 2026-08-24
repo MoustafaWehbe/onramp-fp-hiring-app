@@ -94,7 +94,7 @@ export function RecruiterCandidateDetailsPage() {
   return (
     // Single profile card — narrower than the shared 7xl frame, same width
     // as before, just anchored inside it instead of independently centered.
-    <div className="max-w-4xl">
+    <div className="w-full">
       <Link
           to="/recruiter/candidates"
           className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
@@ -431,7 +431,7 @@ export function RecruiterCandidateDetailsPage() {
                     >
                       <p className="text-sm font-medium">{resume.jobTitle}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {resume.resumeOriginalFilename}
+                        {resume.resumeOriginalFilename?.trim() || "resume.pdf"}
                         {resume.resumeUploadedAt
                           ? ` · uploaded ${formatDate(
                               resume.resumeUploadedAt,

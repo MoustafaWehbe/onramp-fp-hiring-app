@@ -9,6 +9,7 @@ const {
   useMyApplications,
   useApplyToJob,
   useApplicationPercentile,
+  useSkills,
   useAuth,
   toastSuccess,
   toastInfo,
@@ -20,6 +21,7 @@ const {
   useMyApplications: vi.fn(),
   useApplyToJob: vi.fn(),
   useApplicationPercentile: vi.fn(),
+  useSkills: vi.fn(),
   useAuth: vi.fn(),
   toastSuccess: vi.fn(),
   toastInfo: vi.fn(),
@@ -52,9 +54,34 @@ vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => useAuth(),
 }));
 
-// Easy Apply has its own tests; these cases cover the upload-and-apply path.
+vi.mock("@/features/candidate/hooks", () => ({
+  useSkills: (enabled?: boolean) => useSkills(enabled),
+}));
+
+// Easy Apply has its own tests. The small trigger lets this page suite verify
+// that its onApplied callback immediately switches the surrounding page state.
 vi.mock("@/features/candidate/components/EasyApplyButton", () => ({
-  EasyApplyButton: () => null,
+  EasyApplyButton: ({
+    onApplied,
+    onAlreadyApplied,
+  }: {
+    onApplied: (application: { id: string; stage: "APPLIED" }) => void;
+    onAlreadyApplied: () => void;
+  }) => (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          onApplied({ id: "easy-application-1", stage: "APPLIED" })
+        }
+      >
+        Simulate Easy Apply
+      </button>
+      <button type="button" onClick={onAlreadyApplied}>
+        Simulate Easy Apply duplicate
+      </button>
+    </>
+  ),
 }));
 
 // AI resume review has its own tests; these cases cover the apply flow, and
@@ -96,7 +123,8 @@ const job = {
     id: "company-1",
     name: "Northstar Labs",
     website: "https://northstar.example",
-    logoUrl: null,
+    logoUrl: "https://northstar.example/logo.png",
+    description: "A product studio building dependable tools for small teams.",
   },
   skills: [
     { id: "skill-1", name: "TypeScript" },
@@ -171,6 +199,11 @@ beforeEach(() => {
     isPending: false,
     data: undefined,
   });
+  useSkills.mockReturnValue({
+    data: [],
+    isSuccess: true,
+    isError: false,
+  });
 });
 
 describe("JobDetailPage company cross-navigation", () => {
@@ -187,6 +220,70 @@ describe("JobDetailPage company cross-navigation", () => {
     expect(
       screen.getByRole("link", { name: "Northstar Labs" }),
     ).toHaveAttribute("href", "/careers/company-1");
+    expect(
+      screen.getByText(
+        "A product studio building dependable tools for small teams.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByAltText("Northstar Labs logo")).toHaveLength(2);
+  });
+});
+
+describe("JobDetailPage candidate context", () => {
+  it("highlights matched required skills and reports the count", () => {
+    arrangeCandidate();
+    useSkills.mockReturnValue({
+      data: [{ id: "skill-1", name: "TypeScript" }],
+      isSuccess: true,
+      isError: false,
+    });
+
+    renderPage();
+
+    expect(useSkills).toHaveBeenCalledWith(true);
+    expect(
+      screen.getByText("You match 1 of 2 required skills."),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("TypeScript: matched")).toBeInTheDocument();
+    expect(screen.getByLabelText("Node.js: not matched")).toBeInTheDocument();
+  });
+
+  it("does not request or render skill match for an anonymous visitor", () => {
+    useAuth.mockReturnValue({
+      user: null,
+      currentRole: null,
+      isLoading: false,
+    });
+    usePublicJob.mockReturnValue({
+      data: job,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    useMyApplications.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    useApplyToJob.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(useSkills).toHaveBeenCalledWith(false);
+    expect(screen.queryByText(/You match/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Sign in to apply" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Sign in to apply (mobile)" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -215,10 +312,10 @@ describe("JobDetailPage candidate application action", () => {
     expect(
       screen.getByRole("heading", { name: "Senior Platform Engineer" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Full time")).toBeInTheDocument();
+    expect(screen.getAllByText("Full time")).toHaveLength(2);
     expect(screen.getByText("Remote available")).toBeInTheDocument();
     expect(screen.getByText("4–8 years experience")).toBeInTheDocument();
-    expect(screen.getByText("$100,000 – $140,000")).toBeInTheDocument();
+    expect(screen.getAllByText("$100,000 – $140,000")).toHaveLength(2);
     expect(usePublicJob).toHaveBeenCalledWith("job-1");
     expect(useMyApplications).toHaveBeenCalledWith(true);
 
@@ -286,15 +383,131 @@ describe("JobDetailPage candidate application action", () => {
     await user.click(screen.getByRole("button", { name: "Apply" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: "Already applied" }),
-      ).toBeDisabled();
+      expect(screen.getByText("Application submitted")).toBeInTheDocument();
     });
+    expect(
+      screen.getByRole("link", { name: "View application timeline" }),
+    ).toHaveAttribute("href", "/applications");
     expect(refetch).toHaveBeenCalledOnce();
     expect(toastInfo).toHaveBeenCalledWith(
       "You've already applied to this role.",
     );
     expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it("shows an existing application's stage and links to its timeline", () => {
+    arrangeCandidate({
+      applications: [
+        {
+          id: "application-existing",
+          jobId: "job-1",
+          stage: "INTERVIEWING",
+        },
+      ],
+    });
+
+    renderPage();
+
+    expect(screen.getByText(/Current stage: Interviewing/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View application timeline" }),
+    ).toHaveAttribute(
+      "href",
+      "/applications#application-application-existing",
+    );
+  });
+
+  it("switches to the applied state immediately after Easy Apply", async () => {
+    const { refetch } = arrangeCandidate();
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: "Simulate Easy Apply" }),
+    );
+
+    expect(screen.getByText("Application submitted")).toBeInTheDocument();
+    expect(screen.getByText(/Current stage: Applied/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View application timeline" }),
+    ).toHaveAttribute(
+      "href",
+      "/applications#application-easy-application-1",
+    );
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("switches to the applied state when Easy Apply reports a duplicate", async () => {
+    const { refetch } = arrangeCandidate();
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      screen.getByRole("button", { name: "Simulate Easy Apply duplicate" }),
+    );
+
+    expect(screen.getByText("Application submitted")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View application timeline" }),
+    ).toHaveAttribute("href", "/applications");
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("shows a retry state instead of Apply when application status fails", async () => {
+    arrangeCandidate();
+    const refetch = vi.fn();
+    useMyApplications.mockReturnValue({
+      data: undefined,
+      error: {
+        isAxiosError: true,
+        response: { data: { error: "Application status is unavailable." } },
+      },
+      isLoading: false,
+      isFetching: false,
+      isError: true,
+      refetch,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Application status is unavailable.",
+    );
+    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Simulate Easy Apply" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Retry status check" }),
+    );
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
+  it("does not trust cached candidate data while it is refetching", () => {
+    arrangeCandidate();
+    useMyApplications.mockReturnValue({
+      data: [{ id: "stale-application", jobId: "job-1", stage: "OFFER" }],
+      error: null,
+      isLoading: false,
+      isFetching: true,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    useSkills.mockReturnValue({
+      data: [{ id: "skill-1", name: "TypeScript" }],
+      isSuccess: true,
+      isFetching: true,
+      isError: false,
+    });
+
+    renderPage();
+
+    expect(screen.queryByText("Application submitted")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Checking application status...",
+    );
+    expect(screen.queryByText(/You match/)).not.toBeInTheDocument();
   });
 
   it("shows the API message for a non-conflict application failure", async () => {

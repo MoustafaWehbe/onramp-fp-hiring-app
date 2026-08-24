@@ -6,7 +6,13 @@ import {
   CandidateSkill,
 } from "@starter-kit/shared/db";
 import { createError } from "../middleware/error-handler";
-import type { UploadResult } from "../lib/storage";
+import { storageProvider, type UploadResult } from "../lib/storage";
+import {
+  publicResumeStorageKey,
+  resolveResumeFilename,
+  resumeContentType,
+  safeOriginalFilename,
+} from "../lib/resume-upload";
 import { scheduleCandidateRecommendations } from "./recommendations-queue.service";
 
 interface ProfileInput {
@@ -162,9 +168,37 @@ export class CandidateService {
   async attachResume(
     userId: string,
     upload: UploadResult,
+    originalFilename: string,
   ): Promise<CandidateProfile> {
     const profile = await this.requireOwnProfile(userId);
-    return profile.update({ resumeUrl: upload.url });
+    return profile.update({
+      resumeUrl: upload.url,
+      resumeOriginalFilename: safeOriginalFilename(originalFilename),
+    });
+  }
+
+  async getResume(profile: CandidateProfile) {
+    if (!profile.resumeUrl) {
+      throw createError("Resume not found", 404);
+    }
+
+    const storageKey = publicResumeStorageKey(profile.resumeUrl);
+    if (!storageKey) {
+      throw createError("Resume not found", 404);
+    }
+
+    try {
+      return {
+        body: await storageProvider.read(storageKey),
+        contentType: resumeContentType(storageKey),
+        filename: resolveResumeFilename(
+          profile.resumeOriginalFilename,
+          storageKey,
+        ),
+      };
+    } catch {
+      throw createError("Resume not found", 404);
+    }
   }
 }
 

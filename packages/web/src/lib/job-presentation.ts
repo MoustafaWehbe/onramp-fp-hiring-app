@@ -36,7 +36,9 @@ export function toJobSummary(job: PublicJobRecord): JobSummary {
     id: job.id,
     company: job.company.name,
     companyId: job.company.id,
+    companyLogoUrl: job.company.logoUrl,
     title: job.title,
+    description: job.description,
     status: "open",
     location: job.location,
     employmentType: job.employmentType,
@@ -47,6 +49,7 @@ export function toJobSummary(job: PublicJobRecord): JobSummary {
     salaryMax: job.salaryMax,
     salaryCurrency: job.salaryCurrency,
     skills: job.skills.map((skill) => skill.name),
+    skillIds: job.skills.map((skill) => skill.id),
     postedAt: formatDate(job.createdAt),
   };
 }

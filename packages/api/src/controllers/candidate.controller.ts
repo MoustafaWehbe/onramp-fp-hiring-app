@@ -128,9 +128,32 @@ export const candidateController = {
 
       const key = resumeStorageKey(req.user!.userId, req.file.mimetype);
       const upload = await storageProvider.upload(key, req.file.buffer, req.file.mimetype);
-      const profile = await candidateService.attachResume(req.user!.userId, upload);
+      const profile = await candidateService.attachResume(
+        req.user!.userId,
+        upload,
+        req.file.originalname,
+      );
 
       res.json({ data: profile });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async downloadResume(
+    _req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const resume = await candidateService.getResume(
+        res.locals.profile as CandidateProfile,
+      );
+
+      res.attachment(resume.filename);
+      res.setHeader("Content-Type", resume.contentType);
+      res.setHeader("Content-Length", String(resume.body.length));
+      res.status(200).send(resume.body);
     } catch (err) {
       next(err);
     }

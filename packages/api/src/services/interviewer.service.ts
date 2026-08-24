@@ -6,6 +6,10 @@ import {
   User,
 } from "@starter-kit/shared/db";
 import { Op } from "sequelize";
+import {
+  publicResumeStorageKey,
+  resolveResumeFilename,
+} from "../lib/resume-upload";
 
 type ProfileWithUser = CandidateProfile & { user?: User };
 type ApplicationWithRelations = Application & {
@@ -31,6 +35,8 @@ export class InterviewerService {
             "submittedAt",
             "coverLetter",
             "resumeUrl",
+            "resumeFileUrl",
+            "resumeOriginalFilename",
           ],
           where: {
             stage: { [Op.ne]: "DRAFT" },
@@ -74,6 +80,11 @@ export class InterviewerService {
       const job = application.job!;
       const candidateProfile = application.candidateProfile!;
       const user = candidateProfile.user!;
+      const publicResumeUrl =
+        application.resumeUrl && publicResumeStorageKey(application.resumeUrl)
+          ? application.resumeUrl
+          : null;
+      const resumeReference = application.resumeFileUrl ?? publicResumeUrl;
 
       return {
         id: assignment.id,
@@ -84,6 +95,15 @@ export class InterviewerService {
           submittedAt: application.submittedAt ?? null,
           coverLetter: application.coverLetter ?? null,
           resumeUrl: application.resumeUrl ?? null,
+          resumeOriginalFilename: resumeReference
+            ? resolveResumeFilename(
+                application.resumeOriginalFilename,
+                resumeReference,
+              )
+            : null,
+          resumeDownloadUrl: resumeReference
+            ? `/api/applications/${application.id}/resume`
+            : null,
           job: {
             id: job.id,
             title: job.title,

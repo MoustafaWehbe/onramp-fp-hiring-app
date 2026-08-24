@@ -20,6 +20,8 @@ const assignment: InterviewerAssignment = {
     submittedAt: "2026-07-20T10:00:00.000Z",
     coverLetter: "I enjoy building dependable platforms.",
     resumeUrl: null,
+    resumeOriginalFilename: "Amara_Okafor_Resume.pdf",
+    resumeDownloadUrl: "/api/applications/application-1/resume",
     job: {
       id: "job-1",
       title: "Platform Engineer",
@@ -61,12 +63,40 @@ describe("InterviewerPipelinePage", () => {
     expect(
       screen.getByText("I enjoy building dependable platforms."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View resume" })).toHaveAttribute(
-      "href",
-      "https://example.com/resume.pdf",
-    );
+    expect(
+      screen.getByRole("link", { name: "Amara_Okafor_Resume.pdf" }),
+    ).toHaveAttribute("href", "/api/applications/application-1/resume");
+    expect(
+      screen.getByRole("link", { name: "Amara_Okafor_Resume.pdf" }),
+    ).toHaveAttribute("download", "Amara_Okafor_Resume.pdf");
     expect(
       screen.queryByRole("button", { name: /notes|feedback/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("uses a safe filename for an assigned legacy application CV", () => {
+    useInterviewerAssignments.mockReturnValue({
+      data: [
+        {
+          ...assignment,
+          application: {
+            ...assignment.application,
+            resumeOriginalFilename: null,
+          },
+        },
+      ],
+      error: null,
+      isError: false,
+      isLoading: false,
+      isSuccess: true,
+      refetch: vi.fn(),
+    });
+
+    render(<InterviewerPipelinePage />);
+
+    expect(screen.getByRole("link", { name: "resume.pdf" })).toHaveAttribute(
+      "href",
+      "/api/applications/application-1/resume",
+    );
   });
 });

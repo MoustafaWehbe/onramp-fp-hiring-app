@@ -25,7 +25,9 @@ vi.mock("@/features/applications/hooks", () => ({
 
 // The timeline fetches per application and is covered by its own tests.
 vi.mock("@/features/candidate/components/ApplicationTimeline", () => ({
-  ApplicationTimeline: () => null,
+  ApplicationTimeline: ({ applicationId }: { applicationId: string }) => (
+    <div data-testid={`timeline-${applicationId}`} />
+  ),
 }));
 
 vi.mock("sonner", () => ({
@@ -36,9 +38,11 @@ vi.mock("sonner", () => ({
   },
 }));
 
-function renderPage() {
+const scrollIntoView = vi.fn();
+
+function renderPage(initialEntry = "/applications") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <ApplicationsPage />
     </MemoryRouter>,
   );
@@ -46,6 +50,7 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  Element.prototype.scrollIntoView = scrollIntoView;
   useReplaceApplicationResume.mockReturnValue({
     isPending: false,
     mutateAsync: vi.fn(),
@@ -98,7 +103,7 @@ describe("ApplicationsPage", () => {
               id: "company-1",
               name: "Northstar Labs",
               website: null,
-              logoUrl: null,
+              logoUrl: "https://example.com/northstar-logo.svg",
             },
           },
         },
@@ -108,7 +113,9 @@ describe("ApplicationsPage", () => {
           stage: "OFFER",
           coverLetter: null,
           resumeUrl: null,
-          submittedAt: "2026-07-18T09:00:00.000Z",
+          resumeOriginalFilename: null,
+          resumeDownloadUrl: "/api/applications/application-2/resume",
+          submittedAt: null,
           createdAt: "2026-07-18T09:00:00.000Z",
           updatedAt: "2026-07-24T11:00:00.000Z",
           job: {
@@ -135,12 +142,21 @@ describe("ApplicationsPage", () => {
       refetch: vi.fn(),
     });
 
-    renderPage();
+    renderPage("/applications#application-application-1");
 
     expect(
       screen.getByRole("heading", { name: "Senior Platform Engineer" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Northstar Labs")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Northstar Labs logo" }),
+    ).toHaveAttribute("src", "https://example.com/northstar-logo.svg");
+    expect(document.getElementById("application-application-1")).toBeInTheDocument();
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    expect(screen.getByTestId("timeline-application-1")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Applied Jul 20, 2026 .* Remote/),
+    ).toBeInTheDocument();
     expect(screen.getByText("Interviewing")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "amara-platform-cv.pdf" }),
@@ -148,12 +164,26 @@ describe("ApplicationsPage", () => {
       "href",
       "/api/applications/application-1/resume",
     );
+    expect(
+      screen.getByRole("link", { name: "amara-platform-cv.pdf" }),
+    ).toHaveAttribute("download", "amara-platform-cv.pdf");
     expect(screen.getByText("Parsed experience: 6 years")).toBeInTheDocument();
     expect(screen.getByText("TypeScript")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Product Engineer" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Offer")).toBeInTheDocument();
+    expect(screen.getByText("Applied Jul 18, 2026")).toBeInTheDocument();
+    expect(screen.queryByText("Applied Jul 24, 2026")).not.toBeInTheDocument();
+    expect(screen.getByTestId("timeline-application-2")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "resume.pdf" })).toHaveAttribute(
+      "href",
+      "/api/applications/application-2/resume",
+    );
+    expect(screen.getByRole("link", { name: "resume.pdf" })).toHaveAttribute(
+      "download",
+      "resume.pdf",
+    );
     expect(screen.getByText("Total applications").previousSibling).toHaveTextContent(
       "2",
     );

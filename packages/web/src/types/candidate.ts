@@ -9,6 +9,7 @@ export interface CandidateProfileRecord {
   phone?: string | null;
   location?: string | null;
   resumeUrl?: string | null;
+  resumeOriginalFilename?: string | null;
   links?: Record<string, string> | null;
   profilePhotoUrl?: string | null;
   /** Set once the one-time pre-fill from parsed resume data has run. */

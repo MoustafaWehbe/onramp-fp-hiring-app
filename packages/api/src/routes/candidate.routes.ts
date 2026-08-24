@@ -213,6 +213,13 @@ router.put(
 
 // ─── Resume ───────────────────────────────────────────────────────────────────
 
+router.get(
+  "/resume",
+  ...requireCandidate,
+  ownProfileGuard,
+  candidateController.downloadResume,
+);
+
 router.post(
   "/resume",
   ...requireCandidate,

@@ -2,6 +2,7 @@ import { useDraggable } from "@dnd-kit/core";
 import {
   CalendarCheck,
   ClipboardList,
+  FileText,
   GripVertical,
   Loader2,
   NotebookPen,
@@ -342,6 +343,20 @@ function PipelineCardShell({
 
             <FitScoreBadge application={application} isPro={isPro} />
           </div>
+
+          {application.resumeDownloadUrl && (
+            <a
+              href={application.resumeDownloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 flex min-w-0 items-center gap-1.5 rounded-md border border-slate-200/80 bg-slate-50/80 px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-foreground dark:border-slate-700/80 dark:bg-slate-900/70 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+            >
+              <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate">
+                {application.resumeOriginalFilename?.trim() || "resume.pdf"}
+              </span>
+            </a>
+          )}
 
           <IndicatorRow
             application={application}

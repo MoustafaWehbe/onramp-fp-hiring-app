@@ -25,4 +25,14 @@ export class LocalDiskStorageProvider implements StorageProvider {
 
     return { key, url: `${PUBLIC_PREFIX}/${key.split(path.sep).join("/")}` };
   }
+
+  read(key: string): Promise<Buffer> {
+    const source = path.resolve(LOCAL_UPLOADS_DIR, key);
+
+    if (!source.startsWith(LOCAL_UPLOADS_DIR + path.sep)) {
+      throw new Error(`Refusing to read outside the uploads directory: ${key}`);
+    }
+
+    return fs.readFile(source);
+  }
 }

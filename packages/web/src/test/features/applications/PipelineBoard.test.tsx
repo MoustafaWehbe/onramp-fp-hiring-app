@@ -193,6 +193,35 @@ describe("PipelineBoard", () => {
     );
   });
 
+  it("links an application CV with its original filename", () => {
+    renderBoard([
+      application({
+        id: "a",
+        resumeOriginalFilename: "Jane_Doe_Resume.pdf",
+        resumeDownloadUrl: "/api/applications/a/resume",
+      }),
+    ]);
+
+    expect(
+      screen.getByRole("link", { name: "Jane_Doe_Resume.pdf" }),
+    ).toHaveAttribute("href", "/api/applications/a/resume");
+  });
+
+  it("uses a sensible filename for an older application CV", () => {
+    renderBoard([
+      application({
+        id: "a",
+        resumeOriginalFilename: null,
+        resumeDownloadUrl: "/api/applications/a/resume",
+      }),
+    ]);
+
+    expect(screen.getByRole("link", { name: "resume.pdf" })).toHaveAttribute(
+      "href",
+      "/api/applications/a/resume",
+    );
+  });
+
   it("orders a column by fit score, highest first", () => {
     renderBoard([
       application({

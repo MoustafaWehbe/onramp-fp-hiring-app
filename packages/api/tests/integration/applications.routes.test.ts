@@ -721,6 +721,52 @@ describe("POST /api/applications", () => {
 });
 
 describe("application CV upload, parsing, replacement, and access", () => {
+  it("keeps draft CVs private from recruiters while allowing the owner and admins", async () => {
+    const pdf = await createTextPdf("Candidate-private draft resume");
+    const upload = await request(app)
+      .put(`/api/applications/${ownDraftApplication.id}/resume`)
+      .set("Cookie", cookie(candidateAToken))
+      .attach("resume", pdf, {
+        filename: "Private Draft CV.pdf",
+        contentType: "application/pdf",
+      });
+
+    expect(upload.status).toBe(200);
+    expect(upload.body.data).toMatchObject({
+      id: ownDraftApplication.id,
+      stage: "DRAFT",
+      resumeOriginalFilename: "Private Draft CV.pdf",
+    });
+
+    const recruiterDownload = await request(app)
+      .get(`/api/applications/${ownDraftApplication.id}/resume`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(recruiterDownload.status).toBe(403);
+    expect(recruiterDownload.body.error).toBe(
+      "You cannot access this application's CV",
+    );
+
+    const candidateDownload = await request(app)
+      .get(`/api/applications/${ownDraftApplication.id}/resume`)
+      .set("Cookie", cookie(candidateAToken));
+    expect(candidateDownload.status).toBe(200);
+    expect(Buffer.compare(candidateDownload.body as Buffer, pdf)).toBe(0);
+
+    const admin = await User.create({
+      email: `applications-admin-${randomUUID()}@example.com`,
+      passwordHash: "unused-in-these-tests",
+      name: "Applications Admin",
+      role: "ADMIN",
+    });
+    createdUserIds.push(admin.id);
+
+    const adminDownload = await request(app)
+      .get(`/api/applications/${ownDraftApplication.id}/resume`)
+      .set("Cookie", cookie(tokenFor(admin)));
+    expect(adminDownload.status).toBe(200);
+    expect(Buffer.compare(adminDownload.body as Buffer, pdf)).toBe(0);
+  });
+
   it("stores and parses a real PDF and serves it only to authorized users", async () => {
     const pdf = await createTextPdf(
       "Amara has 6+ years of professional experience with React, TypeScript, Node.js, PostgreSQL, Docker, and AWS.",
@@ -782,7 +828,7 @@ describe("application CV upload, parsing, replacement, and access", () => {
       "application/pdf",
     );
     expect(candidateDownload.headers["content-disposition"]).toContain(
-      "Amara%20Okafor%20CV.pdf",
+      'attachment; filename="Amara Okafor CV.pdf"',
     );
     expect(Buffer.compare(candidateDownload.body as Buffer, pdf)).toBe(0);
 
@@ -834,6 +880,74 @@ describe("application CV upload, parsing, replacement, and access", () => {
         jobId: resumeUploadJob.id,
         aiScoringStatus: "pending",
         fitScore: null,
+      }),
+    );
+  });
+
+  it("keeps a legacy CV downloadable with a safe fallback filename", async () => {
+    const application = await Application.findOne({
+      where: {
+        jobId: resumeUploadJob.id,
+        candidateProfileId: candidateProfileA.id,
+      },
+    });
+    expect(application?.resumeFileUrl).toBeTruthy();
+
+    await application!.update({ resumeOriginalFilename: null });
+
+    const mine = await request(app)
+      .get("/api/applications/me")
+      .set("Cookie", cookie(candidateAToken));
+    expect(mine.status).toBe(200);
+    expect(mine.body.data).toContainEqual(
+      expect.objectContaining({
+        id: application!.id,
+        resumeOriginalFilename: "resume.pdf",
+        resumeDownloadUrl: `/api/applications/${application!.id}/resume`,
+      }),
+    );
+
+    const download = await request(app)
+      .get(`/api/applications/${application!.id}/resume`)
+      .set("Cookie", cookie(candidateAToken));
+    expect(download.status).toBe(200);
+    expect(download.headers["content-disposition"]).toContain(
+      'attachment; filename="resume.pdf"',
+    );
+
+    const pipeline = await request(app)
+      .get(`/api/applications/job/${resumeUploadJob.id}`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(pipeline.body.data).toContainEqual(
+      expect.objectContaining({
+        id: application!.id,
+        resumeOriginalFilename: "resume.pdf",
+        resumeDownloadUrl: `/api/applications/${application!.id}/resume`,
+      }),
+    );
+
+    const candidateDetail = await request(app)
+      .get(`/api/candidate-profiles/${candidateProfileA.id}`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(candidateDetail.body.data.applicationResumes).toContainEqual(
+      expect.objectContaining({
+        applicationId: application!.id,
+        resumeOriginalFilename: "resume.pdf",
+        resumeDownloadUrl: `/api/applications/${application!.id}/resume`,
+      }),
+    );
+
+    const recruiterWorkspaceDetail = await request(app)
+      .get(`/api/recruiter/candidates/${candidateProfileA.id}`)
+      .set("Cookie", cookie(recruiterToken));
+    expect(recruiterWorkspaceDetail.status).toBe(200);
+    expect(
+      recruiterWorkspaceDetail.body.data.applicationResumes,
+    ).toContainEqual(
+      expect.objectContaining({
+        applicationId: application!.id,
+        resumeOriginalFilename: "resume.pdf",
+        resumeDownloadUrl: `/api/applications/${application!.id}/resume`,
       }),
     );
   });

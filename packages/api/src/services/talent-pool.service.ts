@@ -22,6 +22,10 @@ import {
 import { createError } from "../middleware/error-handler";
 import type { RecruiterCandidateFilters } from "../schemas/talent-pool.schemas";
 import { notificationService } from "./notifications.service";
+import {
+  publicResumeStorageKey,
+  resolveResumeFilename,
+} from "../lib/resume-upload";
 
 type ApplicationWithJob = Application & { job?: Job };
 type CandidateWithRelations = CandidateProfile & {
@@ -154,6 +158,7 @@ export class TalentPoolService {
         "jobId",
         "stage",
         "submittedAt",
+        "resumeUrl",
         "resumeFileUrl",
         "resumeOriginalFilename",
         "resumeUploadedAt",
@@ -270,6 +275,12 @@ export class TalentPoolService {
           (scorecard.ratings ?? []).map((rating) => rating.rating),
         );
         candidateRatings.push(...ratings);
+        const publicResumeUrl =
+          application.resumeUrl && publicResumeStorageKey(application.resumeUrl)
+            ? application.resumeUrl
+            : null;
+        const resumeReference =
+          application.resumeFileUrl ?? publicResumeUrl;
 
         return {
           applicationId: application.id,
@@ -278,14 +289,18 @@ export class TalentPoolService {
           jobStatus: job.status,
           stage: application.stage,
           submittedAt: application.submittedAt ?? application.createdAt,
-          resumeOriginalFilename: application.resumeOriginalFilename ?? null,
+          resumeOriginalFilename: resumeReference
+            ? resolveResumeFilename(
+                application.resumeOriginalFilename,
+                resumeReference,
+              )
+            : null,
           resumeUploadedAt: application.resumeUploadedAt ?? null,
           parsedYearsExperience: application.parsedYearsExperience ?? null,
           parsedSkills: application.parsedSkills ?? [],
-          resumeDownloadUrl:
-            application.resumeFileUrl && application.resumeOriginalFilename
-              ? `/api/applications/${application.id}/resume`
-              : null,
+          resumeDownloadUrl: resumeReference
+            ? `/api/applications/${application.id}/resume`
+            : null,
           fitScore: application.fitScore ?? null,
           aiSummary: application.aiSummary ?? null,
           aiStrengths: application.aiStrengths ?? [],
@@ -318,6 +333,12 @@ export class TalentPoolService {
         phone: profile.phone ?? null,
         location: profile.location ?? null,
         resumeUrl: profile.resumeUrl ?? null,
+        resumeOriginalFilename: profile.resumeUrl
+          ? resolveResumeFilename(
+              profile.resumeOriginalFilename,
+              profile.resumeUrl,
+            )
+          : null,
         createdAt: profile.createdAt,
         updatedAt: profile.updatedAt,
         user: { id: user.id, name: user.name, email: user.email },
@@ -330,11 +351,7 @@ export class TalentPoolService {
         },
         applicationInsights,
         applicationResumes: applicationInsights
-          .filter(
-            (application) =>
-              application.resumeDownloadUrl &&
-              application.resumeOriginalFilename,
-          )
+          .filter((application) => application.resumeDownloadUrl)
           .map((application) => ({
             applicationId: application.applicationId,
             jobId: application.jobId,

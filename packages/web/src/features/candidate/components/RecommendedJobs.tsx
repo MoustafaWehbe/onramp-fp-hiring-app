@@ -207,7 +207,7 @@ export function RecommendedJobs({ limit = 4 }: { limit?: number }) {
                 Add your skills and we can start matching you to open roles.
               </p>
               <Link
-                to="/candidate/profile"
+                to="/profile"
                 className={cn(
                   buttonVariants({ variant: "outline", size: "sm" }),
                   "mt-3",

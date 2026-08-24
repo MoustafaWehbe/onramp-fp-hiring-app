@@ -2,13 +2,14 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   BriefcaseBusiness,
-  Building2,
   CalendarRange,
+  CheckCircle2,
   Laptop,
   MapPin,
   WalletCards,
 } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { CompanyLogo } from "../shared/CompanyLogo";
 import {
   Card,
   CardContent,
@@ -27,7 +28,7 @@ import {
   CARD_CLASS,
   CARD_HOVER_CLASS,
 } from "../../features/candidate/theme";
-import type { JobSummary } from "../../types/jobs";
+import type { JobSkillRecord, JobSummary } from "../../types/jobs";
 
 interface JobCardProps {
   job: JobSummary;
@@ -44,33 +45,65 @@ interface JobCardProps {
    * only spacing and the meta-row layout change.
    */
   compact?: boolean;
+  /**
+   * Omitted for anonymous visitors and whenever the candidate-skills request
+   * is unavailable. An empty array is meaningful: the candidate matches none.
+   */
+  candidateSkills?: readonly JobSkillRecord[];
 }
 
 export function JobCard({
   job,
   linkCompany = true,
   compact = false,
+  candidateSkills,
 }: JobCardProps) {
+  const candidateSkillIds = new Set(
+    candidateSkills?.map((skill) => skill.id) ?? [],
+  );
+  const candidateSkillNames = new Set(
+    candidateSkills?.map((skill) => skill.name.trim().toLocaleLowerCase()) ?? [],
+  );
+  const matchedSkillCount =
+    candidateSkills === undefined
+      ? null
+      : job.skills.reduce((count, skill, index) => {
+          const skillId = job.skillIds?.[index];
+          const matches =
+            (skillId !== undefined && candidateSkillIds.has(skillId)) ||
+            candidateSkillNames.has(skill.trim().toLocaleLowerCase());
+          return count + (matches ? 1 : 0);
+        }, 0);
+
   return (
     <Card className={cn(CARD_CLASS, CARD_HOVER_CLASS, "flex h-full flex-col")}>
       <CardHeader className={cn("space-y-3", compact ? "p-4" : "space-y-4 p-5")}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
             {job.company && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Building2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {linkCompany && job.companyId ? (
-                  <Link
-                    to={`/careers/${job.companyId}`}
-                    className="truncate rounded-sm outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    aria-label={`View all open roles at ${job.company}`}
-                  >
-                    {job.company}
-                  </Link>
-                ) : (
+              linkCompany && job.companyId ? (
+                <Link
+                  to={`/careers/${job.companyId}`}
+                  className="flex w-fit max-w-full items-center gap-2 rounded-sm text-sm text-muted-foreground outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label={`View all open roles at ${job.company}`}
+                >
+                  <CompanyLogo
+                    name={job.company}
+                    logoUrl={job.companyLogoUrl}
+                    className="h-8 w-8 rounded-md border p-1 text-sm shadow-none"
+                  />
                   <span className="truncate">{job.company}</span>
-                )}
-              </div>
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CompanyLogo
+                    name={job.company}
+                    logoUrl={job.companyLogoUrl}
+                    className="h-8 w-8 rounded-md border p-1 text-sm shadow-none"
+                  />
+                  <span className="truncate">{job.company}</span>
+                </div>
+              )
             )}
             <CardTitle className={compact ? "text-lg leading-6" : "text-xl leading-7"}>
               <Link
@@ -134,19 +167,30 @@ export function JobCard({
         </div>
 
         {job.skills.length > 0 && (
-          <div
-            className="flex flex-wrap gap-2"
-            aria-label={`${job.title} skills`}
-          >
-            {job.skills.map((skill) => (
-              <Badge
-                key={skill}
-                variant="outline"
-                className={cn("rounded-full px-3 py-1", ACCENT_CHIP)}
+          <div className="space-y-2.5">
+            {matchedSkillCount !== null && (
+              <p
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+                aria-label={`You match ${matchedSkillCount} of ${job.skills.length} required skills`}
               >
-                {skill}
-              </Badge>
-            ))}
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                {matchedSkillCount} of {job.skills.length} skills match
+              </p>
+            )}
+            <div
+              className="flex flex-wrap gap-2"
+              aria-label={`${job.title} skills`}
+            >
+              {job.skills.map((skill) => (
+                <Badge
+                  key={skill}
+                  variant="outline"
+                  className={cn("rounded-full px-3 py-1", ACCENT_CHIP)}
+                >
+                  {skill}
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>

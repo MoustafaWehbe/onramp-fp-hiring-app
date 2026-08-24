@@ -94,6 +94,7 @@ export class JobService {
             name: company.name,
             website: company.website ?? null,
             logoUrl: company.logoUrl ?? null,
+            description: company.description ?? null,
           }
         : null,
     };
@@ -340,7 +341,7 @@ export class JobService {
         {
           model: Company,
           as: "company",
-          attributes: ["id", "name", "website", "logoUrl"],
+          attributes: ["id", "name", "website", "logoUrl", "description"],
           required: true,
         },
         {
@@ -382,7 +383,7 @@ export class JobService {
         {
           model: Company,
           as: "company",
-          attributes: ["id", "name", "website", "logoUrl"],
+          attributes: ["id", "name", "website", "logoUrl", "description"],
           required: true,
         },
         {

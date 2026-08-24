@@ -14,6 +14,49 @@ export const RESUME_MIME_TYPES = Object.freeze(
   Object.keys(EXTENSION_BY_MIME_TYPE),
 );
 
+/**
+ * Keep only the user-facing basename and remove control characters before a
+ * filename is persisted or placed in a response header.
+ */
+export function safeOriginalFilename(originalname: string): string {
+  const basename = originalname.split(/[\\/]/).pop() ?? "resume";
+  const sanitized = [...basename]
+    .filter((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint >= 32 && codePoint !== 127;
+    })
+    .join("")
+    .trim();
+
+  return (sanitized || "resume").slice(0, 255);
+}
+
+/** Legacy rows may have a stored file but no captured original filename. */
+export function resolveResumeFilename(
+  originalFilename: string | null | undefined,
+  storageReference: string,
+): string {
+  if (originalFilename?.trim()) {
+    return safeOriginalFilename(originalFilename);
+  }
+
+  return path.extname(storageReference).toLowerCase() === ".docx"
+    ? "resume.docx"
+    : "resume.pdf";
+}
+
+export function resumeContentType(storageReference: string): string {
+  return path.extname(storageReference).toLowerCase() === ".pdf"
+    ? "application/pdf"
+    : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+}
+
+/** Converts this app's public upload URL back to its provider key. */
+export function publicResumeStorageKey(resumeUrl: string): string | null {
+  const prefix = "/uploads/";
+  return resumeUrl.startsWith(prefix) ? resumeUrl.slice(prefix.length) : null;
+}
+
 function resumeFileFilter(
   _req: Request,
   file: Express.Multer.File,

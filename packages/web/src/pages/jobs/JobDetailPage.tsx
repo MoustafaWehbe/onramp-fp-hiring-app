@@ -6,6 +6,8 @@ import {
   Building2,
   CalendarDays,
   CalendarRange,
+  Check,
+  CheckCircle2,
   DollarSign,
   ExternalLink,
   FileUp,
@@ -27,10 +29,10 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { SuccessMoment } from "../../components/shared/SuccessMoment";
+import { CompanyLogo } from "../../components/shared/CompanyLogo";
 import {
   ACCENT_TEXT,
   CARD_CLASS,
-  TEXT_META,
   TEXT_WARNING,
   WARNING_BANNER,
 } from "../../features/candidate/theme";
@@ -46,6 +48,7 @@ import {
 import { ResumeAIReview } from "../../features/applications/components/ResumeAIReview";
 import { ApplicationPercentile } from "../../features/applications/components/ApplicationPercentile";
 import { usePublicJob } from "../../features/jobs/hooks";
+import { useSkills } from "../../features/candidate/hooks";
 import { useAuth } from "../../hooks/useAuth";
 import { EasyApplyButton } from "../../features/candidate/components/EasyApplyButton";
 import { getApiErrorMessage } from "../../lib/api-errors";
@@ -90,9 +93,14 @@ export function JobDetailPage() {
   const applicationsQuery = useMyApplications(
     Boolean(user && isCandidate),
   );
+  const skillsQuery = useSkills(Boolean(user && isCandidate));
   const applyToJob = useApplyToJob();
   const applicationPercentile = useApplicationPercentile();
   const [duplicateJobId, setDuplicateJobId] = useState<string | null>(null);
+  const [easyAppliedApplication, setEasyAppliedApplication] = useState<{
+    id: string;
+    stage: string;
+  } | null>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -111,6 +119,7 @@ export function JobDetailPage() {
     setResumeReview(null);
     setHasReviewed(false);
     setAcknowledgedReviewWarning(false);
+    setEasyAppliedApplication(null);
     applicationPercentile.reset();
   }, [jobId]);
 
@@ -160,14 +169,57 @@ export function JobDetailPage() {
   }
 
   const job = jobQuery.data;
-  const existingApplication = applicationsQuery.data?.find(
-    (application) => application.jobId === job.id,
-  );
+  const existingApplication = applicationsQuery.isFetching
+    ? undefined
+    : applicationsQuery.data?.find(
+        (application) => application.jobId === job.id,
+      );
   const hasDraft = existingApplication?.stage === "DRAFT";
   const alreadyApplied =
     (existingApplication !== undefined && !hasDraft) ||
     applyToJob.data?.jobId === job.id ||
+    easyAppliedApplication !== null ||
     duplicateJobId === job.id;
+  const appliedApplicationId =
+    (existingApplication && !hasDraft ? existingApplication.id : undefined) ??
+    (applyToJob.data?.jobId === job.id ? applyToJob.data.id : undefined) ??
+    easyAppliedApplication?.id;
+  const appliedStage =
+    (applyToJob.data?.jobId === job.id ? applyToJob.data.stage : undefined) ??
+    easyAppliedApplication?.stage ??
+    (existingApplication && !hasDraft ? existingApplication.stage : undefined);
+  const appliedStageLabel =
+    {
+      APPLIED: "Applied",
+      REVIEWED: "In review",
+      INTERVIEWING: "Interviewing",
+      OFFER: "Offer",
+      HIRED: "Hired",
+      REJECTED: "Not selected",
+    }[appliedStage ?? ""] ?? "Submitted";
+  const applicationTimelineHref = appliedApplicationId
+    ? `/applications#application-${appliedApplicationId}`
+    : "/applications";
+
+  const candidateSkills =
+    user && isCandidate && skillsQuery.isSuccess && !skillsQuery.isFetching
+      ? skillsQuery.data
+      : undefined;
+  const candidateSkillIds = new Set(
+    candidateSkills?.map((skill) => skill.id) ?? [],
+  );
+  const candidateSkillNames = new Set(
+    candidateSkills?.map((skill) => skill.name.trim().toLocaleLowerCase()) ?? [],
+  );
+  const jobSkillsWithMatch = job.skills.map((skill) => ({
+    ...skill,
+    matched:
+      candidateSkillIds.has(skill.id) ||
+      candidateSkillNames.has(skill.name.trim().toLocaleLowerCase()),
+  }));
+  const matchedSkillCount = jobSkillsWithMatch.filter(
+    (skill) => skill.matched,
+  ).length;
 
   // Gated only on a review the candidate actually ran and that flagged real
   // gaps — a candidate who never clicked "Review with AI" sees no warning
@@ -241,15 +293,74 @@ export function JobDetailPage() {
       return null;
     }
 
-    const isCheckingApplications = applicationsQuery.isLoading;
+    const isCheckingApplications =
+      applicationsQuery.isLoading || applicationsQuery.isFetching;
     const isApplyingToThisJob =
       applyToJob.isPending && applyToJob.variables?.jobId === job.id;
 
     if (alreadyApplied) {
       return (
-        <Button type="button" className="w-full sm:w-auto" disabled>
-          Already applied
-        </Button>
+        <div className="w-full rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-100">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+            Application submitted
+          </p>
+          <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+            Current stage: {appliedStageLabel}. Track updates and review this
+            application's timeline.
+          </p>
+          <Link
+            to={applicationTimelineHref}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "mt-3 w-full border-emerald-300 bg-background text-foreground dark:border-emerald-800",
+            )}
+          >
+            View application timeline
+          </Link>
+        </div>
+      );
+    }
+
+    if (isCheckingApplications) {
+      return (
+        <div
+          className="flex w-full items-center gap-3 rounded-lg border bg-card p-4 text-sm text-muted-foreground sm:w-80"
+          role="status"
+        >
+          <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
+          Checking application status...
+        </div>
+      );
+    }
+
+    if (applicationsQuery.isError) {
+      return (
+        <div
+          className="w-full space-y-3 rounded-lg border border-destructive/40 bg-card p-4 sm:w-80"
+          role="alert"
+        >
+          <div>
+            <p className="text-sm font-semibold">
+              We couldn't verify your application status
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {getApiErrorMessage(
+                applicationsQuery.error,
+                "Try again before applying to avoid a duplicate application.",
+              )}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={applicationsQuery.isFetching}
+            onClick={() => void applicationsQuery.refetch()}
+          >
+            {applicationsQuery.isFetching ? "Checking..." : "Retry status check"}
+          </Button>
+        </div>
       );
     }
 
@@ -292,9 +403,17 @@ export function JobDetailPage() {
           className="w-full"
           disabled={isCheckingApplications || isApplyingToThisJob}
           onApplied={(application) => {
+            setEasyAppliedApplication({
+              id: application.id,
+              stage: application.stage,
+            });
             void applicationsQuery.refetch();
             setJustApplied(true);
             applicationPercentile.mutate(application.id);
+          }}
+          onAlreadyApplied={() => {
+            setDuplicateJobId(job.id);
+            void applicationsQuery.refetch();
           }}
         />
 
@@ -376,8 +495,75 @@ export function JobDetailPage() {
     );
   })();
 
+  const mobileApplicationAction = (() => {
+    if (isAuthLoading || (user && !isCandidate)) {
+      return null;
+    }
+
+    if (!user) {
+      return (
+        <Link
+          to="/login?role=candidate"
+          state={{ returnTo: `/jobs/${job.id}` }}
+          className={cn(buttonVariants(), "w-full")}
+          aria-label="Sign in to apply (mobile)"
+        >
+          Sign in to apply
+        </Link>
+      );
+    }
+
+    if (alreadyApplied) {
+      return (
+        <Link
+          to={applicationTimelineHref}
+          className={cn(buttonVariants(), "w-full")}
+        >
+          View application
+        </Link>
+      );
+    }
+
+    if (applicationsQuery.isLoading || applicationsQuery.isFetching) {
+      return (
+        <Button type="button" className="w-full" disabled>
+          Checking application status...
+        </Button>
+      );
+    }
+
+    if (applicationsQuery.isError) {
+      return (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={applicationsQuery.isFetching}
+          onClick={() => void applicationsQuery.refetch()}
+          aria-label="Retry application status check (mobile)"
+        >
+          {applicationsQuery.isFetching ? "Checking..." : "Retry status check"}
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        type="button"
+        className="w-full"
+        onClick={() =>
+          document
+            .getElementById("application-action")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+      >
+        Apply now
+      </Button>
+    );
+  })();
+
   return (
-    <div className="bg-muted/30">
+    <div className="bg-muted/30 pb-24 lg:pb-0">
       <section className="border-b bg-background">
         <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
           <Link
@@ -388,37 +574,59 @@ export function JobDetailPage() {
             Back to jobs
           </Link>
 
-          <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
+          <div className="mt-8">
+            <div className="flex items-center gap-3">
+              <CompanyLogo
+                name={job.company.name}
+                logoUrl={job.company.logoUrl}
+                className="h-14 w-14"
+              />
+              <div className="min-w-0">
                 <Link
                   to={`/careers/${job.company.id}`}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-sm text-sm font-semibold uppercase tracking-wide outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "block truncate rounded-sm text-sm font-semibold uppercase tracking-wide outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     ACCENT_TEXT,
                   )}
                 >
-                  <Building2 className="h-4 w-4" aria-hidden="true" />
                   {job.company.name}
                 </Link>
-                <Badge variant="success">Open</Badge>
-              </div>
-              <h1 className="mt-3 text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-                {job.title}
-              </h1>
-              <div className={cn("mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm", TEXT_META)}>
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {job.location ??
-                    (job.isRemote ? "Remote" : "Location not specified")}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  Posted {formatDate(job.createdAt)}
-                </span>
+                <Badge variant="success" className="mt-1">
+                  Open
+                </Badge>
               </div>
             </div>
-            {applicationAction}
+            <h1 className="mt-5 max-w-4xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
+              {job.title}
+            </h1>
+            <div className="mt-5 flex flex-wrap gap-2" aria-label="Role details">
+              <Badge variant="outline" className="gap-1.5 rounded-full py-1">
+                {job.isRemote ? (
+                  <Laptop className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {job.isRemote
+                  ? "Remote"
+                  : job.location ?? "Location not specified"}
+              </Badge>
+              <Badge variant="outline" className="gap-1.5 rounded-full py-1">
+                <BriefcaseBusiness className="h-3.5 w-3.5" aria-hidden="true" />
+                {employmentTypeLabels[job.employmentType]}
+              </Badge>
+              <Badge variant="outline" className="gap-1.5 rounded-full py-1">
+                <DollarSign className="h-3.5 w-3.5" aria-hidden="true" />
+                {formatSalaryRange(job)}
+              </Badge>
+              <Badge variant="outline" className="gap-1.5 rounded-full py-1">
+                <CalendarRange className="h-3.5 w-3.5" aria-hidden="true" />
+                {job.experienceMin}–{job.experienceMax} years
+              </Badge>
+              <Badge variant="outline" className="gap-1.5 rounded-full py-1">
+                <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                Posted {formatDate(job.createdAt)}
+              </Badge>
+            </div>
           </div>
           {justApplied && (
             <SuccessMoment
@@ -446,108 +654,171 @@ export function JobDetailPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-5xl gap-5 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:px-8">
-        <Card className={CARD_CLASS}>
-          <CardHeader>
-            <CardTitle className="text-xl">About this role</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="whitespace-pre-wrap text-sm leading-7 text-muted-foreground">
-              {job.description}
-            </p>
-          </CardContent>
-        </Card>
-
-        <aside className="space-y-5">
-          {user && isCandidate && (
-            <ResumeAIReview
-              jobId={job.id}
-              resumeFile={resumeFile}
-              onResult={(result) => {
-                setResumeReview(result);
-                setHasReviewed(true);
-                setAcknowledgedReviewWarning(false);
-              }}
-            />
-          )}
+      <section className="mx-auto grid w-full max-w-5xl gap-5 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-8">
+        <div className="min-w-0 space-y-5">
+          <Card className={CARD_CLASS}>
+            <CardHeader>
+              <CardTitle className="text-xl">Required skills</CardTitle>
+              {candidateSkills !== undefined && job.skills.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  You match {matchedSkillCount} of {job.skills.length} required{" "}
+                  {job.skills.length === 1 ? "skill" : "skills"}.
+                </p>
+              )}
+            </CardHeader>
+            <CardContent>
+              {job.skills.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {jobSkillsWithMatch.map((skill) => {
+                    const showMatch = candidateSkills !== undefined;
+                    return (
+                      <Badge
+                        key={skill.id}
+                        variant={showMatch && skill.matched ? "success" : "outline"}
+                        className="gap-1.5 rounded-full px-3 py-1"
+                        aria-label={
+                          showMatch
+                            ? `${skill.name}: ${
+                                skill.matched ? "matched" : "not matched"
+                              }`
+                            : undefined
+                        }
+                      >
+                        {showMatch && skill.matched && (
+                          <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                        {skill.name}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No specific skills listed.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           <Card className={CARD_CLASS}>
             <CardHeader>
-              <CardTitle className="text-lg">Role snapshot</CardTitle>
+              <CardTitle className="text-xl">About this role</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <span>
-                  {job.location ??
-                    (job.isRemote ? "Remote" : "Location not specified")}
-                </span>
-              </div>
-              <div className="flex items-start gap-3">
-                <BriefcaseBusiness className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <span>{employmentTypeLabels[job.employmentType]}</span>
-              </div>
-              {job.isRemote && (
-                <div className="flex items-start gap-3">
-                  <Laptop className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span>Remote available</span>
-                </div>
-              )}
-              <div className="flex items-start gap-3">
-                <CalendarRange className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <span>
-                  {job.experienceMin}–{job.experienceMax} years experience
-                </span>
-              </div>
-              <div className="flex items-start gap-3">
-                <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <span>{formatSalaryRange(job)}</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <span>Posted {formatDate(job.createdAt)}</span>
-              </div>
-              {/* The careers page is the other way into this company's funnel;
-                  the header company name links there too, but a candidate
-                  reading the snapshot shouldn't have to scroll back up. */}
-              <Link
-                to={`/careers/${job.company.id}`}
-                className="flex items-start gap-3 font-medium text-primary hover:underline"
-              >
-                <Building2 className="mt-0.5 h-4 w-4 shrink-0" />
-                View all open roles at {job.company.name}
-              </Link>
-              {job.company.website && (
-                <a
-                  href={job.company.website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-start gap-3 font-medium text-primary hover:underline"
-                >
-                  <ExternalLink className="mt-0.5 h-4 w-4 shrink-0" />
-                  Visit {job.company.name}
-                </a>
-              )}
-              <div className="border-t pt-4">
-                <p className="mb-2 font-medium">Skills</p>
-                {job.skills.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {job.skills.map((skill) => (
-                      <Badge key={skill.id} variant="outline">
-                        {skill.name}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">
-                    No specific skills listed.
-                  </p>
-                )}
-              </div>
+            <CardContent>
+              <p className="max-w-3xl whitespace-pre-wrap text-base leading-8 text-muted-foreground">
+                {job.description}
+              </p>
             </CardContent>
           </Card>
+        </div>
+
+        <aside>
+          <div className="space-y-5 lg:sticky lg:top-24">
+            <div id="application-action" className="scroll-mt-24">
+              {applicationAction}
+            </div>
+
+            {user && isCandidate && (
+              <ResumeAIReview
+                jobId={job.id}
+                resumeFile={resumeFile}
+                onResult={(result) => {
+                  setResumeReview(result);
+                  setHasReviewed(true);
+                  setAcknowledgedReviewWarning(false);
+                }}
+              />
+            )}
+
+            <Card className={CARD_CLASS}>
+              <CardHeader>
+                <CardTitle className="text-lg">Role snapshot</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <div className="flex items-start gap-3">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>
+                    {job.location ??
+                      (job.isRemote ? "Remote" : "Location not specified")}
+                  </span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <BriefcaseBusiness className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>{employmentTypeLabels[job.employmentType]}</span>
+                </div>
+                {job.isRemote && (
+                  <div className="flex items-start gap-3">
+                    <Laptop className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span>Remote available</span>
+                  </div>
+                )}
+                <div className="flex items-start gap-3">
+                  <CalendarRange className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>
+                    {job.experienceMin}–{job.experienceMax} years experience
+                  </span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>{formatSalaryRange(job)}</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>Posted {formatDate(job.createdAt)}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className={CARD_CLASS}>
+              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                <CompanyLogo
+                  name={job.company.name}
+                  logoUrl={job.company.logoUrl}
+                />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    About the company
+                  </p>
+                  <CardTitle className="truncate text-lg">
+                    {job.company.name}
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                {job.company.description && (
+                  <p className="leading-6 text-muted-foreground">
+                    {job.company.description}
+                  </p>
+                )}
+                <Link
+                  to={`/careers/${job.company.id}`}
+                  className="flex items-start gap-3 font-medium text-primary hover:underline"
+                >
+                  <Building2 className="mt-0.5 h-4 w-4 shrink-0" />
+                  View all open roles at {job.company.name}
+                </Link>
+                {job.company.website && (
+                  <a
+                    href={job.company.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-start gap-3 font-medium text-primary hover:underline"
+                  >
+                    <ExternalLink className="mt-0.5 h-4 w-4 shrink-0" />
+                    Visit {job.company.name}
+                  </a>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </aside>
       </section>
+
+      {mobileApplicationAction && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.35)] backdrop-blur lg:hidden">
+          <div className="mx-auto max-w-md">{mobileApplicationAction}</div>
+        </div>
+      )}
     </div>
   );
 }

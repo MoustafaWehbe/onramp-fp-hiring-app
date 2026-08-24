@@ -83,14 +83,9 @@ export const applicationController = {
           companyId,
         },
       );
-      const encodedFilename = encodeURIComponent(resume.filename);
-
+      res.attachment(resume.filename);
       res.setHeader("Content-Type", resume.contentType);
       res.setHeader("Content-Length", String(resume.body.length));
-      res.setHeader(
-        "Content-Disposition",
-        `inline; filename*=UTF-8''${encodedFilename}`,
-      );
       res.status(200).send(resume.body);
     } catch (err) {
       next(err);

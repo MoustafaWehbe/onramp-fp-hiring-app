@@ -12,6 +12,7 @@ import {
 } from "@starter-kit/shared/db";
 import { app } from "../../app";
 import { initializeDatabase } from "../../src/lib/db";
+import { privateStorageProvider } from "../../src/lib/storage";
 
 function cookie(token: string): string[] {
   return [`accessToken=${token}`];
@@ -54,7 +55,9 @@ let recruiterAToken: string;
 let recruiterBToken: string;
 let recruiterWithoutCompanyToken: string;
 let interviewerAToken: string;
+let interviewerBToken: string;
 let candidateToken: string;
+let interviewerResumeStorageKey: string;
 let databaseInitialized = false;
 
 beforeAll(async () => {
@@ -174,12 +177,22 @@ beforeAll(async () => {
   });
   jobIds.push(openJobA.id, closedJobA.id, openJobB.id);
 
+  interviewerResumeStorageKey =
+    `application-resumes/${candidateUser.id}/${suffix}.pdf`;
+  await privateStorageProvider.upload(
+    interviewerResumeStorageKey,
+    Buffer.from("%PDF-1.4 interviewer assignment CV"),
+    "application/pdf",
+  );
+
   interviewingApplication = await Application.create({
     jobId: openJobA.id,
     candidateProfileId: candidateProfile.id,
     stage: "INTERVIEWING",
     coverLetter: "Strong fit for the open role.",
     resumeUrl: candidateProfile.resumeUrl,
+    resumeFileUrl: interviewerResumeStorageKey,
+    resumeOriginalFilename: "Amara_Workspace_Resume.pdf",
     submittedAt: new Date("2026-07-25T10:00:00.000Z"),
   });
   offerApplication = await Application.create({
@@ -216,6 +229,7 @@ beforeAll(async () => {
   recruiterBToken = tokenFor(recruiterB);
   recruiterWithoutCompanyToken = tokenFor(recruiterWithoutCompany);
   interviewerAToken = tokenFor(interviewerA);
+  interviewerBToken = tokenFor(interviewerB);
   candidateToken = tokenFor(candidateUser);
 });
 
@@ -226,6 +240,7 @@ afterAll(async () => {
 
   await InterviewAssignment.destroy({ where: { id: assignmentIds } });
   await Application.destroy({ where: { id: applicationIds } });
+  await privateStorageProvider.delete(interviewerResumeStorageKey);
   await Job.destroy({ where: { id: jobIds } });
   await CandidateProfile.destroy({ where: { id: profileIds } });
   await User.destroy({ where: { id: userIds } });
@@ -412,6 +427,9 @@ describe("company-safe interviewer assignments", () => {
         stage: "INTERVIEWING",
         coverLetter: interviewingApplication.coverLetter,
         resumeUrl: interviewingApplication.resumeUrl,
+        resumeOriginalFilename: "Amara_Workspace_Resume.pdf",
+        resumeDownloadUrl:
+          `/api/applications/${interviewingApplication.id}/resume`,
         job: {
           id: openJobA.id,
           title: openJobA.title,
@@ -437,6 +455,48 @@ describe("company-safe interviewer assignments", () => {
           assignment.application.id,
       ),
     ).not.toContain(otherCompanyApplication.id);
+  });
+
+  it("lets only the assigned interviewer download the submitted CV", async () => {
+    const assignedDownload = await request(app)
+      .get(`/api/applications/${interviewingApplication.id}/resume`)
+      .set("Cookie", cookie(interviewerAToken));
+
+    expect(assignedDownload.status).toBe(200);
+    expect(assignedDownload.headers["content-disposition"]).toContain(
+      'attachment; filename="Amara_Workspace_Resume.pdf"',
+    );
+
+    const unassignedDownload = await request(app)
+      .get(`/api/applications/${interviewingApplication.id}/resume`)
+      .set("Cookie", cookie(interviewerBToken));
+
+    expect(unassignedDownload.status).toBe(403);
+    expect(unassignedDownload.body.error).toBe(
+      "You cannot access this application's CV",
+    );
+  });
+
+  it("normalizes an assigned legacy application CV filename", async () => {
+    await interviewingApplication.update({ resumeOriginalFilename: null });
+
+    try {
+      const res = await request(app)
+        .get("/api/interviewer/assignments/me")
+        .set("Cookie", cookie(interviewerAToken));
+
+      expect(res.status).toBe(200);
+      expect(res.body.data[0].application).toMatchObject({
+        id: interviewingApplication.id,
+        resumeOriginalFilename: "resume.pdf",
+        resumeDownloadUrl:
+          `/api/applications/${interviewingApplication.id}/resume`,
+      });
+    } finally {
+      await interviewingApplication.update({
+        resumeOriginalFilename: "Amara_Workspace_Resume.pdf",
+      });
+    }
   });
 
   it("rejects recruiters from the interviewer endpoint", async () => {

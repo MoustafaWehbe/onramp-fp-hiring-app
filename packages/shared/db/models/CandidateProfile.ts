@@ -12,6 +12,7 @@ export interface CandidateProfileAttributes {
   phone?: string;
   location?: string;
   resumeUrl?: string;
+  resumeOriginalFilename?: string | null;
   links?: CandidateProfileLinks | null;
   profilePhotoUrl?: string | null;
   /**
@@ -40,6 +41,7 @@ export type CandidateProfileCreationAttributes = Optional<
   | "phone"
   | "location"
   | "resumeUrl"
+  | "resumeOriginalFilename"
   | "links"
   | "profilePhotoUrl"
   | "profileSeededAt"
@@ -57,6 +59,7 @@ export class CandidateProfile
   declare phone: string | undefined;
   declare location: string | undefined;
   declare resumeUrl: string | undefined;
+  declare resumeOriginalFilename: string | null | undefined;
   declare links: CandidateProfileLinks | null | undefined;
   declare profilePhotoUrl: string | null | undefined;
   declare profileSeededAt: Date | null | undefined;
@@ -97,6 +100,10 @@ export class CandidateProfile
         },
         resumeUrl: {
           type: DataTypes.STRING(2048),
+          allowNull: true,
+        },
+        resumeOriginalFilename: {
+          type: DataTypes.STRING(255),
           allowNull: true,
         },
         links: {

@@ -1,7 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { ArrowDownWideNarrow, Search } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { JobCard } from "../../components/jobs/JobCard";
-import { JobFilters } from "../../components/jobs/JobFilters";
+import {
+  JobFilters,
+  type JobFilterKey,
+  type JobFilterValues,
+  type RemoteFilter,
+} from "../../components/jobs/JobFilters";
 import { Button } from "../../components/ui/button";
 import {
   Card,
@@ -10,14 +16,39 @@ import {
 } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import { RecommendedJobs } from "../../features/candidate/components/RecommendedJobs";
+import { useSkills } from "../../features/candidate/hooks";
 import { usePublicJobs } from "../../features/jobs/hooks";
 import { useAuth } from "../../hooks/useAuth";
 import { getApiErrorMessage } from "../../lib/api-errors";
 import { toJobSummary } from "../../lib/job-presentation";
 import { CARD_CLASS } from "../../features/candidate/theme";
 import { cn } from "../../lib/utils";
+import type { EmploymentType } from "../../types/jobs";
 
-const ALL_STACKS = "All stacks";
+const EMPLOYMENT_TYPES: readonly EmploymentType[] = [
+  "FULL_TIME",
+  "PART_TIME",
+  "CONTRACT",
+];
+
+function readRemoteFilter(value: string | null): RemoteFilter {
+  return value === "remote" || value === "onsite" ? value : "";
+}
+
+function readEmploymentType(value: string | null): "" | EmploymentType {
+  return EMPLOYMENT_TYPES.includes(value as EmploymentType)
+    ? (value as EmploymentType)
+    : "";
+}
+
+function readSalary(value: string | null): string {
+  if (value === null || value.trim() === "") {
+    return "";
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? value : "";
+}
 
 function JobCardSkeleton() {
   return (
@@ -42,36 +73,250 @@ function JobCardSkeleton() {
 }
 
 export function JobsPage() {
-  const [selectedStack, setSelectedStack] = useState<string>(ALL_STACKS);
-  const { currentRole } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, currentRole } = useAuth();
   const jobsQuery = usePublicJobs();
+  const skillsQuery = useSkills(Boolean(user && currentRole === "candidate"));
 
   const jobs = useMemo(
     () => (jobsQuery.data ?? []).map(toJobSummary),
     [jobsQuery.data],
   );
 
-  const stackFilters = useMemo(
-    () => [
-      ALL_STACKS,
-      ...Array.from(new Set(jobs.flatMap((job) => job.skills))).sort((a, b) =>
+  const skillFilters = useMemo(
+    () =>
+      Array.from(new Set(jobs.flatMap((job) => job.skills))).sort((a, b) =>
         a.localeCompare(b),
       ),
-    ],
     [jobs],
   );
 
-  const activeStack = stackFilters.includes(selectedStack)
-    ? selectedStack
-    : ALL_STACKS;
+  const currencies = useMemo(
+    () =>
+      Array.from(new Set(jobs.map((job) => job.salaryCurrency))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [jobs],
+  );
+
+  const requestedCurrency = searchParams.get("currency") ?? "";
+  const rawSalaryMin = searchParams.get("salaryMin");
+  const rawSalaryMax = searchParams.get("salaryMax");
+  const normalizedSalaryMin = readSalary(rawSalaryMin);
+  const normalizedSalaryMax = readSalary(rawSalaryMax);
+  const explicitCurrency =
+    currencies.length > 1 && currencies.includes(requestedCurrency)
+      ? requestedCurrency
+      : "";
+  const effectiveSalaryCurrency =
+    explicitCurrency || (currencies.length === 1 ? currencies[0] : "");
+  const salaryCurrencyContextIsValid =
+    currencies.length === 1
+      ? requestedCurrency === "" || requestedCurrency === currencies[0]
+      : currencies.length > 1 && explicitCurrency !== "";
+
+  // URLs can outlive the jobs that supplied their currency options. Canonicalize
+  // that stale state once the feed settles so a EUR bound can never be silently
+  // reinterpreted as USD, nor remain trapped in disabled mixed-currency inputs.
+  useEffect(() => {
+    if (jobsQuery.isLoading || jobsQuery.isError) {
+      return;
+    }
+
+    const next = new URLSearchParams(searchParams);
+
+    if (rawSalaryMin !== null && normalizedSalaryMin === "") {
+      next.delete("salaryMin");
+    }
+    if (rawSalaryMax !== null && normalizedSalaryMax === "") {
+      next.delete("salaryMax");
+    }
+
+    if (currencies.length === 0) {
+      next.delete("currency");
+      next.delete("salaryMin");
+      next.delete("salaryMax");
+    } else if (currencies.length === 1) {
+      if (requestedCurrency && requestedCurrency !== currencies[0]) {
+        next.delete("salaryMin");
+        next.delete("salaryMax");
+      }
+      // A sole currency is an implicit default, not a hidden active filter.
+      next.delete("currency");
+    } else if (!currencies.includes(requestedCurrency)) {
+      next.delete("currency");
+      next.delete("salaryMin");
+      next.delete("salaryMax");
+    }
+
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [
+    currencies,
+    jobsQuery.isError,
+    jobsQuery.isLoading,
+    normalizedSalaryMax,
+    normalizedSalaryMin,
+    rawSalaryMax,
+    rawSalaryMin,
+    requestedCurrency,
+    searchParams,
+    setSearchParams,
+  ]);
+
+  const filters: JobFilterValues = {
+    q: searchParams.get("q") ?? "",
+    location: searchParams.get("location") ?? "",
+    remote: readRemoteFilter(searchParams.get("remote")),
+    employmentType: readEmploymentType(searchParams.get("employmentType")),
+    skill: skillFilters.includes(searchParams.get("skill") ?? "")
+      ? (searchParams.get("skill") as string)
+      : "",
+    currency: explicitCurrency,
+    salaryMin: salaryCurrencyContextIsValid ? normalizedSalaryMin : "",
+    salaryMax: salaryCurrencyContextIsValid ? normalizedSalaryMax : "",
+  };
+
+  const normalizedKeyword = filters.q.trim().toLocaleLowerCase();
+  const normalizedLocation = filters.location.trim().toLocaleLowerCase();
+  const minimumSalary =
+    filters.salaryMin === "" ? null : Number(filters.salaryMin);
+  const maximumSalary =
+    filters.salaryMax === "" ? null : Number(filters.salaryMax);
+  const hasSalaryBounds = minimumSalary !== null || maximumSalary !== null;
+  const hasInvalidSalaryRange =
+    minimumSalary !== null &&
+    maximumSalary !== null &&
+    minimumSalary > maximumSalary;
+  const salaryRangeError = hasInvalidSalaryRange
+    ? "Minimum salary cannot be greater than maximum salary."
+    : undefined;
 
   const visibleJobs = useMemo(
     () =>
-      activeStack === ALL_STACKS
-        ? jobs
-        : jobs.filter((job) => job.skills.includes(activeStack)),
-    [activeStack, jobs],
+      jobs.filter((job) => {
+        const normalizedSkills = job.skills.map((skill) =>
+          skill.toLocaleLowerCase(),
+        );
+        const matchesKeyword =
+          normalizedKeyword === "" ||
+          [
+            job.title,
+            job.company ?? "",
+            job.location ?? "",
+            ...job.skills,
+            job.description ?? "",
+          ].some((value) =>
+            value.toLocaleLowerCase().includes(normalizedKeyword),
+          );
+        const matchesLocation =
+          normalizedLocation === "" ||
+          (job.location ?? "").toLocaleLowerCase().includes(normalizedLocation);
+        const matchesRemote =
+          filters.remote === "" ||
+          (filters.remote === "remote" ? job.isRemote : !job.isRemote);
+        const matchesEmploymentType =
+          filters.employmentType === "" ||
+          job.employmentType === filters.employmentType;
+        const matchesSkill =
+          filters.skill === "" ||
+          normalizedSkills.includes(filters.skill.toLocaleLowerCase());
+
+        // Salary figures are only comparable inside one currency. A sole
+        // currency is an honest implicit default; mixed feeds require the
+        // candidate to choose one before the numeric inputs become active.
+        const matchesSalaryCurrency =
+          !filters.currency && !hasSalaryBounds
+            ? true
+            : effectiveSalaryCurrency !== "" &&
+              job.salaryCurrency === effectiveSalaryCurrency;
+        const matchesSalaryMinimum =
+          minimumSalary === null || job.salaryMax >= minimumSalary;
+        const matchesSalaryMaximum =
+          maximumSalary === null || job.salaryMin <= maximumSalary;
+
+        return (
+          matchesKeyword &&
+          matchesLocation &&
+          matchesRemote &&
+          matchesEmploymentType &&
+          matchesSkill &&
+          !hasInvalidSalaryRange &&
+          matchesSalaryCurrency &&
+          matchesSalaryMinimum &&
+          matchesSalaryMaximum
+        );
+      }),
+    [
+      effectiveSalaryCurrency,
+      filters.currency,
+      filters.employmentType,
+      filters.remote,
+      filters.skill,
+      hasInvalidSalaryRange,
+      hasSalaryBounds,
+      jobs,
+      maximumSalary,
+      minimumSalary,
+      normalizedKeyword,
+      normalizedLocation,
+    ],
   );
+
+  const hasActiveFilters = Boolean(
+    filters.q.trim() ||
+      filters.location.trim() ||
+      filters.remote ||
+      filters.employmentType ||
+      filters.skill ||
+      filters.currency ||
+      filters.salaryMin ||
+      filters.salaryMax,
+  );
+
+  function updateFilter(key: JobFilterKey, value: string) {
+    const next = new URLSearchParams(searchParams);
+
+    if (
+      currencies.length === 1 &&
+      (key === "salaryMin" || key === "salaryMax")
+    ) {
+      next.delete("currency");
+    }
+
+    if (key === "currency" && value === "") {
+      next.delete("currency");
+      next.delete("salaryMin");
+      next.delete("salaryMax");
+    } else if (value.trim() === "") {
+      next.delete(key);
+    } else {
+      next.set(key, value);
+
+      if (
+        (key === "salaryMin" || key === "salaryMax") &&
+        effectiveSalaryCurrency &&
+        currencies.length > 1
+      ) {
+        next.set("currency", effectiveSalaryCurrency);
+      }
+    }
+
+    setSearchParams(next, { replace: true });
+  }
+
+  function clearAllFilters() {
+    setSearchParams(new URLSearchParams(), { replace: true });
+  }
+
+  const candidateSkills =
+    user &&
+    currentRole === "candidate" &&
+    skillsQuery.isSuccess &&
+    !skillsQuery.isFetching
+      ? skillsQuery.data
+      : undefined;
 
   return (
     <div className="bg-muted/30">
@@ -82,7 +327,9 @@ export function JobsPage() {
               <Search className="h-4 w-4" aria-hidden="true" />
               {jobsQuery.isLoading
                 ? "Finding open roles..."
-                : `${jobs.length} open ${jobs.length === 1 ? "role" : "roles"}`}
+                : `${visibleJobs.length} open ${
+                    visibleJobs.length === 1 ? "role" : "roles"
+                  }`}
             </div>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
               Find a team where you'll actually thrive.
@@ -132,41 +379,53 @@ export function JobsPage() {
           </div>
         ) : (
           <>
-            {jobs.length > 0 && (
-              <div className="mb-6 space-y-5">
+            <div className="mb-6 space-y-5">
+              <Card className={CARD_CLASS}>
+                <CardContent className="p-5">
                 <JobFilters
-                  selectedStack={activeStack}
-                  stacks={stackFilters}
-                  onStackChange={setSelectedStack}
+                    values={filters}
+                    skills={skillFilters}
+                    currencies={currencies}
+                    effectiveSalaryCurrency={effectiveSalaryCurrency}
+                    salaryRangeError={salaryRangeError}
+                    onChange={updateFilter}
+                    onClearAll={clearAllFilters}
                 />
+                </CardContent>
+              </Card>
 
-                <div className="flex flex-col gap-2 border-t pt-5 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <h2 className="text-2xl font-semibold">
-                      {visibleJobs.length}{" "}
-                      {visibleJobs.length === 1 ? "role" : "roles"}
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      {activeStack === ALL_STACKS
-                        ? "Showing every open role."
-                        : `Matching the ${activeStack} stack.`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ArrowDownWideNarrow
-                      className="h-4 w-4"
-                      aria-hidden="true"
-                    />
-                    Sorted by most recent
-                  </div>
+              <div className="flex flex-col gap-2 border-t pt-5 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold" aria-live="polite">
+                    {visibleJobs.length}{" "}
+                    {visibleJobs.length === 1 ? "job" : "jobs"}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    {hasActiveFilters
+                      ? `Filtered from ${jobs.length} open ${
+                          jobs.length === 1 ? "role" : "roles"
+                        }.`
+                      : "Showing every open role."}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <ArrowDownWideNarrow
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  />
+                  Sorted by most recent
                 </div>
               </div>
-            )}
+            </div>
 
             {visibleJobs.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {visibleJobs.map((job) => (
-                  <JobCard key={job.id} job={job} />
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    candidateSkills={candidateSkills}
+                  />
                 ))}
               </div>
             ) : (
@@ -174,13 +433,23 @@ export function JobsPage() {
                 <h3 className="text-lg font-semibold">
                   {jobs.length === 0
                     ? "No open roles right now"
-                    : "No roles match this stack"}
+                    : "No jobs match these filters"}
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {jobs.length === 0
                     ? "Check back soon for new opportunities."
-                    : "Try another stack to widen the list."}
+                    : "Remove a filter or clear everything to widen your search."}
                 </p>
+                {jobs.length > 0 && hasActiveFilters && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-5"
+                    onClick={clearAllFilters}
+                  >
+                    Clear all filters
+                  </Button>
+                )}
               </div>
             )}
           </>
