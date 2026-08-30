@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button, buttonVariants } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
 import { cn } from "../../../lib/utils";
-import { useCompanyProfile } from "../hooks";
+import type { CompanyProfile } from "../../../types/company";
 
 /**
  * Surfaces the recruiter's own public careers page, which is otherwise
@@ -14,11 +14,23 @@ import { useCompanyProfile } from "../hooks";
  *
  * The path is built from the current origin so the copied link works in
  * whichever environment the recruiter is looking at.
+ *
+ * Takes the profile as a prop rather than calling useCompanyProfile() itself:
+ * this component only ever mounts once its caller's own copy of that query
+ * has already resolved to a company. A second, independent observer mounting
+ * at that exact moment sees a query with no successful data yet and (per
+ * React Query's default refetchOnMount) immediately refetches it — which
+ * flips the shared query back to pending, unmounts this component again
+ * (the caller falls back to its loading state), and repeats forever the
+ * instant the retry settles. Sharing the already-fetched data instead of
+ * re-querying avoids creating that second observer entirely.
  */
-export function CareersPageLink() {
-  const profileQuery = useCompanyProfile();
+export function CareersPageLink({
+  company,
+}: {
+  company: CompanyProfile | undefined;
+}) {
   const [hasCopied, setHasCopied] = useState(false);
-  const company = profileQuery.data;
 
   // Nothing to link to until the company exists; the create-company flow is
   // where a recruiter is sent in that case, and it already prompts them.

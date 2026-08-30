@@ -4,8 +4,17 @@ import {
   InsufficientResumeContentError,
   isTransientNetworkError,
   parseResumeReviewResponse,
+  ResumeReviewFormatError,
   reviewResumeForJob,
+  scoreResumeForApplication,
 } from "@starter-kit/shared/ai";
+
+const validResponse = JSON.stringify({
+  score: 65,
+  pros: ["Relevant React experience"],
+  cons: ["Node.js depth is unclear"],
+  suggestions: ["Add a Node.js-focused project"],
+});
 
 const input = {
   job: {
@@ -126,5 +135,64 @@ describe("transient network error detection (retry eligibility)", () => {
     undefined,
   ])("does not flag a non-connection error as retryable", (error) => {
     expect(isTransientNetworkError(error)).toBe(false);
+  });
+});
+
+describe("retrying a malformed AI response (openrouter/free auto-router intermittently returns non-JSON)", () => {
+  it("retries reviewResumeForJob after invalid JSON and succeeds on a later attempt", async () => {
+    const completion = jest
+      .fn()
+      .mockResolvedValueOnce("```json\n" + validResponse + "\n```")
+      .mockResolvedValueOnce(validResponse);
+
+    await expect(
+      reviewResumeForJob(input, completion),
+    ).resolves.toMatchObject({ score: 65 });
+    expect(completion).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries scoreResumeForApplication after a schema-validation failure and succeeds", async () => {
+    const completion = jest
+      .fn()
+      .mockResolvedValueOnce(JSON.stringify({ score: 150, pros: [], cons: [], suggestions: [] }))
+      .mockResolvedValueOnce(validResponse);
+
+    await expect(
+      scoreResumeForApplication(input, completion),
+    ).resolves.toMatchObject({ score: 65 });
+    expect(completion).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after exhausting retries on consistently malformed responses", async () => {
+    const completion = jest.fn().mockResolvedValue("not-json");
+
+    await expect(reviewResumeForJob(input, completion)).rejects.toThrow(
+      "The AI resume-review response was not valid JSON",
+    );
+    // Initial attempt + the retry budget, and no more.
+    expect(completion).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not apply the format retry to a non-format failure (e.g. the injected completion itself rejecting)", async () => {
+    const completion = jest.fn().mockRejectedValue(new Error("network exploded"));
+
+    await expect(reviewResumeForJob(input, completion)).rejects.toThrow(
+      "network exploded",
+    );
+    expect(completion).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries an empty completion the same way as bad JSON (observed live against openrouter/free's auto-router)", async () => {
+    const completion = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new ResumeReviewFormatError("The AI resume-review response was empty"),
+      )
+      .mockResolvedValueOnce(validResponse);
+
+    await expect(
+      reviewResumeForJob(input, completion),
+    ).resolves.toMatchObject({ score: 65 });
+    expect(completion).toHaveBeenCalledTimes(2);
   });
 });

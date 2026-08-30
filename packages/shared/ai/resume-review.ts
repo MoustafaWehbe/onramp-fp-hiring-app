@@ -62,19 +62,36 @@ export class InsufficientResumeContentError extends Error {
   }
 }
 
+/**
+ * A response that came back from the model but isn't usable — invalid JSON,
+ * or JSON that doesn't match resumeReviewResultSchema. Distinct from a
+ * connection failure: the request completed, the model just didn't follow
+ * the format. Given its own class (rather than a plain Error) so the retry
+ * loop below can tell "this attempt's output was bad, try again" apart from
+ * "something else is wrong" without parsing error message text.
+ */
+export class ResumeReviewFormatError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ResumeReviewFormatError";
+  }
+}
+
 export function parseResumeReviewResponse(content: string): ResumeReviewResult {
   let parsed: unknown;
 
   try {
     parsed = JSON.parse(content);
   } catch {
-    throw new Error("The AI resume-review response was not valid JSON");
+    throw new ResumeReviewFormatError(
+      "The AI resume-review response was not valid JSON",
+    );
   }
 
   const result = resumeReviewResultSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(
+    throw new ResumeReviewFormatError(
       `The AI resume-review response did not match the required schema: ${result.error.message}`,
     );
   }
@@ -111,12 +128,13 @@ export function buildResumeReviewMessages(
         "Base every observation only on the job details and resume text given — never invent skills, employers, or requirements neither one mentions.",
         "Judge strictly relative to THIS job's stated title, description, experience range, and required skills, not resumes in general —",
         "the same resume reviewed against a different job must be able to produce a different score and different pros, cons, and suggestions.",
-        "Respond with strict JSON only, no prose outside the JSON, matching exactly:",
+        "Respond with ONLY the raw JSON object below as your entire response — no markdown code fences (no ``` of any kind), no leading or trailing prose, no explanation before or after it, matching exactly this shape:",
         '{"score": <integer 0-100 estimating how this resume stacks up against a typical applicant pool for this specific job>,',
         '"pros": [<1 to 6 short strengths of this resume relative to this job>],',
         '"cons": [<1 to 6 short gaps or weaknesses of this resume relative to this job>],',
         '"suggestions": [<1 to 6 short, concrete, actionable edits to improve this resume for this job>]}.',
         "Keep every item specific and tied to this job's requirements, not generic resume advice.",
+        "The first character of your response must be { and the last character must be }.",
       ].join(" "),
     },
     {
@@ -153,6 +171,19 @@ const DETERMINISTIC_SCORE_TEMPERATURE = 0;
 // dropped connection, not a genuinely unreachable OpenRouter.
 const NETWORK_RETRY_ATTEMPTS = 2;
 const NETWORK_RETRY_BASE_DELAY_MS = 300;
+
+// Also in addition to the first attempt, and deliberately a separate budget
+// from NETWORK_RETRY_ATTEMPTS above: OPENROUTER_RESUME_REVIEW_MODEL can be
+// (and currently is) an auto-router like "openrouter/free" that picks a
+// different underlying free model per request, some of which don't reliably
+// return valid JSON. That's a property of one attempt's output, not a
+// connection problem — a fresh request often lands on a model (or the same
+// model, sampled differently) that follows the format correctly. Kept small
+// for the same reason as the network budget: a model that structurally can't
+// produce valid JSON shouldn't eat unbounded retries chasing a result it
+// will never produce.
+const FORMAT_RETRY_ATTEMPTS = 2;
+const FORMAT_RETRY_BASE_DELAY_MS = 300;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -226,7 +257,15 @@ async function requestResumeReviewCompletion(
       const content = response.choices[0]?.message?.content;
 
       if (!content) {
-        throw new Error("The AI resume-review response was empty");
+        // Observed in practice from openrouter/free's auto-router: the same
+        // "some free model didn't cooperate this attempt" failure as bad
+        // JSON, just manifesting as nothing at all instead of something
+        // unparseable. Format-error, not a connection error, so it's the
+        // outer format-retry in completeAndParseWithRetry that gets another
+        // attempt at it, not this network-retry loop.
+        throw new ResumeReviewFormatError(
+          "The AI resume-review response was empty",
+        );
       }
 
       return content;
@@ -255,6 +294,45 @@ export function isResumeReviewConfigured(): boolean {
 }
 
 /**
+ * Requests a completion and parses it, retrying the whole round-trip (a
+ * fresh completion, not just re-parsing the same bad string) when either
+ * step reports a ResumeReviewFormatError — an empty completion, invalid
+ * JSON, or a schema mismatch all mean the same thing: this particular
+ * attempt's output wasn't usable, not that OpenRouter is unreachable. Any
+ * other error (a network failure that already exhausted its own retries
+ * inside `complete`, or InsufficientResumeContentError before a request was
+ * even made) is deliberately not caught here — it propagates immediately
+ * rather than spending a format-retry attempt on a failure retrying won't
+ * fix.
+ */
+async function completeAndParseWithRetry(
+  complete: ResumeReviewCompletion,
+  messages: OpenAI.Chat.ChatCompletionMessageParam[],
+): Promise<ResumeReviewResult> {
+  for (let attempt = 0; attempt <= FORMAT_RETRY_ATTEMPTS; attempt++) {
+    try {
+      const content = await complete(messages);
+      return parseResumeReviewResponse(content);
+    } catch (error) {
+      if (!(error instanceof ResumeReviewFormatError) || attempt === FORMAT_RETRY_ATTEMPTS) {
+        throw error;
+      }
+
+      const delay = FORMAT_RETRY_BASE_DELAY_MS * (attempt + 1);
+      console.warn(
+        `[resume-review] malformed AI response on attempt ${attempt + 1}/${FORMAT_RETRY_ATTEMPTS + 1}, retrying in ${delay}ms: ${error.message}`,
+      );
+      await sleep(delay);
+    }
+  }
+
+  // Unreachable: the loop above always returns or throws.
+  throw new ResumeReviewFormatError(
+    "The AI resume-review response was not valid JSON",
+  );
+}
+
+/**
  * The candidate-facing "Review with AI" button: pros, cons, suggestions, and
  * a score, none of it persisted or compared against another candidate.
  */
@@ -264,8 +342,7 @@ export async function reviewResumeForJob(
     requestResumeReviewCompletion(messages, INTERACTIVE_REVIEW_TEMPERATURE),
 ): Promise<ResumeReviewResult> {
   const messages = buildResumeReviewMessages(input);
-  const content = await complete(messages);
-  return parseResumeReviewResponse(content);
+  return completeAndParseWithRetry(complete, messages);
 }
 
 /**
@@ -282,6 +359,5 @@ export async function scoreResumeForApplication(
     requestResumeReviewCompletion(messages, DETERMINISTIC_SCORE_TEMPERATURE),
 ): Promise<ResumeReviewResult> {
   const messages = buildResumeReviewMessages(input);
-  const content = await complete(messages);
-  return parseResumeReviewResponse(content);
+  return completeAndParseWithRetry(complete, messages);
 }
