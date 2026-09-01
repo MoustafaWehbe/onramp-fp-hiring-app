@@ -1,8 +1,26 @@
 import rateLimit from "express-rate-limit";
 
+const DEFAULT_WINDOW_MS = 15 * 60 * 1_000; // 15 minutes
+const DEFAULT_MAX = 100;
+const DEFAULT_AUTH_MAX = 10; // stricter limit for auth endpoints
+
+// Positive-integer env overrides, falling back to the production-safe
+// defaults above on anything unset, non-numeric, or <= 0 — so a typo'd or
+// blank value in a teammate's .env can't accidentally disable the limiter.
+function positiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const windowMs = positiveIntEnv("RATE_LIMIT_WINDOW_MS", DEFAULT_WINDOW_MS);
+const max = positiveIntEnv("RATE_LIMIT_MAX", DEFAULT_MAX);
+const authMax = positiveIntEnv("AUTH_RATE_LIMIT_MAX", DEFAULT_AUTH_MAX);
+
 export const rateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1_000, // 15 minutes
-  max: 100,
+  windowMs,
+  max,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." },
@@ -15,8 +33,8 @@ export const rateLimiter = rateLimit({
 });
 
 export const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1_000,
-  max: 10, // stricter limit for auth endpoints
+  windowMs,
+  max: authMax,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: {

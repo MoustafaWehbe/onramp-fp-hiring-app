@@ -4,7 +4,6 @@ const repoRootOffset =
   path.basename(__dirname) === "dist" ? "../../../.env" : "../../.env";
 dotenv.config({ path: path.resolve(__dirname, repoRootOffset) });
 
-import { app } from "./app";
 import { initializeDatabase } from "./src/lib/db";
 import { listEnabledProviders } from "./src/lib/oauth/providers";
 
@@ -37,6 +36,14 @@ function logOAuthProviders(): void {
 
 async function start(): Promise<void> {
   try {
+    // Dynamic, not static: ES module imports are all evaluated before this
+    // file's own top-level code runs, so a static `import { app } from
+    // "./app"` above would build the whole route tree — and anything in it
+    // that reads process.env at module load, like the rate limiter's
+    // configurable thresholds — before the dotenv.config() call above ever
+    // executes. Deferring the import until here, inside start(), guarantees
+    // it happens after dotenv has populated process.env.
+    const { app } = await import("./app");
     await initializeDatabase();
 
     app.listen(PORT, () => {

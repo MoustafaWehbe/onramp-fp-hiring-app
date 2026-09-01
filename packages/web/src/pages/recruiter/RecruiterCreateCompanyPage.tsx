@@ -250,7 +250,7 @@ export function RecruiterCreateCompanyPage() {
                 sidebar, the jobs page isn't a discoverable home for it.
                 Renders nothing until a company profile actually exists,
                 same as the form below. */}
-            <CareersPageLink />
+            <CareersPageLink company={profileQuery.data} />
 
             <Card className="mt-6">
               <CardHeader>
